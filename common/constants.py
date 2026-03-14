@@ -237,7 +237,7 @@ _CHAT_HISTORY_TIMESTAMP_FORMAT: str = "%Y-%m-%d %H:%M:%S UTC"
 
 # region Web Dashboard
 _WEB_SERVER_HOST: str = "0.0.0.0"
-_WEB_SERVER_PORT: int = 5000
+_WEB_SERVER_PORT: int = 6969
 _WEB_SERVER_HISTORY_LIMIT: int = 200
 _WEB_SERVER_MAX_SEND_LENGTH: int = 228
 _WEB_SERVER_STARTED: str = "Web dashboard running at http://localhost:{port}"
