@@ -1,0 +1,24 @@
+[meshbot]
+; Display name of the bot — shown in welcome/signoff messages and used as the
+; command prefix (e.g. @D.A.M.N.bot <command>).
+bot_name         = D.A.M.N.bot
+
+; Channel name to join on startup. Comment out to be prompted at launch.
+Channel          = MyChannel
+
+; When true, command prefix and command names must match exactly as typed.
+CaseSensitive    = false
+
+; When true, the built-in commands (ping, test, hello, last) are not registered.
+ExcludeOOTB      = false
+
+; Number of days before an inactive node is removed from the node database.
+NodeRetentionDays = 30
+
+; Optional passphrase used to encrypt the node database and chat history files.
+; Leave blank (or remove) to store data as plain text.
+; All nodes sharing history files must use the same key.
+EncryptionKey    =
+
+; Print extra diagnostic output to the console.
+Verbose          = false

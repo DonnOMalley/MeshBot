@@ -1,0 +1,51 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Type checker
+.mypy_cache/
+.pytype/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / editor
+.vscode/settings.json
+.idea/
+*.suo
+*.user
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Runtime data (node DB, chat history, encryption salt — all generated at runtime)
+data/
+
+# Config file contains real credentials / encryption keys.
+# Copy meshbot.config.example → meshbot.config and fill in your own values.
+meshbot.config
+
+# Environment variable files
+.env
+.env.*

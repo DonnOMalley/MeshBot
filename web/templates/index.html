@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAMNBot Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>&#9732; DAMNBot</h1>
+        <div class="header-right">
+            <span id="refresh-label">Auto-refresh: 30s</span>
+            <button onclick="refreshAll()">&#8635; Refresh</button>
+        </div>
+    </header>
+
+    <main>
+
+        <!-- Section 1: Node List -->
+        <section class="panel">
+            <div class="panel-header">Node List</div>
+            <div class="scroll-box">
+                <table id="node-table">
+                    <thead>
+                        <tr>
+                            <th>Node ID</th>
+                            <th>Long Name</th>
+                            <th>Short Name</th>
+                            <th>Last Seen (UTC)</th>
+                            <th>Last Seen Delta</th>
+                        </tr>
+                    </thead>
+                    <tbody id="node-tbody">
+                        <tr><td colspan="5" class="empty">Loading&hellip;</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 2: Chat History -->
+        <section class="panel">
+            <div class="panel-header">Chat History</div>
+            <div id="channel-tabs" class="tabs">
+                <span class="tab-empty">No channel history found.</span>
+            </div>
+            <div id="chat-messages" class="scroll-box messages">
+                <p class="empty">Select a channel tab above.</p>
+            </div>
+        </section>
+
+        <!-- Section 3: Send Message -->
+        <section class="panel">
+            <div class="panel-header">Send Message</div>
+            <form id="send-form" autocomplete="off">
+                <div class="send-row">
+                    <label>Channel:&nbsp;<strong id="send-channel-name">&hellip;</strong></label>
+                    <input id="send-text" type="text"
+                           placeholder="!hello  &bull;  !list  &bull;  or any message"
+                           maxlength="228" />
+                    <button type="submit" id="send-btn">Send</button>
+                </div>
+                <div id="send-status"></div>
+            </form>
+        </section>
+
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
