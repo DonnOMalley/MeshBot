@@ -30,6 +30,7 @@ class WebServer:
     """
 
     # region Protected Variables
+    _bot_name: str
     _node_db: NodeDatabase
     _iface: MeshInterface
     _channel: channel_pb2.Channel
@@ -45,6 +46,7 @@ class WebServer:
         node_db: NodeDatabase,
         iface: MeshInterface,
         channel: channel_pb2.Channel,
+        bot_name: str,
         data_dir: str = _NODE_DB_DIR,
         passphrase: Optional[str] = None,
     ) -> None:
@@ -55,10 +57,12 @@ class WebServer:
             iface: The active MeshInterface used to send messages.
             channel: The channel the bot is monitoring. Outgoing messages are
                      sent on this channel.
+            bot_name: The runtime name of the bot, shown in the dashboard.
             data_dir: Directory containing chat history files. Defaults to the
                       shared ``data`` directory.
             passphrase: Optional passphrase used to decrypt chat history files.
         """
+        self._bot_name = bot_name
         self._node_db = node_db
         self._iface = iface
         self._channel = channel
@@ -99,7 +103,7 @@ class WebServer:
 
         @self._app.route("/")
         def index():
-            return render_template("index.html")
+            return render_template("index.html", bot_name=self._bot_name)
 
         @self._app.route("/api/nodes")
         def api_nodes():

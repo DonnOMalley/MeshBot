@@ -160,6 +160,7 @@ def main() -> None:
                     node_db=node_db,
                     iface=iface,
                     channel=current_channel,
+                    bot_name=args.bot_name,
                     passphrase=args.encryption_key,
                 )
                 web_server.start()
