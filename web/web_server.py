@@ -1,21 +1,26 @@
 from __future__ import annotations
+import hashlib
 import json
 import logging
 import os
+import secrets
 import threading
 import time
 from datetime import datetime, timezone
 from typing import Optional
 
-from flask import Flask, abort, jsonify, render_template, request
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory, session
 from meshtastic import channel_pb2
 from meshtastic.mesh_interface import MeshInterface
 from pubsub import pub
 
 from common.chat_history import ChatHistory
+from common.console_logger import ConsoleLogger
 from common.constants import (
     CHANNEL_NAME_PRIMARY,
+    _CHAT_HISTORY_BOT_SENDER,
     _DEFAULT_BOT_DESCRIPTION,
+    _README_FILENAME,
     _EVENT_TRACEROUTE,
     _FAVORITES_FILE,
     _GITHUB_REPO_URL,
@@ -37,10 +42,93 @@ from common.constants import (
     _WEB_SERVER_PORT,
     _WEB_SERVER_STARTED,
     _WEB_TRACE_TIMEOUT_SECONDS,
+    _WEB_USER_LONG_NAME_DEFAULT,
+    _WEB_USER_LONG_NAME_MAX_LEN,
+    _WEB_USER_MESSAGE_PREFIX_FORMAT,
+    _WEB_USER_NODE_ID_BYTE,
+    _WEB_USER_SHORT_NAME_DEFAULT,
+    _WEB_USER_SHORT_NAME_MAX_LEN,
+    _WEB_USER_SHORT_NAME_PREFIX,
 )
 from common.encryption_helper import EncryptionHelper
 from common.meshtastic_helper import MeshtasticHelper
 from common.node_database import NodeDatabase
+
+
+class WebUser:
+    """Represents a web portal user with a fake Meshtastic-style identity.
+
+    Each browser session is assigned a unique node ID derived from the session
+    token, a default long name, and a default short name. Users may customise
+    their long and short names within the constraints enforced by the server.
+    """
+
+    # region Private Variables
+    _node_id: str
+    _long_name: str
+    _short_name: str
+    # endregion Private Variables
+
+    # region Public Properties
+    @property
+    def node_id(self) -> str:
+        """The fake Meshtastic node ID assigned to this web user."""
+        return self._node_id
+
+    @property
+    def long_name(self) -> str:
+        """The display long name for this web user."""
+        return self._long_name
+
+    @property
+    def short_name(self) -> str:
+        """The short name (2–4 chars, must start with W) for this web user."""
+        return self._short_name
+
+    @property
+    def display_name(self) -> str:
+        """The full display name in the format 'Long Name (SHORT)'."""
+        return f"{self._long_name} ({self._short_name})"
+    # endregion Public Properties
+
+    # region Constructor
+    def __init__(self, session_id: str) -> None:
+        """Initialises a new web user from a session ID.
+
+        Args:
+            session_id: The unique browser session token. Used to derive a
+                        deterministic fake node ID.
+        """
+        hash_hex: str = hashlib.sha256(session_id.encode()).hexdigest()
+        self._node_id = f"!{_WEB_USER_NODE_ID_BYTE}{hash_hex[2:8]}"
+        self._long_name = _WEB_USER_LONG_NAME_DEFAULT
+        self._short_name = _WEB_USER_SHORT_NAME_DEFAULT
+    # endregion Constructor
+
+    # region Public Functions
+    def update(self, long_name: str, short_name: str) -> None:
+        """Updates the user's long and short names.
+
+        Args:
+            long_name: The new long name (already validated by the caller).
+            short_name: The new short name (already validated by the caller).
+        """
+        self._long_name = long_name
+        self._short_name = short_name
+
+    def to_dict(self) -> dict:
+        """Serialises this web user to a JSON-friendly dict.
+
+        Returns:
+            A dict with ``node_id``, ``long_name``, ``short_name``, and ``display_name``.
+        """
+        return {
+            "node_id": self._node_id,
+            "long_name": self._long_name,
+            "short_name": self._short_name,
+            "display_name": self.display_name,
+        }
+    # endregion Public Functions
 
 
 class WebServer:
@@ -65,6 +153,10 @@ class WebServer:
     _favorites: set[str]
     _pending_web_traces: dict[str, tuple[threading.Event, dict, float]]
     _port: int
+    _web_dir: str
+    _web_users: dict[str, WebUser]
+    _chat_history: Optional[ChatHistory]
+    _console_logger: Optional[ConsoleLogger]
     _app: Flask
     # endregion Protected Variables
 
@@ -80,6 +172,8 @@ class WebServer:
         host: str = _WEB_SERVER_DISPLAY_HOST,
         passphrase: Optional[str] = None,
         port: int = _WEB_SERVER_PORT,
+        chat_history: Optional[ChatHistory] = None,
+        console_logger: Optional[ConsoleLogger] = None,
     ) -> None:
         """Initialises the web server.
 
@@ -98,6 +192,10 @@ class WebServer:
             passphrase: Optional passphrase used to decrypt chat history files.
             port: Port number the web portal listens on. Defaults to
                   ``_WEB_SERVER_PORT``.
+            chat_history: When provided, messages sent via the web dashboard are
+                          appended to the log under the ``[BOT]`` sender label.
+            console_logger: When provided, the ``/console`` page and ``/api/console``
+                            endpoint serve live bot console output.
         """
         self._bot_name = bot_name
         self._bot_description = bot_description
@@ -114,14 +212,19 @@ class WebServer:
         ) if passphrase else None
         self._favorites = self._load_favorites()
         self._pending_web_traces = {}
+        self._chat_history = chat_history
+        self._console_logger = console_logger
         pub.subscribe(self._on_web_traceroute_response, _EVENT_TRACEROUTE)
 
         _base = os.path.dirname(os.path.abspath(__file__))
+        self._web_dir = _base
         self._app = Flask(
             __name__,
             template_folder=os.path.join(_base, "templates"),
             static_folder=os.path.join(_base, "static"),
         )
+        self._app.secret_key = secrets.token_hex(32)
+        self._web_users = {}
         logging.getLogger("werkzeug").setLevel(logging.WARNING)
         self._register_routes()
     # endregion Constructor
@@ -141,6 +244,22 @@ class WebServer:
             daemon=True,
         )
         t.start()
+
+    def update_iface(self, iface: MeshInterface, channel: channel_pb2.Channel) -> None:
+        """Replaces the active interface and channel after a reconnect.
+
+        Updates the interface and channel references used by all route handlers.
+        Any in-flight traceroute requests from the previous session are discarded
+        because they can never complete after a disconnect.
+
+        Args:
+            iface: The newly connected MeshInterface.
+            channel: The channel resolved from the new interface.
+        """
+        self._iface = iface
+        self._channel = channel
+        self._channel_name = channel.settings.name or CHANNEL_NAME_PRIMARY
+        self._pending_web_traces.clear()
     # endregion Public Functions
 
     # region Protected Functions
@@ -200,8 +319,10 @@ class WebServer:
 
         own_label: str = _TRACE_LABEL_BOT
         try:
-            local_info: dict = self._iface.localNode.nodeInfo or {}
-            sn: str = local_info.get("user", {}).get("shortName", "")
+            local_num: int = self._iface.localNode.nodeNum
+            local_node_id: str = MeshtasticHelper.get_node_id_from_node_num(local_num)
+            local_nd: dict | None = (self._iface.nodes or {}).get(local_node_id)
+            sn: str = (local_nd or {}).get("user", {}).get("shortName", "")
             if sn:
                 own_label = sn
         except AttributeError:
@@ -254,6 +375,54 @@ class WebServer:
         with open(path, "w", encoding="utf-8") as f:
             f.write(raw)
 
+    def _get_or_create_web_user(self) -> WebUser:
+        """Returns the WebUser for the current browser session, creating it if needed.
+
+        A session ID is generated on first access and stored in the Flask session
+        cookie. The corresponding WebUser object is kept in memory for the server's
+        lifetime.
+
+        Returns:
+            The WebUser object associated with the current browser session.
+        """
+        if "web_session_id" not in session:
+            session["web_session_id"] = secrets.token_hex(16)
+        sid: str = session["web_session_id"]
+        if sid not in self._web_users:
+            self._web_users[sid] = WebUser(sid)
+        return self._web_users[sid]
+
+    def _validate_web_short_name(self, name: str) -> bool:
+        """Returns True if the short name meets web-user constraints.
+
+        Valid short names are 2–4 characters, start with 'W' (case-insensitive),
+        and contain only alphanumeric characters.
+
+        Args:
+            name: The candidate short name.
+
+        Returns:
+            True if valid, False otherwise.
+        """
+        return (
+            2 <= len(name) <= _WEB_USER_SHORT_NAME_MAX_LEN
+            and name[0].upper() == _WEB_USER_SHORT_NAME_PREFIX
+            and name.isalnum()
+        )
+
+    def _validate_web_long_name(self, name: str) -> bool:
+        """Returns True if the long name meets web-user constraints.
+
+        Valid long names are 1–20 characters.
+
+        Args:
+            name: The candidate long name.
+
+        Returns:
+            True if valid, False otherwise.
+        """
+        return 1 <= len(name) <= _WEB_USER_LONG_NAME_MAX_LEN
+
     def _register_routes(self) -> None:
         """Registers all URL routes on the Flask application."""
 
@@ -277,6 +446,20 @@ class WebServer:
                 bot_description=self._bot_description,
                 github_url=_GITHUB_REPO_URL,
             )
+
+        @self._app.route("/images/<path:filename>")
+        def serve_image(filename: str):
+            return send_from_directory(os.path.join(self._web_dir, "images"), filename)
+
+        @self._app.route("/api/readme")
+        def api_readme():
+            readme_path: str = os.path.normpath(os.path.join(self._web_dir, "..", _README_FILENAME))
+            if not os.path.isfile(readme_path):
+                abort(404)
+            else:
+                with open(readme_path, "r", encoding="utf-8") as f:
+                    content: str = f.read()
+                return content, 200, {"Content-Type": "text/plain; charset=utf-8"}
 
         @self._app.route("/api/nodes")
         def api_nodes():
@@ -320,6 +503,37 @@ class WebServer:
             )
             return jsonify(list(reversed(messages)))
 
+        @self._app.route("/console")
+        def console():
+            return render_template("console.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
+        @self._app.route("/api/console")
+        def api_console():
+            after_raw: str = request.args.get("after", "-1")
+            after: int = int(after_raw) if after_raw.lstrip("-").isdigit() else -1
+            if self._console_logger is not None:
+                lines, seq = self._console_logger.get_lines(after=after)
+            else:
+                lines, seq = [], -1
+            return jsonify({"lines": lines, "seq": seq})
+
+        @self._app.route("/api/web-user", methods=["GET"])
+        def api_web_user_get():
+            web_user: WebUser = self._get_or_create_web_user()
+            return jsonify(web_user.to_dict())
+
+        @self._app.route("/api/web-user", methods=["POST"])
+        def api_web_user_post():
+            body = request.get_json(force=True, silent=True) or {}
+            long_name: str = str(body.get("long_name", "")).strip()
+            short_name: str = str(body.get("short_name", "")).strip().upper()
+            web_user: WebUser = self._get_or_create_web_user()
+            if not self._validate_web_long_name(long_name) or not self._validate_web_short_name(short_name):
+                abort(400)
+            else:
+                web_user.update(long_name, short_name)
+            return jsonify(web_user.to_dict())
+
         @self._app.route("/api/send", methods=["POST"])
         def api_send():
             body = request.get_json(force=True, silent=True) or {}
@@ -327,7 +541,13 @@ class WebServer:
             if not text or len(text) > _WEB_SERVER_MAX_SEND_LENGTH:
                 abort(400)
             else:
-                self._iface.sendText(text=text, channelIndex=self._channel.index)
+                web_user: WebUser = self._get_or_create_web_user()
+                mesh_text: str = _WEB_USER_MESSAGE_PREFIX_FORMAT.format(
+                    short_name=web_user.short_name, text=text
+                )
+                self._iface.sendText(text=mesh_text, channelIndex=self._channel.index)
+                if self._chat_history is not None:
+                    self._chat_history.append(web_user.display_name, text)
             return jsonify({"ok": True})
 
         @self._app.route("/api/trace", methods=["POST"])

@@ -48,6 +48,7 @@ from common.constants import (
     _TRACE_SNR_VALUE_SEP,
     _TRACE_SNR_LINE_FWD,
     _TRACE_SNR_LINE_BACK,
+    _CHAT_HISTORY_BOT_SENDER,
 )
 from common.chat_history import ChatHistory
 from common.meshtastic_helper import MeshtasticHelper
@@ -67,11 +68,12 @@ class BotCommands:
     _verbose: bool
     _passphrase: Optional[str]
     _data_dir: str
+    _chat_history: Optional[ChatHistory]
     _pending_traces: dict[str, tuple[bool, float]]
     # endregion Protected Variables
 
     # region Constructor
-    def __init__(self, iface: MeshInterface, config: NodeConfiguration, channel: channel_pb2.Channel, verbose: bool = False, passphrase: Optional[str] = None, data_dir: str = _NODE_DB_DIR) -> None:
+    def __init__(self, iface: MeshInterface, config: NodeConfiguration, channel: channel_pb2.Channel, verbose: bool = False, passphrase: Optional[str] = None, data_dir: str = _NODE_DB_DIR, chat_history: Optional[ChatHistory] = None) -> None:
         """Initialises the command handler with an active interface and target channel.
 
         Args:
@@ -83,6 +85,8 @@ class BotCommands:
                         serving the ``!last`` command. Must match the value used at
                         write time. Defaults to ``None`` (plain-text files).
             data_dir: Directory containing the chat history log files.
+            chat_history: When provided, bot replies sent to the channel are appended
+                          to the log under the ``[BOT]`` sender label.
         """
         self._iface = iface
         self._config = config
@@ -90,6 +94,7 @@ class BotCommands:
         self._verbose = verbose
         self._passphrase = passphrase
         self._data_dir = data_dir
+        self._chat_history = chat_history
         self._pending_traces = {}
         pub.subscribe(self._on_traceroute_response, _EVENT_TRACEROUTE)
     # endregion Constructor
@@ -115,7 +120,9 @@ class BotCommands:
             message=message,
             packet=packet,
             consoleMsg=_HELLO_CONSOLE_RESPONSE.format(display_name=display_name, params=params) if self._verbose else None,
-            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None
+            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+            chat_history=self._chat_history,
+            chat_sender=_CHAT_HISTORY_BOT_SENDER,
         )
 
     def _cmd_ping(self, sender: str, params: str, packet: dict) -> None:
@@ -132,7 +139,9 @@ class BotCommands:
             message=_PING_RESPONSE,
             packet=packet,
             consoleMsg=_PING_CONSOLE_RESPONSE.format(sender=sender) if self._verbose else None,
-            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None
+            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+            chat_history=self._chat_history,
+            chat_sender=_CHAT_HISTORY_BOT_SENDER,
         )
 
     def _cmd_test(self, sender: str, params: str, packet: dict) -> None:
@@ -158,7 +167,9 @@ class BotCommands:
             message=message,
             packet=packet,
             consoleMsg=_TEST_CONSOLE_RESPONSE.format(sender=sender) if self._verbose else None,
-            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None
+            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+            chat_history=self._chat_history,
+            chat_sender=_CHAT_HISTORY_BOT_SENDER,
         )
 
     def _cmd_last(self, sender: str, params: str, packet: dict) -> None:
@@ -219,6 +230,8 @@ class BotCommands:
                         packet=packet,
                         message=_MSG_LAST_DM_INCOMING.format(count=len(messages), channel=channel_name),
                         destinationId=None,
+                        chat_history=self._chat_history,
+                        chat_sender=_CHAT_HISTORY_BOT_SENDER,
                     )
                 # Send oldest message first. When from a channel the notification
                 # already consumed the original packet so all DMs use packet={}.
@@ -261,6 +274,8 @@ class BotCommands:
             packet=packet,
             consoleMsg=_TRACE_CONSOLE_SENT.format(sender=sender) if self._verbose else None,
             destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+            chat_history=self._chat_history,
+            chat_sender=_CHAT_HISTORY_BOT_SENDER,
         )
         self._pending_traces[sender] = (MeshtasticHelper.is_direct_message(packet, self._config.node_id), time.time())
         self._iface.sendTraceRoute(dest=sender, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
@@ -290,6 +305,8 @@ class BotCommands:
                 message=result,
                 packet={},
                 destinationId=from_id if as_dm else None,
+                chat_history=self._chat_history,
+                chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
 
     def _format_traceroute(self, packet: dict) -> str:

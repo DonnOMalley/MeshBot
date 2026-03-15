@@ -14,6 +14,75 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetchChannels();
     setInterval(refreshAll, 30_000);
 
+    // ── Web user identity ────────────────────────────────────────────────
+    const userDisplay = document.getElementById('web-user-display');
+    const editBtn     = document.getElementById('web-user-edit-btn');
+    const editForm    = document.getElementById('web-user-edit-form');
+    const longInput   = document.getElementById('wu-long-name');
+    const shortInput  = document.getElementById('wu-short-name');
+    const saveBtn     = document.getElementById('wu-save-btn');
+    const cancelBtn   = document.getElementById('wu-cancel-btn');
+
+    async function loadWebUser() {
+        try {
+            const res = await fetch('/api/web-user');
+            if (res.ok) {
+                const u = await res.json();
+                userDisplay.textContent = u.display_name;
+            }
+        } catch (_) { /* non-fatal */ }
+    }
+
+    function showEditForm(visible) {
+        editBtn.style.display  = visible ? 'none' : '';
+        editForm.style.display = visible ? ''     : 'none';
+    }
+
+    editBtn.addEventListener('click', () => {
+        longInput.value  = '';
+        shortInput.value = '';
+        showEditForm(true);
+        longInput.focus();
+    });
+
+    cancelBtn.addEventListener('click', () => { showEditForm(false); });
+
+    async function doSaveUser() {
+        const long  = longInput.value.trim();
+        const short = shortInput.value.trim().toUpperCase();
+        if (!long || !short) return;
+        saveBtn.disabled = true;
+        try {
+            const res = await fetch('/api/web-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ long_name: long, short_name: short }),
+            });
+            if (res.ok) {
+                const u = await res.json();
+                userDisplay.textContent = u.display_name;
+                showEditForm(false);
+            } else {
+                shortInput.style.borderColor = 'var(--danger, #e55)';
+                longInput.style.borderColor  = 'var(--danger, #e55)';
+                setTimeout(() => {
+                    shortInput.style.borderColor = '';
+                    longInput.style.borderColor  = '';
+                }, 2000);
+            }
+        } catch (_) { /* network error — leave form open */ }
+        finally {
+            saveBtn.disabled = false;
+        }
+    }
+
+    saveBtn.addEventListener('click', doSaveUser);
+    shortInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSaveUser(); });
+    longInput.addEventListener('keydown',  e => { if (e.key === 'Enter') doSaveUser(); });
+
+    loadWebUser();
+
+    // ── Send message ─────────────────────────────────────────────────────
     const input  = document.getElementById('send-text');
     const btn    = document.getElementById('send-btn');
     const status = document.getElementById('send-status');

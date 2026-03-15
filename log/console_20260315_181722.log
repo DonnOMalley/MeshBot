@@ -1,0 +1,10 @@
+Node database loaded: 415 node(s).
+Node database pruned: 0 stale node(s) removed (retention: 30 days).
+Web dashboard running at http://omalleyland.tplinkdns.com:7331
+
+D.A.M.N.bot is running on channel 'Dayton800'.
+
+Press Ctrl+C to stop...
+ * Serving Flask app 'web.web_server'
+
+ * Debug mode: off

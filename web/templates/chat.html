@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ bot_name }} &mdash; Chat</title>
     <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
   <body class="full-page">
     {% set active_page = 'chat' %}
@@ -12,7 +13,7 @@
 
     <main>
       <section class="panel">
-        <div class="panel-header">Chat History</div>
+        <div class="panel-header"><img src="/images/chat%20icon.png" class="panel-icon" alt=""><span class="panel-header-text">Chat History</span></div>
         <div id="channel-tabs" class="tabs">
           <span class="tab-empty">No channel history found.</span>
         </div>
@@ -23,6 +24,17 @@
     </main>
 
     <footer class="chat-footer">
+      <div class="web-user-bar">
+        <span class="web-user-label">Sending as:</span>
+        <span id="web-user-display" class="web-user-name">&hellip;</span>
+        <button id="web-user-edit-btn" class="web-user-edit-btn" type="button">Edit</button>
+        <span id="web-user-edit-form" class="web-user-edit-form" style="display:none">
+          <input id="wu-long-name" type="text" maxlength="20" placeholder="Long name" autocomplete="off" />
+          <input id="wu-short-name" type="text" maxlength="4" placeholder="Short (W…)" autocomplete="off" />
+          <button id="wu-save-btn" type="button">Save</button>
+          <button id="wu-cancel-btn" type="button">Cancel</button>
+        </span>
+      </div>
       <label>Channel:&nbsp;<strong id="send-channel-name">&hellip;</strong></label>
       <input id="send-text" type="text" placeholder="Send text message" maxlength="228" autocomplete="off" />
       <button id="send-btn" type="button">Send</button>

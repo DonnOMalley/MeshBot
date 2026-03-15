@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Optional
+from common.chat_history import ChatHistory
 from common.constants import (
     CHANNEL_NAME_PRIMARY,
     _BROADCAST_ID,
@@ -384,12 +385,14 @@ class MeshtasticHelper:
         return to_id == bot_node_id
 
     @staticmethod
-    def send_text_message(iface: MeshInterface, channelIndex: int, message: str, packet: dict, destinationId: str | None = None, consoleMsg: str | None = None) -> mesh_pb2.MeshPacket | None:
+    def send_text_message(iface: MeshInterface, channelIndex: int, message: str, packet: dict, destinationId: str | None = None, consoleMsg: str | None = None, chat_history: Optional[ChatHistory] = None, chat_sender: str = "") -> mesh_pb2.MeshPacket | None:
         """Sends a text message reply on the specified channel, or as a DM.
 
         Prints consoleMsg to the console if provided, then sends the message text.
         If the originating packet contains a message ID, the reply is linked to
         it via replyId so the recipient's device can thread the conversation.
+        When chat_history is supplied and destinationId is None (a channel send),
+        the message is appended to the chat log using chat_sender as the author.
 
         Args:
             iface: The active MeshInterface connection to send the message on.
@@ -399,6 +402,10 @@ class MeshtasticHelper:
             destinationId: When provided, sends a direct message to this node ID
                            instead of broadcasting on the channel.
             consoleMsg: Optional text to print to the console before sending.
+            chat_history: When provided and the send is a channel broadcast
+                          (destinationId is None), the message is appended to the log.
+            chat_sender: The sender label written to the chat log. Defaults to an
+                         empty string; callers should pass the bot label constant.
         """
         result: mesh_pb2.MeshPacket | None = None
         if consoleMsg:
@@ -413,6 +420,8 @@ class MeshtasticHelper:
             result = iface.sendText(message, channelIndex=channelIndex, replyId=message_id)
         else:
             result = iface.sendText(message, channelIndex=channelIndex)
+        if destinationId is None and chat_history is not None:
+            chat_history.append(chat_sender, message)
         return result
 
     # endregion Public Functions

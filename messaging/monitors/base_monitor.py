@@ -133,6 +133,7 @@ class BaseMonitor(ABC):
             exclude_ootb=exclude_ootb,
             verbose=verbose,
             passphrase=passphrase,
+            chat_history=chat_history,
         )
     # endregion Constructor
 

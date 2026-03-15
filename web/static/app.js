@@ -35,7 +35,8 @@ function renderNodes(nodes) {
     const known = nodes.filter(n => n.long_name || n.short_name).length;
     const header = document.getElementById('node-panel-header');
     if (header) {
-        header.textContent = filter
+        const label = header.querySelector('.panel-header-text') || header;
+        label.textContent = filter
             ? `Node List \u2014 ${filtered.length} of ${nodes.length} shown`
             : `Node List \u2014 ${nodes.length} total, ${known} known`;
     }

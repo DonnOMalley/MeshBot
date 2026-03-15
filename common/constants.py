@@ -119,6 +119,7 @@ _VERBOSE_ARGS_MESSAGE: str = (
 # region Application Settings
 _MONITOR_POLL_INTERVAL: float = 0.1
 _CHECKIN_INTERVAL: float = 21600.0
+_RECONNECT_DELAY_SECONDS: float = 5.0
 # endregion Application Settings
 
 # region Application Messages
@@ -137,9 +138,13 @@ _MSG_DISCONNECTED: str = "\nDisconnected."
 _MSG_BOT_STARTED: str = "\n{bot_name} is running on channel '{channel_name}'."
 _MSG_STOP_APPLICATION: str = "\nPress Ctrl+C to stop...\n"
 _MSG_BOT_COMMAND_LIST_DM_SENT: str = "Command List sent in DM."
+_MSG_RECONNECT_ATTEMPT: str = "[BOT] Serial connection lost. Reconnecting in {delay:.0f}s..."
+_MSG_RECONNECT_SUCCESS: str = "[BOT] Reconnected to device."
+_MSG_RECONNECT_FAILED: str = "[BOT] Reconnect attempt failed: {error}. Retrying in {delay:.0f}s..."
 # endregion Application Messages
 
 # region Pubsub Event Names
+_EVENT_CONNECTION_LOST: str = "meshtastic.connection.lost"
 _EVENT_TEXT: str = "meshtastic.receive.text"
 _EVENT_DATA: str = "meshtastic.receive.data"
 _EVENT_TRACEROUTE: str = "meshtastic.receive.traceroute"
@@ -280,9 +285,11 @@ _NODE_DB_DECRYPTION_ERROR: str = (
 _CHAT_HISTORY_FILE_FORMAT: str = "{channel_name}.txt"
 _CHAT_HISTORY_LINE_FORMAT: str = "[{timestamp}] {sender}: {text}\n"
 _CHAT_HISTORY_TIMESTAMP_FORMAT: str = "%Y-%m-%d %H:%M:%S UTC"
+_CHAT_HISTORY_BOT_SENDER: str = "[BOT]"
 # endregion Chat History
 
 # region Web Dashboard
+_README_FILENAME: str = "README.md"
 _WEB_SERVER_HOST: str = "0.0.0.0"
 _WEB_SERVER_DISPLAY_HOST: str = "localhost"
 _WEB_SERVER_PORT: int = 7331
@@ -294,6 +301,23 @@ _WEB_TRACE_TIMEOUT_SECONDS: int = 30
 _GITHUB_REPO_URL: str = "https://github.com/DonnOMalley/MeshBot"
 # endregion Web Dashboard
 
+# region Web Users
+_WEB_USER_NODE_ID_BYTE: str = "fe"
+_WEB_USER_LONG_NAME_DEFAULT: str = "Web User"
+_WEB_USER_SHORT_NAME_DEFAULT: str = "WUSR"
+_WEB_USER_SHORT_NAME_PREFIX: str = "W"
+_WEB_USER_SHORT_NAME_MAX_LEN: int = 4
+_WEB_USER_LONG_NAME_MAX_LEN: int = 20
+_WEB_USER_MESSAGE_PREFIX_FORMAT: str = "[{short_name}] {text}"
+# endregion Web Users
+
+# region Console Log
+_LOG_DIR: str = "log"
+_LOG_FILENAME_FORMAT: str = "console_{timestamp}.log"
+_LOG_TIMESTAMP_FORMAT: str = "%Y%m%d_%H%M%S"
+_CONSOLE_BUFFER_LINES: int = 500
+# endregion Console Log
+
 # region Node Monitor Messages
 _EVENT_NODE_INFO: str = "meshtastic.receive.user"
 _MSG_NODE_MONITOR_STARTED: str = "\nMonitoring node announcements."
@@ -301,6 +325,12 @@ _MSG_NODE_MONITOR_STOPPING: str = "\nStopping node monitor..."
 _MSG_NODE_MONITOR_STOPPED: str = "\nNode monitor stopped."
 _MSG_NODE_INFO_RECEIVED: str = "[NODE] Node info received from {sender}"
 # endregion Node Monitor Messages
+
+# region Connection Monitor Messages
+_MSG_CONNECTION_MONITOR_STARTED: str = "\nMonitoring serial connection."
+_MSG_CONNECTION_MONITOR_STOPPING: str = "\nStopping connection monitor..."
+_MSG_CONNECTION_MONITOR_STOPPED: str = "\nConnection monitor stopped."
+# endregion Connection Monitor Messages
 
 # region Bot Lifecycle Messages
 _BOT_WELCOME_MESSAGE: str = f"Hello Mesh!\n{{bot_name}} is online.\nRunning on {{long_name}} ({{short_name}})\n\nMessage me here or send me a DM\n\nSend !{CMD_LIST} to see the list of available commands\n\nView the Web dashboard at:\n{{web_url}}"

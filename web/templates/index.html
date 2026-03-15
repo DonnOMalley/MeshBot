@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ bot_name }} Dashboard</title>
     <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
   <body>
     {% set active_page = 'dashboard' %}
@@ -13,7 +14,7 @@
     <main>
       <!-- Section 1: Node List (collapsible) -->
       <section class="panel">
-        <div class="panel-header collapsible" id="node-panel-header" onclick="toggleNodePanel()">Node List</div>
+        <div class="panel-header collapsible" id="node-panel-header" onclick="toggleNodePanel()"><img src="/images/dashboard%20icon.png" class="panel-icon" alt=""><span class="panel-header-text">Node List</span></div>
         <div class="panel-body" id="node-panel-body">
           <div class="node-toolbar">
             <input id="node-filter" type="text" class="node-filter-input" placeholder="Filter by name or device…" oninput="applyNodeFilter(this.value)" />
@@ -42,7 +43,7 @@
 
       <!-- Section 2: Chat History -->
       <section class="panel">
-        <div class="panel-header">Chat History</div>
+        <div class="panel-header"><img src="/images/chat%20icon.png" class="panel-icon" alt=""><span class="panel-header-text">Chat History</span></div>
         <div id="channel-tabs" class="tabs">
           <span class="tab-empty">No channel history found.</span>
         </div>

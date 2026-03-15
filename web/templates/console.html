@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; Console</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="full-page">
+    {% set active_page = 'console' %}
+    {% include "partials/_header.html" %}
+
+    <main class="console-main">
+      <div class="terminal-frame">
+        <div class="terminal-titlebar">
+          <span class="terminal-titlebar-dots">
+            <span></span><span></span><span></span>
+          </span>
+          <span class="terminal-titlebar-text">{{ bot_name|upper }} SYSTEM CONSOLE &mdash; VT100</span>
+          <span id="terminal-status" class="terminal-status terminal-status--connecting">&#9679; CONNECTING</span>
+        </div>
+        <div id="terminal-output" class="terminal-output">
+          <div class="terminal-line terminal-boot-line">MeshBot Console Ready.</div>
+          <div class="terminal-line terminal-boot-line">Waiting for output&hellip;</div>
+          <div class="terminal-line terminal-boot-line">&nbsp;</div>
+        </div>
+        <div class="terminal-inputbar">
+          <span class="terminal-prompt">{{ bot_name|upper }}&gt;</span>
+          <span class="terminal-cursor"></span>
+        </div>
+      </div>
+    </main>
+
+    <script src="/static/app.js"></script>
+    <script src="/static/console.js"></script>
+  </body>
+</html>

@@ -1,6 +1,8 @@
 from __future__ import annotations
 import threading
+from typing import Optional
 from configuration.node_configuration import NodeConfiguration
+from common.chat_history import ChatHistory
 from messaging.bot_commands import BotCommands
 from messaging.command_handler import CommandHandler
 from meshtastic import channel_pb2, mesh_pb2
@@ -8,6 +10,7 @@ from meshtastic.mesh_interface import MeshInterface
 from common.meshtastic_helper import MeshtasticHelper
 from common.constants import (
     CMD_LIST,
+    _CHAT_HISTORY_BOT_SENDER,
     _MSG_BOT_COMMAND_LIST_DM_SENT,
     _CMD_SEND_DELAY,
     _CMD_LIST_HEADER,
@@ -30,6 +33,7 @@ class CommandRegister:
     _commands: dict[str, CommandHandler]
     _verbose: bool
     _passphrase: str | None
+    _chat_history: Optional[ChatHistory]
     # endregion Protected Variables
 
     # region Constructor
@@ -42,6 +46,7 @@ class CommandRegister:
         exclude_ootb: bool = False,
         verbose: bool = False,
         passphrase: str | None = None,
+        chat_history: Optional[ChatHistory] = None,
     ) -> None:
         """Initialises the register and applies any supplied handler overrides.
 
@@ -58,6 +63,8 @@ class CommandRegister:
             verbose: When True, command handlers print console confirmations.
             passphrase: Optional passphrase forwarded to OOTB command handlers that
                         need to read encrypted data files (e.g. ``!last``).
+            chat_history: When provided, bot replies sent to the channel are appended
+                          to the log under the ``[BOT]`` sender label.
         """
         self._iface = iface
         self._config = config
@@ -65,9 +72,10 @@ class CommandRegister:
         self._commands = {}
         self._verbose = verbose
         self._passphrase = passphrase
+        self._chat_history = chat_history
 
         if not exclude_ootb:
-            for name, callback_fn in BotCommands(iface, config, channel, verbose=verbose, passphrase=passphrase).initialize_default_responses().items():
+            for name, callback_fn in BotCommands(iface, config, channel, verbose=verbose, passphrase=passphrase, chat_history=chat_history).initialize_default_responses().items():
                 self._commands[name] = callback_fn
 
         if user_defined_commands:
@@ -113,6 +121,8 @@ class CommandRegister:
                 packet=packet,
                 message=_MSG_BOT_COMMAND_LIST_DM_SENT,
                 destinationId=None,
+                chat_history=self._chat_history,
+                chat_sender=_CHAT_HISTORY_BOT_SENDER,
             ),
         ).start()
         return result

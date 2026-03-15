@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ bot_name }} &mdash; Nodes</title>
     <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
   <body class="full-page">
     {% set active_page = 'nodes' %}
@@ -12,7 +13,7 @@
 
     <main>
       <section class="panel">
-        <div class="panel-header" id="node-panel-header">Node List</div>
+        <div class="panel-header" id="node-panel-header"><img src="/images/nodes%20icon.png" class="panel-icon" alt=""><span class="panel-header-text">Node List</span></div>
         <div class="node-toolbar">
           <input id="node-filter" type="text" class="node-filter-input" placeholder="Filter by name or device…" oninput="applyNodeFilter(this.value)" />
           <button class="node-export-btn" onclick="exportNodesCsv()">&#8681; Export CSV</button>
