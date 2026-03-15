@@ -34,6 +34,7 @@ class CommandRegister:
     _verbose: bool
     _passphrase: str | None
     _chat_history: Optional[ChatHistory]
+    _web_url: str
     # endregion Protected Variables
 
     # region Constructor
@@ -47,6 +48,7 @@ class CommandRegister:
         verbose: bool = False,
         passphrase: str | None = None,
         chat_history: Optional[ChatHistory] = None,
+        web_url: str = "",
     ) -> None:
         """Initialises the register and applies any supplied handler overrides.
 
@@ -65,6 +67,8 @@ class CommandRegister:
                         need to read encrypted data files (e.g. ``!last``).
             chat_history: When provided, bot replies sent to the channel are appended
                           to the log under the ``[BOT]`` sender label.
+            web_url: Full URL of the web dashboard returned by the ``!web`` command.
+                     Defaults to empty string.
         """
         self._iface = iface
         self._config = config
@@ -73,9 +77,10 @@ class CommandRegister:
         self._verbose = verbose
         self._passphrase = passphrase
         self._chat_history = chat_history
+        self._web_url = web_url
 
         if not exclude_ootb:
-            for name, callback_fn in BotCommands(iface, config, channel, verbose=verbose, passphrase=passphrase, chat_history=chat_history).initialize_default_responses().items():
+            for name, callback_fn in BotCommands(iface, config, channel, verbose=verbose, passphrase=passphrase, chat_history=chat_history, web_url=web_url).initialize_default_responses().items():
                 self._commands[name] = callback_fn
 
         if user_defined_commands:

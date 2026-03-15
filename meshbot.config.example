@@ -32,5 +32,5 @@ Verbose          = false
 WebUrl           = localhost
 
 ; Port number the web portal listens on.
-; Defaults to 6969.
-WebPort          = 6969
+; Defaults to 7331.
+WebPort          = 7331

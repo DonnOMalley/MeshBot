@@ -75,7 +75,7 @@ function renderNodes(nodes) {
             <td>${name}</td>
             <td>${esc(n.role || '\u2014')}</td>
             <td>${esc(n.hardware_model || '\u2014')}</td>
-            <td>${esc(fmtDate(n.last_seen))}${n.hops_away != null ? ` (${n.hops_away} ${n.hops_away === 1 ? 'hop' : 'hops'})` : ''}</td>
+            <td class="last-seen-cell">${esc(fmtDate(n.last_seen))}${n.hops_away != null ? ` (${n.hops_away} ${n.hops_away === 1 ? 'hop' : 'hops'})` : ''}</td>
             <td style="text-align:center">${posCell}</td>
             <td>${traceCell}</td>
         </tr>`;
@@ -351,16 +351,15 @@ function renderMessages(messages) {
         return;
     }
 
-    // messages arrive newest-first from the API; reverse to chronological order
-    const chrono = [...messages].reverse();
-
+    // messages arrive oldest-first from the API — iterate as-is so newest renders at the bottom
     // _CHAT_HISTORY_LINE_FORMAT: "[YYYY-MM-DD HH:MM:SS UTC] sender: text"
     const lineRe = /^\[(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) UTC\] (.*)$/;
+    const senderRe = /^(.+?): (.*)$/;
 
     let html = '';
     let lastDate = '';
 
-    for (const raw of chrono) {
+    for (const raw of messages) {
         const m = lineRe.exec(raw);
         if (m) {
             const [, datePart, timePart, rest] = m;
@@ -373,10 +372,21 @@ function renderMessages(messages) {
                 html += `<div class="msg-date-sep">${esc(localDateStr)}</div>`;
                 lastDate = localDateStr;
             }
-            html += `<div class="message"><span class="msg-time">${esc(localTimeStr)}</span> ${esc(rest)}</div>`;
-        } else {
-            // fallback for lines that don't match the expected format
-            html += `<div class="message">${esc(raw)}</div>`;
+
+            const sm = senderRe.exec(rest);
+            if (sm) {
+                const [, sender, text] = sm;
+                const isBot = sender === '[BOT]';
+                const senderSpan = isBot
+                    ? `<span class="msg-sender msg-sender-bot">BOT</span>`
+                    : `<span class="msg-sender">${esc(sender)}</span>`;
+                html += `<div class="message"><span class="msg-time">${esc(localTimeStr)}</span> ${senderSpan}: ${esc(text)}</div>`;
+            } else {
+                html += `<div class="message"><span class="msg-time">${esc(localTimeStr)}</span> ${esc(rest)}</div>`;
+            }
+        } else if (raw.trim()) {
+            // continuation line from a multiline message (e.g. trace result, welcome message)
+            html += `<div class="message msg-cont">${esc(raw)}</div>`;
         }
     }
 

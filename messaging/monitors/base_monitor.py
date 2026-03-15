@@ -41,6 +41,7 @@ class BaseMonitor(ABC):
     _command_register: CommandRegister
     _verbose: bool
     _chat_history: Optional[ChatHistory]
+    _web_url: str
     # endregion Protected Variables
 
     # region Protected Properties
@@ -96,6 +97,7 @@ class BaseMonitor(ABC):
         verbose: bool = False,
         chat_history: Optional[ChatHistory] = None,
         passphrase: Optional[str] = None,
+        web_url: str = "",
     ) -> None:
         """Initialises the monitor with an active interface and target channel.
 
@@ -116,6 +118,8 @@ class BaseMonitor(ABC):
             passphrase: Optional passphrase forwarded to command handlers that read
                         encrypted data files (e.g. ``!last``). Must match the value
                         used when those files were written.
+            web_url: Full URL of the web dashboard returned by the ``!web`` command.
+                     Defaults to empty string.
         """
         self._iface = iface
         self._config = config
@@ -124,6 +128,7 @@ class BaseMonitor(ABC):
         self._case_sensitive = case_sensitive
         self._verbose = verbose
         self._chat_history = chat_history
+        self._web_url = web_url
 
         self._command_register = CommandRegister(
             iface=iface,
@@ -134,6 +139,7 @@ class BaseMonitor(ABC):
             verbose=verbose,
             passphrase=passphrase,
             chat_history=chat_history,
+            web_url=web_url,
         )
     # endregion Constructor
 

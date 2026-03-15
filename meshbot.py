@@ -48,6 +48,7 @@ def _build_channel_monitor(
     channel: channel_pb2.Channel,
     args: AppArguments,
     chat_history: ChatHistory,
+    web_url: str = "",
 ) -> ChannelMonitor:
     """Constructs a ChannelMonitor bound to the given interface and channel.
 
@@ -57,6 +58,7 @@ def _build_channel_monitor(
         channel: The channel to monitor for incoming messages.
         args: Parsed application arguments controlling monitor behaviour.
         chat_history: Chat history instance to which received messages are appended.
+        web_url: Full URL of the web dashboard passed through to the ``!web`` command.
 
     Returns:
         A fully configured ChannelMonitor ready to be started.
@@ -71,6 +73,7 @@ def _build_channel_monitor(
         verbose=args.verbose,
         chat_history=chat_history,
         passphrase=args.encryption_key,
+        web_url=web_url,
     )
     return monitor
 
@@ -80,6 +83,7 @@ def _build_dm_monitor(
     config: NodeConfiguration,
     channel: channel_pb2.Channel,
     args: AppArguments,
+    web_url: str = "",
 ) -> DMMonitor:
     """Constructs a DMMonitor bound to the given interface and channel.
 
@@ -88,6 +92,7 @@ def _build_dm_monitor(
         config: Node configuration for the connected device.
         channel: The channel used for sending DM replies.
         args: Parsed application arguments controlling monitor behaviour.
+        web_url: Full URL of the web dashboard passed through to the ``!web`` command.
 
     Returns:
         A fully configured DMMonitor ready to be started.
@@ -101,6 +106,7 @@ def _build_dm_monitor(
         user_defined_commands=UserCommands(iface, config, channel, verbose=args.verbose).get_commands(),
         verbose=args.verbose,
         passphrase=args.encryption_key,
+        web_url=web_url,
     )
     return monitor
 
@@ -227,8 +233,8 @@ def main() -> None:
             )
             bot_lifecycle_messenger.send_welcome_message(current_channel)
 
-            channel_monitor = _build_channel_monitor(iface, config, current_channel, args, chat_history)
-            dm_monitor = _build_dm_monitor(iface, config, current_channel, args)
+            channel_monitor = _build_channel_monitor(iface, config, current_channel, args, chat_history, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port))
+            dm_monitor = _build_dm_monitor(iface, config, current_channel, args, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port))
             node_monitor = NodeMonitor(iface=iface, db=node_db, verbose=args.verbose)
 
             channel_monitor.start()

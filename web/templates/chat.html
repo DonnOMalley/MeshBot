@@ -12,6 +12,39 @@
     {% include "partials/_header.html" %}
 
     <main>
+      <!-- Send panel — collapsed by default; expands to reveal the compose form -->
+      <section class="panel">
+        <div class="panel-header collapsible collapsed" id="send-panel-header" onclick="toggleSendPanel()">
+          <img src="/images/chat%20icon.png" class="panel-icon" alt="">
+          <span class="panel-header-text">Send Message</span>
+          <span class="send-panel-hint">Sending as&nbsp;<span id="send-panel-user">&hellip;</span>&nbsp;&rsaquo;&nbsp;Tap to expand</span>
+        </div>
+        <div class="panel-body collapsed" id="send-panel-body">
+          <div class="chat-send-form">
+            <div class="web-user-bar">
+              <span class="web-user-label">Sending as:</span>
+              <span id="web-user-display" class="web-user-name">&hellip;</span>
+              <button id="web-user-edit-btn" class="web-user-edit-btn" type="button">Edit</button>
+              <span id="web-user-edit-form" class="web-user-edit-form" style="display:none">
+                <input id="wu-long-name" type="text" maxlength="20" placeholder="Long name" autocomplete="off" />
+                <span class="wu-short-wrap">
+                  <span class="wu-short-prefix">W</span><input id="wu-short-name" type="text" maxlength="3" placeholder="USR" autocomplete="off" />
+                </span>
+                <button id="wu-save-btn" type="button">Save</button>
+                <button id="wu-cancel-btn" type="button">Cancel</button>
+              </span>
+            </div>
+            <div class="send-row">
+              <label>Channel:&nbsp;<strong id="send-channel-name">&hellip;</strong></label>
+              <input id="send-text" type="text" placeholder="Type your message&hellip;" maxlength="228" autocomplete="off" />
+              <button id="send-btn" type="button">Send</button>
+              <div id="send-status"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chat history -->
       <section class="panel">
         <div class="panel-header"><img src="/images/chat%20icon.png" class="panel-icon" alt=""><span class="panel-header-text">Chat History</span></div>
         <div id="channel-tabs" class="tabs">
@@ -22,24 +55,6 @@
         </div>
       </section>
     </main>
-
-    <footer class="chat-footer">
-      <div class="web-user-bar">
-        <span class="web-user-label">Sending as:</span>
-        <span id="web-user-display" class="web-user-name">&hellip;</span>
-        <button id="web-user-edit-btn" class="web-user-edit-btn" type="button">Edit</button>
-        <span id="web-user-edit-form" class="web-user-edit-form" style="display:none">
-          <input id="wu-long-name" type="text" maxlength="20" placeholder="Long name" autocomplete="off" />
-          <input id="wu-short-name" type="text" maxlength="4" placeholder="Short (W…)" autocomplete="off" />
-          <button id="wu-save-btn" type="button">Save</button>
-          <button id="wu-cancel-btn" type="button">Cancel</button>
-        </span>
-      </div>
-      <label>Channel:&nbsp;<strong id="send-channel-name">&hellip;</strong></label>
-      <input id="send-text" type="text" placeholder="Send text message" maxlength="228" autocomplete="off" />
-      <button id="send-btn" type="button">Send</button>
-      <div id="send-status"></div>
-    </footer>
 
     <script src="/static/app.js"></script>
     <script src="/static/chat.js"></script>

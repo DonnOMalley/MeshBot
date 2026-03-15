@@ -311,6 +311,22 @@ td.empty { font-family: var(--sans); }
     user-select: none;
 }
 
+.msg-sender {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.msg-sender-bot {
+    color: var(--muted);
+    font-style: italic;
+}
+
+.msg-cont {
+    padding-left: 18px;
+    color: var(--muted);
+    border-bottom: none;
+}
+
 /* ── Messages ────────────────────────────────────────────────────────── */
 .panel-header.collapsible {
     cursor: pointer;
@@ -355,7 +371,7 @@ body.full-page .panel {
 }
 
 body.full-page .scroll-box { max-height: calc(100vh - 120px); }
-body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 240px); }
+body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 230px); }
 
 /* ── Chat page send area ─────────────────────────────────────────────── */
 .chat-footer {
@@ -475,7 +491,36 @@ body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 240px); }
 }
 .web-user-edit-form input:focus { border-color: var(--accent); }
 .web-user-edit-form #wu-long-name  { width: 140px; }
-.web-user-edit-form #wu-short-name { width: 60px; }
+.web-user-edit-form #wu-short-name { width: 36px; }
+
+.wu-short-wrap {
+    display: inline-flex;
+    align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.12s;
+}
+.wu-short-wrap:focus-within { border-color: var(--accent); }
+
+.wu-short-prefix {
+    padding: 3px 0 3px 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    user-select: none;
+    pointer-events: none;
+}
+
+.wu-short-wrap input {
+    border: none !important;
+    background: transparent !important;
+    padding: 3px 8px 3px 2px;
+    width: 36px;
+    outline: none;
+    box-shadow: none;
+}
 
 .web-user-edit-form button {
     padding: 3px 10px;
@@ -488,6 +533,51 @@ body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 240px); }
     transition: color 0.12s, border-color 0.12s;
 }
 .web-user-edit-form button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Send panel (chat page) ─────────────────────────────────────────── */
+.send-panel-hint {
+    margin-left: auto;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    padding-right: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.panel-header.collapsible:not(.collapsed) .send-panel-hint { display: none; }
+
+.chat-send-form {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.send-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.send-row label {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.send-row label strong {
+    color: var(--accent);
+    font-family: var(--mono);
+}
+
+.status-ok { color: var(--success); }
+.status-err { color: var(--error); }
 
 /* ── About page ──────────────────────────────────────────────────────── */
 .about-content {
@@ -979,4 +1069,89 @@ body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 240px); }
 @keyframes terminal-blink {
     0%, 100% { opacity: 1; }
     50%       { opacity: 0; }
+}
+
+/* ── Mobile / Responsive ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+
+    /* Header — slimmer on mobile */
+    header {
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    header h1   { font-size: 14px; letter-spacing: 0.5px; }
+    .header-logo { height: 24px; }
+    .bot-description { display: none; }
+    #refresh-label   { display: none; }
+    .header-right button { padding: 5px 10px; font-size: 11px; }
+
+    /* Nav — horizontal scroll so all items remain reachable */
+    nav {
+        padding: 0 2px;
+        gap: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        flex-wrap: nowrap;
+    }
+    nav::-webkit-scrollbar { display: none; }
+    .nav-link {
+        padding: 8px 10px;
+        font-size: 10px;
+        letter-spacing: 0.3px;
+        flex-shrink: 0;
+    }
+    .nav-icon { width: 13px; height: 13px; }
+
+    /* Main layout — no gaps/padding, panels go edge-to-edge */
+    main   { gap: 0; padding: 0; }
+    .panel { border-radius: 0; border-left: none; border-right: none; }
+
+    /* Scroll box heights */
+    .scroll-box { max-height: 55vmax; }
+    body.full-page .scroll-box { max-height: calc(100vh - 120px); }
+    body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 190px); }
+
+    /* Node table — hide fav-star and last-seen columns */
+    .fav-col,       .fav-cell       { display: none; }
+    .last-seen-col, .last-seen-cell { display: none; }
+
+    td { padding: 5px 8px; font-size: 11px; }
+    th { padding: 5px 8px; }
+
+    /* Node toolbar */
+    .node-toolbar {
+        padding: 6px 8px;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .node-filter-input { max-width: 100%; }
+
+    /* Send panel / compose form */
+    .chat-send-form { padding: 8px 12px; gap: 6px; }
+    .send-row       { gap: 6px; }
+    .send-row label { flex-basis: 100%; }
+    #send-text      { min-width: 0; flex: 1; }
+    #send-btn       { padding: 9px 18px; }
+    .send-panel-hint { font-size: 9px; }
+
+    /* Web user identity inline form */
+    .web-user-bar  { gap: 6px; padding-bottom: 6px; }
+    .web-user-edit-form { flex-wrap: wrap; gap: 6px; }
+    .web-user-edit-form #wu-long-name { width: 120px; }
+
+    /* Send status */
+    #send-status { font-size: 11px; }
+
+    /* Trace buttons — larger touch targets */
+    .trace-btn { padding: 4px 10px; min-height: 32px; }
+
+    /* About page — edge-to-edge sections */
+    .about-content  { margin: 0; padding: 0; gap: 0; }
+    .about-section  { border-radius: 0; border-left: none; border-right: none; border-top: none; }
+
+    /* Console */
+    .console-main { padding: 6px 8px; }
 }

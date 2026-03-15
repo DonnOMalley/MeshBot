@@ -43,7 +43,7 @@ _APP_EPILOG: str = (
     "  EncryptionKey     = mysecret\n"
     "  Verbose           = false\n"
     "  WebUrl            = localhost\n"
-    "  WebPort           = 6969\n"
+    "  WebPort           = 7331\n"
 )
 _HELP_BOT_NAME: str = (
     "The display name for the bot. Used as the command prefix (@BotName) and in "
@@ -85,7 +85,7 @@ _HELP_ENCRYPTION_KEY: str = (
     "For security, prefer setting this in the config file rather than on the command line."
 )
 _HELP_WEB_PORT: str = (
-    "Port number the web portal listens on. Defaults to 6969."
+    "Port number the web portal listens on. Defaults to 7331."
 )
 _HELP_WEB_URL: str = (
     "Hostname or address shown in the console when the web portal starts. "
@@ -100,6 +100,7 @@ CMD_PING: str = "ping"
 CMD_TEST: str = "test"
 CMD_LAST: str = "last"
 CMD_TRACE: str = "trace"
+CMD_WEB: str = "web"
 _EXCLAMATION_PREFIX: str = "!"
 # endregion Bot Command Names
 
@@ -238,6 +239,9 @@ _MSG_LAST_HEADER: str = "Last {count} messages from {channel}:"
 _MSG_LAST_DM_INCOMING: str = "Sending you the last {count} message(s) from {channel} in DM."
 _MSG_LAST_CAPPED: str = "Requested {requested} messages but the mesh limit is {max}. Sending the last {max} instead."
 _MSG_LAST_CONSOLE: str = "[BOT] last — {count} messages from '{channel}' sent to {sender}"
+
+_WEB_RESPONSE: str = "Web dashboard: {web_url}"
+_WEB_CONSOLE_RESPONSE: str = "[BOT] Web command received from {sender}."
 # endregion Bot Command Responses
 # region Bot Command: Trace
 _TRACE_RESPONSE_WAITING: str = "Tracerouting... \U0001f4e1 Stand by."
@@ -309,6 +313,12 @@ _WEB_USER_SHORT_NAME_PREFIX: str = "W"
 _WEB_USER_SHORT_NAME_MAX_LEN: int = 4
 _WEB_USER_LONG_NAME_MAX_LEN: int = 20
 _WEB_USER_MESSAGE_PREFIX_FORMAT: str = "[{short_name}] {text}"
+_WEB_USER_ERR_LONG_NAME: str = (
+    "long_name must be 1\u2013{max} characters."
+)
+_WEB_USER_ERR_SHORT_NAME: str = (
+    "short_name must be 2\u2013{max} alphanumeric characters and start with '{prefix}'."
+)
 # endregion Web Users
 
 # region Console Log

@@ -49,6 +49,8 @@ from common.constants import (
     _WEB_USER_SHORT_NAME_DEFAULT,
     _WEB_USER_SHORT_NAME_MAX_LEN,
     _WEB_USER_SHORT_NAME_PREFIX,
+    _WEB_USER_ERR_LONG_NAME,
+    _WEB_USER_ERR_SHORT_NAME,
 )
 from common.encryption_helper import EncryptionHelper
 from common.meshtastic_helper import MeshtasticHelper
@@ -528,10 +530,16 @@ class WebServer:
             long_name: str = str(body.get("long_name", "")).strip()
             short_name: str = str(body.get("short_name", "")).strip().upper()
             web_user: WebUser = self._get_or_create_web_user()
-            if not self._validate_web_long_name(long_name) or not self._validate_web_short_name(short_name):
-                abort(400)
-            else:
-                web_user.update(long_name, short_name)
+            errors: dict = {}
+            if not self._validate_web_long_name(long_name):
+                errors["long_name"] = _WEB_USER_ERR_LONG_NAME.format(max=_WEB_USER_LONG_NAME_MAX_LEN)
+            if not self._validate_web_short_name(short_name):
+                errors["short_name"] = _WEB_USER_ERR_SHORT_NAME.format(
+                    max=_WEB_USER_SHORT_NAME_MAX_LEN, prefix=_WEB_USER_SHORT_NAME_PREFIX
+                )
+            if errors:
+                return jsonify({"error": "Validation failed", "fields": errors}), 400
+            web_user.update(long_name, short_name)
             return jsonify(web_user.to_dict())
 
         @self._app.route("/api/send", methods=["POST"])

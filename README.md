@@ -60,7 +60,7 @@ NodeRetentionDays = 30
 EncryptionKey     =
 Verbose           = false
 WebUrl            = localhost
-WebPort           = 6969
+WebPort           = 7331
 ```
 
 | Key                 | Description                                                                           |
@@ -74,7 +74,7 @@ WebPort           = 6969
 | `EncryptionKey`     | Passphrase to encrypt the node database and chat history. Leave blank for plain text. |
 | `Verbose`           | When `true`, prints received messages, dispatched commands, and sent notifications.   |
 | `WebUrl`            | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
-| `WebPort`           | Port the web dashboard listens on. Default: `6969`.                                   |
+| `WebPort`           | Port the web dashboard listens on. Default: `7331`.                                   |
 
 > **Security note:** Prefer setting `EncryptionKey` in the config file rather than on the command line to avoid it appearing in shell history.
 
@@ -115,6 +115,7 @@ Commands are sent in the monitored channel or via DM, prefixed with `!`:
 | `!test`           | Bot replies with the hop count (`Hops: N 🐇`), or confirms a direct connection.     |
 | `!last N CHANNEL` | Returns the last N messages from the specified channel as DMs (max 5).              |
 | `!trace`          | Sends a traceroute to the requester and reports the route, SNR readings, and duration. |
+| `!web`            | Replies with the web dashboard URL so any mesh node can find the portal.            |
 | `!cmdList`        | Lists all registered commands.                                                      |
 
 ### Traceroute response format
@@ -144,7 +145,7 @@ Add your own commands in `commands/user_commands.py`. Register them via `get_com
 A Flask web dashboard starts automatically and is accessible from any machine on the network. The URL is printed to the console on startup and included in the bot's welcome message.
 
 ```
-http://localhost:6969
+http://localhost:7331
 ```
 
 Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the address.
@@ -202,7 +203,7 @@ The server binds to `0.0.0.0` (all interfaces). Your OS firewall may block inbou
 Add a firewall inbound rule (run in an **elevated/Admin PowerShell**):
 
 ```powershell
-New-NetFirewallRule -DisplayName "MeshBot Web Dashboard" -Direction Inbound -Protocol TCP -LocalPort 6969 -Action Allow
+New-NetFirewallRule -DisplayName "MeshBot Web Dashboard" -Direction Inbound -Protocol TCP -LocalPort 7331 -Action Allow
 ```
 
 To verify the rule exists:
@@ -222,14 +223,14 @@ Remove-NetFirewallRule -DisplayName "MeshBot Web Dashboard"
 Allow the port through `ufw` (if enabled):
 
 ```bash
-sudo ufw allow 6969/tcp
+sudo ufw allow 7331/tcp
 sudo ufw reload
 ```
 
 Or with `firewalld`:
 
 ```bash
-sudo firewall-cmd --permanent --add-port=6969/tcp
+sudo firewall-cmd --permanent --add-port=7331/tcp
 sudo firewall-cmd --reload
 ```
 
@@ -361,6 +362,6 @@ When an `EncryptionKey` is provided, all three files are encrypted using AES via
 - DM monitoring with `!cmdList` support.
 - Periodic check-in messages and welcome/signoff lifecycle messages.
 - Chat history logging to `data/<channel_name>.txt`.
-- Flask web dashboard on port `6969` with node list, chat history, and message send.
+- Flask web dashboard on port `7331` with node list, chat history, and message send.
 - `commands/user_commands.py` extensibility point for custom commands.
 - `meshbot.config` INI file support with CLI argument overrides.

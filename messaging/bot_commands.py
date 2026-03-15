@@ -9,6 +9,7 @@ from common.constants import (
     CMD_TEST,
     CMD_LAST,
     CMD_TRACE,
+    CMD_WEB,
     _HELLO_RESPONSE_WITH_PARAMS,
     _HELLO_RESPONSE_NO_PARAMS,
     _HELLO_CONSOLE_RESPONSE,
@@ -49,6 +50,8 @@ from common.constants import (
     _TRACE_SNR_LINE_FWD,
     _TRACE_SNR_LINE_BACK,
     _CHAT_HISTORY_BOT_SENDER,
+    _WEB_RESPONSE,
+    _WEB_CONSOLE_RESPONSE,
 )
 from common.chat_history import ChatHistory
 from common.meshtastic_helper import MeshtasticHelper
@@ -70,10 +73,11 @@ class BotCommands:
     _data_dir: str
     _chat_history: Optional[ChatHistory]
     _pending_traces: dict[str, tuple[bool, float]]
+    _web_url: str
     # endregion Protected Variables
 
     # region Constructor
-    def __init__(self, iface: MeshInterface, config: NodeConfiguration, channel: channel_pb2.Channel, verbose: bool = False, passphrase: Optional[str] = None, data_dir: str = _NODE_DB_DIR, chat_history: Optional[ChatHistory] = None) -> None:
+    def __init__(self, iface: MeshInterface, config: NodeConfiguration, channel: channel_pb2.Channel, verbose: bool = False, passphrase: Optional[str] = None, data_dir: str = _NODE_DB_DIR, chat_history: Optional[ChatHistory] = None, web_url: str = "") -> None:
         """Initialises the command handler with an active interface and target channel.
 
         Args:
@@ -87,6 +91,8 @@ class BotCommands:
             data_dir: Directory containing the chat history log files.
             chat_history: When provided, bot replies sent to the channel are appended
                           to the log under the ``[BOT]`` sender label.
+            web_url: Full URL of the web dashboard (e.g. ``http://localhost:7331``).
+                     Returned verbatim by the ``!web`` command. Defaults to empty string.
         """
         self._iface = iface
         self._config = config
@@ -96,6 +102,7 @@ class BotCommands:
         self._data_dir = data_dir
         self._chat_history = chat_history
         self._pending_traces = {}
+        self._web_url = web_url
         pub.subscribe(self._on_traceroute_response, _EVENT_TRACEROUTE)
     # endregion Constructor
 
@@ -280,6 +287,25 @@ class BotCommands:
         self._pending_traces[sender] = (MeshtasticHelper.is_direct_message(packet, self._config.node_id), time.time())
         self._iface.sendTraceRoute(dest=sender, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
 
+    def _cmd_web(self, sender: str, params: str, packet: dict) -> None:
+        """Responds to the 'web' command with the URL of the web dashboard.
+
+        Args:
+            sender: The node ID string of the message sender.
+            params: Any text that followed the command name (unused).
+            packet: The full raw Meshtastic packet dictionary.
+        """
+        MeshtasticHelper.send_text_message(
+            iface=self._iface,
+            channelIndex=self._channel.index,
+            message=_WEB_RESPONSE.format(web_url=self._web_url),
+            packet=packet,
+            consoleMsg=_WEB_CONSOLE_RESPONSE.format(sender=sender) if self._verbose else None,
+            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+            chat_history=self._chat_history,
+            chat_sender=_CHAT_HISTORY_BOT_SENDER,
+        )
+
     def _on_traceroute_response(self, packet: dict, interface: MeshInterface) -> None:
         """Handles a received traceroute response and sends the formatted result to the requester.
 
@@ -397,5 +423,6 @@ class BotCommands:
             CMD_TEST: self._cmd_test,
             CMD_LAST: self._cmd_last,
             CMD_TRACE: self._cmd_trace,
+            CMD_WEB: self._cmd_web,
         }
     # endregion Public Functions
