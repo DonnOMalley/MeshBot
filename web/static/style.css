@@ -1071,6 +1071,9 @@ body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 230px); }
     50%       { opacity: 0; }
 }
 
+/* ── Mobile map-pin in name cell (hidden on desktop) ──────────────── */
+.pos-pin-mobile { display: none; }
+
 /* ── Mobile / Responsive ──────────────────────────────────────────── */
 @media (max-width: 640px) {
 
@@ -1114,9 +1117,14 @@ body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 230px); }
     body.full-page .scroll-box { max-height: calc(100vh - 120px); }
     body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 190px); }
 
-    /* Node table — hide fav-star and last-seen columns */
-    .fav-col,       .fav-cell       { display: none; }
-    .last-seen-col, .last-seen-cell { display: none; }
+    /* Node table — hide fav-star, device, position, and last-seen columns */
+    .fav-col,       .fav-cell       { display: none !important; }
+    .device-col,    .device-cell    { display: none !important; }
+    .position-col,  .position-cell  { display: none !important; }
+    .last-seen-col, .last-seen-cell { display: none !important; }
+
+    /* Map pin in-name on mobile */
+    .pos-pin-mobile { display: inline !important; }
 
     td { padding: 5px 8px; font-size: 11px; }
     th { padding: 5px 8px; }

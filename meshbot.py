@@ -250,6 +250,7 @@ def main() -> None:
                 channel=current_channel,
                 bot_name=args.bot_name,
                 bot_description=args.bot_description,
+                case_sensitive=args.case_sensitive,
                 host=args.web_url,
                 passphrase=args.encryption_key,
                 port=args.web_port,

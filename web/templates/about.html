@@ -110,20 +110,21 @@
             <p>
               All commands use the <span style="font-family:var(--mono);color:var(--accent)">!</span> prefix
               (e.g. <span style="font-family:var(--mono);color:var(--accent)">!ping</span>).
-              This applies equally whether the command is sent on a channel or via direct message to the bot.
+              Commands can be sent on any monitored channel or via direct message to the bot.
             </p>
             <p>
-              Command matching is case-insensitive by default. Pass <code>--CaseSensitive</code>
-              at startup to require exact capitalisation.
-            </p>
-            <p>
-              The <code>--ExcludeOOTB</code> flag disables all built-in commands
-              (<span style="font-family:var(--mono);color:var(--accent)">!hello</span>,
-              <span style="font-family:var(--mono);color:var(--accent)">!ping</span>,
-              <span style="font-family:var(--mono);color:var(--accent)">!test</span>,
-              <span style="font-family:var(--mono);color:var(--accent)">!last</span>,
-              <span style="font-family:var(--mono);color:var(--accent)">!trace</span>)
-              if you prefer to register only your own commands.
+              {% if case_sensitive %}
+                This bot is currently running in <strong style="color:var(--accent)">case-sensitive</strong> mode.
+                Commands must be typed with exact capitalisation &mdash;
+                <span style="font-family:var(--mono);color:var(--accent)">!Ping</span> and
+                <span style="font-family:var(--mono);color:var(--accent)">!PING</span> will not be recognised.
+              {% else %}
+                This bot is currently running in <strong style="color:var(--accent)">case-insensitive</strong> mode.
+                Commands are matched regardless of capitalisation &mdash;
+                <span style="font-family:var(--mono);color:var(--accent)">!ping</span>,
+                <span style="font-family:var(--mono);color:var(--accent)">!Ping</span>, and
+                <span style="font-family:var(--mono);color:var(--accent)">!PING</span> are all equivalent.
+              {% endif %}
             </p>
           </div>
         </section>

@@ -52,9 +52,14 @@ function renderNodes(nodes) {
         const name = n.long_name
             ? (n.short_name ? `${esc(n.long_name)} (${esc(n.short_name)})` : esc(n.long_name))
             : (n.short_name ? esc(n.short_name) : '\u2014');
-        const posCell = (n.latitude != null && n.longitude != null)
+        const hasPos = n.latitude != null && n.longitude != null;
+        const posLink = hasPos
             ? `<a href="https://maps.google.com/?q=${n.latitude},${n.longitude}" target="_blank" rel="noopener noreferrer" title="${n.latitude.toFixed(5)}, ${n.longitude.toFixed(5)}" style="font-size:16px;text-decoration:none;">&#128205;</a>`
             : '\u2014';
+        const posCell = posLink;
+        const nameCellContent = hasPos
+            ? `${name}&nbsp;<a class="pos-pin-mobile" href="https://maps.google.com/?q=${n.latitude},${n.longitude}" target="_blank" rel="noopener noreferrer" title="${n.latitude.toFixed(5)}, ${n.longitude.toFixed(5)}" style="font-size:15px;text-decoration:none;">&#128205;</a>`
+            : name;
         const traceState = _nodeTraces.get(n.node_id);
         let traceCell;
         if (!traceState) {
@@ -72,11 +77,11 @@ function renderNodes(nodes) {
         return `
         <tr title="${esc(n.node_id)}">
             <td class="fav-cell"><button class="fav-btn${isFav ? ' fav-active' : ''}" onclick="toggleFavorite(this.closest('tr').title, event)">${star}</button></td>
-            <td>${name}</td>
+            <td>${nameCellContent}</td>
             <td>${esc(n.role || '\u2014')}</td>
-            <td>${esc(n.hardware_model || '\u2014')}</td>
+            <td class="device-cell">${esc(n.hardware_model || '\u2014')}</td>
             <td class="last-seen-cell">${esc(fmtDate(n.last_seen))}${n.hops_away != null ? ` (${n.hops_away} ${n.hops_away === 1 ? 'hop' : 'hops'})` : ''}</td>
-            <td style="text-align:center">${posCell}</td>
+            <td class="position-cell" style="text-align:center">${posCell}</td>
             <td>${traceCell}</td>
         </tr>`;
     }).join('');

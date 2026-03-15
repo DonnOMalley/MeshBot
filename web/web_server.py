@@ -144,6 +144,7 @@ class WebServer:
     # region Protected Variables
     _bot_description: str
     _bot_name: str
+    _case_sensitive: bool
     _display_host: str
     _node_db: NodeDatabase
     _iface: MeshInterface
@@ -170,6 +171,7 @@ class WebServer:
         channel: channel_pb2.Channel,
         bot_name: str,
         bot_description: str = _DEFAULT_BOT_DESCRIPTION,
+        case_sensitive: bool = False,
         data_dir: str = _NODE_DB_DIR,
         host: str = _WEB_SERVER_DISPLAY_HOST,
         passphrase: Optional[str] = None,
@@ -186,6 +188,7 @@ class WebServer:
                      sent on this channel.
             bot_name: The runtime name of the bot, shown in the dashboard.
             bot_description: Short description shown alongside the bot name in the header.
+            case_sensitive: When True the bot requires exact capitalisation for command names.
             data_dir: Directory containing chat history files. Defaults to the
                       shared ``data`` directory.
             host: Hostname displayed in the console startup message. Defaults to
@@ -201,6 +204,7 @@ class WebServer:
         """
         self._bot_name = bot_name
         self._bot_description = bot_description
+        self._case_sensitive = case_sensitive
         self._node_db = node_db
         self._iface = iface
         self._channel = channel
@@ -447,6 +451,7 @@ class WebServer:
                 bot_name=self._bot_name,
                 bot_description=self._bot_description,
                 github_url=_GITHUB_REPO_URL,
+                case_sensitive=self._case_sensitive,
             )
 
         @self._app.route("/images/<path:filename>")
