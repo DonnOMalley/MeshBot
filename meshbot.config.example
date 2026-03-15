@@ -3,6 +3,10 @@
 ; command prefix (e.g. @D.A.M.N.bot <command>).
 bot_name         = D.A.M.N.bot
 
+; Short description shown alongside the bot name in the web dashboard header.
+; Defaults to "Damn Are Mesh Nerds" when omitted.
+bot_description  = Damn Are Mesh Nerds
+
 ; Channel name to join on startup. Comment out to be prompted at launch.
 Channel          = MyChannel
 
@@ -22,3 +26,11 @@ EncryptionKey    =
 
 ; Print extra diagnostic output to the console.
 Verbose          = false
+
+; Hostname or address shown in the console when the web portal starts.
+; Defaults to localhost.
+WebUrl           = localhost
+
+; Port number the web portal listens on.
+; Defaults to 6969.
+WebPort          = 6969

@@ -23,10 +23,6 @@ class DMMonitor(BaseMonitor):
 
     # region Protected Properties
     @property
-    def _reply_as_dm(self) -> bool:
-        return True
-
-    @property
     def _message_type(self) -> str:
         return _PACKET_TYPE_DM
 

@@ -29,7 +29,6 @@ class CommandRegister:
     _channel: channel_pb2.Channel
     _commands: dict[str, CommandHandler]
     _verbose: bool
-    _reply_as_dm: bool
     _passphrase: str | None
     # endregion Protected Variables
 
@@ -42,7 +41,6 @@ class CommandRegister:
         user_defined_commands: dict[str, CommandHandler] | None = None,
         exclude_ootb: bool = False,
         verbose: bool = False,
-        reply_as_dm: bool = False,
         passphrase: str | None = None,
     ) -> None:
         """Initialises the register and applies any supplied handler overrides.
@@ -58,8 +56,6 @@ class CommandRegister:
             exclude_ootb: When True, the OOTB ping and test commands are not
                           registered. Hello is always registered. Defaults to False.
             verbose: When True, command handlers print console confirmations.
-            reply_as_dm: When True, all replies are sent as direct messages to the
-                         sender instead of being broadcast on the channel.
             passphrase: Optional passphrase forwarded to OOTB command handlers that
                         need to read encrypted data files (e.g. ``!last``).
         """
@@ -68,11 +64,10 @@ class CommandRegister:
         self._channel = channel
         self._commands = {}
         self._verbose = verbose
-        self._reply_as_dm = reply_as_dm
         self._passphrase = passphrase
 
         if not exclude_ootb:
-            for name, callback_fn in BotCommands(iface, config, channel, verbose=verbose, reply_as_dm=reply_as_dm, passphrase=passphrase).initialize_default_responses().items():
+            for name, callback_fn in BotCommands(iface, config, channel, verbose=verbose, passphrase=passphrase).initialize_default_responses().items():
                 self._commands[name] = callback_fn
 
         if user_defined_commands:

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; Nodes</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body class="full-page">
+    {% set active_page = 'nodes' %}
+    {% include "partials/_header.html" %}
+
+    <main>
+      <section class="panel">
+        <div class="panel-header" id="node-panel-header">Node List</div>
+        <div class="node-toolbar">
+          <input id="node-filter" type="text" class="node-filter-input" placeholder="Filter by name or device…" oninput="applyNodeFilter(this.value)" />
+          <button class="node-export-btn" onclick="exportNodesCsv()">&#8681; Export CSV</button>
+        </div>
+        <div class="scroll-box">
+          <table id="node-table">
+            <thead>
+              <tr>
+                <th class="fav-col">&#9734;</th>
+                <th data-col="long_name" class="sortable" onclick="handleSort('long_name')">Node Name</th>
+                <th>Role</th>
+                <th>Device</th>
+                <th data-col="last_seen" class="sortable" onclick="handleSort('last_seen')">Last Seen (Local)</th>
+                <th>Position</th>
+                <th>Trace</th>
+              </tr>
+            </thead>
+            <tbody id="node-tbody">
+              <tr><td colspan="7" class="empty">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+    <script src="/static/nodes.js"></script>
+  </body>
+</html>

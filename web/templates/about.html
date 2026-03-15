@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; About</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body class="full-page">
+    {% set active_page = 'about' %}
+    {% include "partials/_header.html" %}
+
+    <main>
+      <div class="about-content">
+
+        <!-- Bot Info -->
+        <section class="about-section">
+          <div class="about-section-header">About {{ bot_name }}</div>
+          <div class="about-section-body">
+            <p>
+              <strong>{{ bot_name }}</strong> is a configurable Meshtastic channel bot that monitors
+              a mesh network channel via serial connection, responds to commands, tracks active
+              nodes, logs chat history, and exposes this web dashboard for monitoring and messaging.
+            </p>
+            <p>
+              The bot listens for commands prefixed with
+              <span style="font-family:var(--mono);color:var(--accent)">!</span>
+              on the configured channel (e.g. <span style="font-family:var(--mono);color:var(--accent)">!ping</span>),
+              and also accepts the same commands via direct message.
+            </p>
+            <p>
+              Source code and documentation:
+              <a href="{{ github_url }}" target="_blank" rel="noopener noreferrer">{{ github_url }}</a>
+            </p>
+          </div>
+        </section>
+
+        <!-- Command Reference -->
+        <section class="about-section">
+          <div class="about-section-header">Command Reference</div>
+          <div class="about-section-body" style="padding: 0;">
+            <table class="cmd-table">
+              <thead>
+                <tr>
+                  <th>Command</th>
+                  <th>Syntax</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cmd-name">!hello</td>
+                  <td class="cmd-syntax">!hello</td>
+                  <td class="cmd-desc">Sends a greeting reply to the sender.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">!ping</td>
+                  <td class="cmd-syntax">!ping</td>
+                  <td class="cmd-desc">Responds with a pong — useful for testing reachability.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">!test</td>
+                  <td class="cmd-syntax">!test</td>
+                  <td class="cmd-desc">Sends a test message back to confirm the bot is responding.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">!last</td>
+                  <td class="cmd-syntax">!last &lt;N&gt; &lt;CHANNEL&gt;</td>
+                  <td class="cmd-desc">
+                    Returns the last <em>N</em> messages from the specified channel.
+                    <em>N</em> must be a positive integer; <em>CHANNEL</em> is the channel name.
+                  </td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">!trace</td>
+                  <td class="cmd-syntax">!trace</td>
+                  <td class="cmd-desc">
+                    Initiates a traceroute from the bot node back to the sender, reporting each hop,
+                    signal-to-noise ratio readings, and total round-trip duration.
+                  </td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">!cmdList</td>
+                  <td class="cmd-syntax">!cmdList</td>
+                  <td class="cmd-desc">
+                    Sends a direct message to the requester listing all available commands.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Usage Notes -->
+        <section class="about-section">
+          <div class="about-section-header">Usage Notes</div>
+          <div class="about-section-body">
+            <p>
+              All commands use the <span style="font-family:var(--mono);color:var(--accent)">!</span> prefix
+              (e.g. <span style="font-family:var(--mono);color:var(--accent)">!ping</span>).
+              This applies equally whether the command is sent on a channel or via direct message to the bot.
+            </p>
+            <p>
+              Command matching is case-insensitive by default. Pass <code>--CaseSensitive</code>
+              at startup to require exact capitalisation.
+            </p>
+            <p>
+              The <code>--ExcludeOOTB</code> flag disables the built-in
+              <span style="font-family:var(--mono);color:var(--accent)">!ping</span> and
+              <span style="font-family:var(--mono);color:var(--accent)">!test</span> commands
+              if you prefer a minimal command set.
+            </p>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

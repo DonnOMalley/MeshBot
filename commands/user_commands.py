@@ -4,8 +4,8 @@ from messaging.command_handler import CommandHandler
 from meshtastic import channel_pb2, mesh_pb2
 from meshtastic.mesh_interface import MeshInterface
 
-from common.constants import _HELLO_CONSOLE_RESPONSE, CMD_HELLO
-_HELLO_RESPONSE: str = "Ack: {hop_count} 🐇"
+from common.constants import _HELLO_CONSOLE_RESPONSE, _HELLO_RESPONSE_NO_PARAMS, CMD_HELLO
+_HELLO_RESPONSE: str = _HELLO_RESPONSE_NO_PARAMS + " :: {hop_count} 🐇hops"
 
 # _CMD_HEY_HEY: str = "heyhey"
 # _HEY_HEY_RESPONSE: str = "Hey Hey!! Great to hear from you {display_name}! {hop_count} 🐇"
@@ -44,13 +44,16 @@ class UserCommands:
 
     # region Protected Functions
     def _cmd_hello(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
-      return MeshtasticHelper.send_text_message(
-          iface=self._iface,
-          channelIndex=self._channel.index,
-          packet=packet,
-          message=_HELLO_RESPONSE.format(hop_count=MeshtasticHelper.get_hop_count_from_packet(packet)),
-          consoleMsg=_HELLO_CONSOLE_RESPONSE.format(display_name=MeshtasticHelper.resolve_display_name(sender, self._iface), params=params) if self._verbose else None
-      )
+        display_name: str = MeshtasticHelper.resolve_display_name(sender, self._iface)
+        hop_count: int = MeshtasticHelper.get_hop_count_from_packet(packet)
+        return MeshtasticHelper.send_text_message(
+            iface=self._iface,
+            channelIndex=self._channel.index,
+            packet=packet,
+            message=_HELLO_RESPONSE.format(display_name=display_name, hop_count=hop_count),
+            consoleMsg=_HELLO_CONSOLE_RESPONSE.format(display_name=display_name, params=params) if self._verbose else None,
+            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None
+        )
 
     # def _cmd_hey_hey(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
     #     """Responds to the 'heyhey' command with a personalised greeting and hop count.
@@ -67,7 +70,8 @@ class UserCommands:
     #         channelIndex=self._channel.index,
     #         packet=packet,
     #         message=_HEY_HEY_RESPONSE.format(display_name=display_name, hop_count=hop_count),
-    #         consoleMsg=_HEY_HEY_CONSOLE_RESPONSE.format(display_name=display_name, hop_count=hop_count) if self._verbose else None
+    #         consoleMsg=_HEY_HEY_CONSOLE_RESPONSE.format(display_name=display_name, hop_count=hop_count) if self._verbose else None,
+    #         destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None
     #     )
     
     # endregion Protected Functions
@@ -80,7 +84,7 @@ class UserCommands:
             A dict mapping command name strings to their handler callables.
         """
         return {
-            CMD_HELLO: self._cmd_hello,
+            f"{CMD_HELLO}2": self._cmd_hello,
             # _CMD_HEY_HEY: self._cmd_hey_hey
         }
     # endregion Public Functions

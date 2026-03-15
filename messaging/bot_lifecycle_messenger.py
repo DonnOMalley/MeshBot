@@ -20,22 +20,25 @@ class BotLifecycleMessenger:
     _iface: MeshInterface
     _config: NodeConfiguration
     _verbose: bool
+    _web_url: str
     # endregion Protected Variables
 
     # region Constructor
-    def __init__(self, iface: MeshInterface, config: NodeConfiguration, bot_name: str, verbose: bool = False) -> None:
+    def __init__(self, iface: MeshInterface, config: NodeConfiguration, bot_name: str, verbose: bool = False, web_url: str = "") -> None:
         """Initialises the broadcaster with an active Meshtastic interface.
 
         Args:
             iface: The active MeshInterface connection used to transmit messages.
             config: The NodeConfiguration object containing local node information.
-            bot_prefix: The bot command prefix string (e.g. ``@DAMNbot``).
+            bot_name: The display name of the bot used in lifecycle messages.
             verbose: When True, prints a console confirmation for each message sent.
+            web_url: The full URL of the web dashboard included in the welcome message.
         """
         self._bot_name = bot_name
         self._iface = iface
         self._config = config
         self._verbose = verbose
+        self._web_url = web_url
     # endregion Constructor
 
     # region Protected Functions
@@ -64,6 +67,7 @@ class BotLifecycleMessenger:
             long_name=self._config.long_name,
             short_name=self._config.short_name,
             node_id=self._config.node_id,
+            web_url=self._web_url,
         )
         self._broadcast_message(channel, message, _BOT_WELCOME_MESSAGE_SENT)
 

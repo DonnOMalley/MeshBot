@@ -14,6 +14,8 @@ from common.constants import (
     _NODE_DB_UPDATED,
     _NODE_DB_NO_CHANGE,
     _NODE_DB_DECRYPTION_ERROR,
+    _LATITUDE_SCALE,
+    _LONGITUDE_SCALE,
 )
 from common.encryption_helper import EncryptionHelper
 from meshtastic.mesh_interface import MeshInterface
@@ -22,38 +24,10 @@ _KEY_NODE_ID: str = "node_id"
 _KEY_LONG_NAME: str = "long_name"
 _KEY_SHORT_NAME: str = "short_name"
 _KEY_LAST_SEEN: str = "last_seen"
-_KEY_LAST_UPDATE_DELTA: str = "last_update_delta"
-
-_DELTA_JUST_NOW: str = "just now"
-_DELTA_FORMAT_MINUTES: str = "{n} minute"
-_DELTA_FORMAT_HOURS: str = "{n} hour"
-_DELTA_FORMAT_DAYS: str = "{n} day"
-_DELTA_PLURAL_SUFFIX: str = "s"
-
-
-def _format_last_seen_difference(seconds: float) -> str:
-    """Returns a human-readable string describing a time duration.
-
-    Args:
-        seconds: The duration in seconds to format.
-
-    Returns:
-        A string such as ``'5 minutes'``, ``'2 hours'``, or ``'3 days'``.
-        Returns ``'just now'`` for durations under 60 seconds.
-    """
-    if seconds < 60:
-        return _DELTA_JUST_NOW
-    minutes: int = int(seconds // 60)
-    if minutes < 60:
-        label = _DELTA_FORMAT_MINUTES.format(n=minutes)
-        return label + (_DELTA_PLURAL_SUFFIX if minutes != 1 else "")
-    hours: int = int(minutes // 60)
-    if hours < 24:
-        label = _DELTA_FORMAT_HOURS.format(n=hours)
-        return label + (_DELTA_PLURAL_SUFFIX if hours != 1 else "")
-    days: int = int(hours // 24)
-    label = _DELTA_FORMAT_DAYS.format(n=days)
-    return label + (_DELTA_PLURAL_SUFFIX if days != 1 else "")
+_KEY_ROLE: str = "role"
+_KEY_HARDWARE_MODEL: str = "hardware_model"
+_KEY_LATITUDE: str = "latitude"
+_KEY_LONGITUDE: str = "longitude"
 
 
 class NodeRecord:
@@ -64,7 +38,10 @@ class NodeRecord:
     long_name: str
     short_name: str
     last_seen: datetime
-    last_update_delta: Optional[str]
+    role: str
+    hardware_model: str
+    latitude: Optional[float]
+    longitude: Optional[float]
     # endregion Public Variables
 
     # region Constructor
@@ -74,7 +51,10 @@ class NodeRecord:
         long_name: str,
         short_name: str,
         last_seen: datetime,
-        last_update_delta: Optional[str] = None,
+        role: str = "",
+        hardware_model: str = "",
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
     ) -> None:
         """Initialises the node record with identity and tracking data.
 
@@ -83,14 +63,19 @@ class NodeRecord:
             long_name: The human-readable long name of the node.
             short_name: The abbreviated short name of the node.
             last_seen: The UTC datetime when this node was last observed.
-            last_update_delta: Human-readable description of the gap between the two
-                               most recent observations, or None for a new record.
+            role: The device role string (e.g. ``'CLIENT'``, ``'ROUTER'``). Empty string if unknown.
+            hardware_model: The hardware model string (e.g. ``'TBEAM'``). Empty string if unknown.
+            latitude: GPS latitude in decimal degrees, or None if unavailable.
+            longitude: GPS longitude in decimal degrees, or None if unavailable.
         """
         self.node_id = node_id
         self.long_name = long_name
         self.short_name = short_name
         self.last_seen = last_seen
-        self.last_update_delta = last_update_delta
+        self.role = role
+        self.hardware_model = hardware_model
+        self.latitude = latitude
+        self.longitude = longitude
     # endregion Constructor
 
     # region Public Functions
@@ -105,7 +90,10 @@ class NodeRecord:
             _KEY_LONG_NAME: self.long_name,
             _KEY_SHORT_NAME: self.short_name,
             _KEY_LAST_SEEN: self.last_seen.isoformat(),
-            _KEY_LAST_UPDATE_DELTA: self.last_update_delta,
+            _KEY_ROLE: self.role,
+            _KEY_HARDWARE_MODEL: self.hardware_model,
+            _KEY_LATITUDE: self.latitude,
+            _KEY_LONGITUDE: self.longitude,
         }
 
     @staticmethod
@@ -126,7 +114,10 @@ class NodeRecord:
             long_name=data.get(_KEY_LONG_NAME, ""),
             short_name=data.get(_KEY_SHORT_NAME, ""),
             last_seen=last_seen,
-            last_update_delta=data.get(_KEY_LAST_UPDATE_DELTA),
+            role=data.get(_KEY_ROLE, ""),
+            hardware_model=data.get(_KEY_HARDWARE_MODEL, ""),
+            latitude=data.get(_KEY_LATITUDE),
+            longitude=data.get(_KEY_LONGITUDE),
         )
     # endregion Public Functions
 
@@ -269,21 +260,31 @@ class NodeDatabase:
                 node_id: str = user.get("id", "")
                 long_name: str = user.get("longName", "")
                 short_name: str = user.get("shortName", "")
+                role: str = user.get("role", "") or ""
+                hardware_model: str = user.get("hwModel", "") or ""
+                position: dict = node_data.get("position", {})
+                lat_i: Optional[int] = position.get("latitudeI")
+                lon_i: Optional[int] = position.get("longitudeI")
+                latitude: Optional[float] = lat_i * _LATITUDE_SCALE if lat_i is not None else None
+                longitude: Optional[float] = lon_i * _LONGITUDE_SCALE if lon_i is not None else None
                 if node_id:
-                    self.upsert(node_id, long_name, short_name)
+                    self.upsert(node_id, long_name, short_name, role, hardware_model, latitude, longitude)
         print(_NODE_DB_LOADED.format(count=len(self._nodes)))
 
-    def upsert(self, node_id: str, long_name: str, short_name: str) -> None:
+    def upsert(self, node_id: str, long_name: str, short_name: str, role: str = "", hardware_model: str = "", latitude: Optional[float] = None, longitude: Optional[float] = None) -> None:
         """Adds a new node record or updates an existing one with fresh identity data.
 
-        When a record already exists the gap between the previous and new
-        ``last_seen`` timestamps is computed and stored as ``last_update_delta``.
-        The database file is saved after every call.
+        GPS coordinates are updated whenever non-None values are provided.
+        The database file is saved after every call that produces a change.
 
         Args:
             node_id: The unique node identifier string (e.g. ``'!deadbeef'``).
             long_name: The human-readable long name of the node.
             short_name: The abbreviated short name of the node.
+            role: The device role string (e.g. ``'CLIENT'``, ``'ROUTER'``). Defaults to empty string.
+            hardware_model: The hardware model string (e.g. ``'TBEAM'``). Defaults to empty string.
+            latitude: GPS latitude in decimal degrees, or None to leave existing value unchanged.
+            longitude: GPS longitude in decimal degrees, or None to leave existing value unchanged.
         """
         now: datetime = datetime.now(tz=timezone.utc)
         existing: Optional[NodeRecord] = self._nodes.get(node_id)
@@ -294,7 +295,10 @@ class NodeDatabase:
                 long_name=long_name,
                 short_name=short_name,
                 last_seen=now,
-                last_update_delta=None,
+                role=role,
+                hardware_model=hardware_model,
+                latitude=latitude,
+                longitude=longitude,
             )
             self._nodes[node_id] = record
             self._save()
@@ -303,13 +307,22 @@ class NodeDatabase:
         else:
             identity_changed: bool = (
                 existing.long_name != long_name or existing.short_name != short_name
+                or existing.role != role or existing.hardware_model != hardware_model
+            )
+            position_changed: bool = (
+                (latitude is not None and latitude != existing.latitude)
+                or (longitude is not None and longitude != existing.longitude)
             )
             delta_seconds: float = (now - existing.last_seen).total_seconds()
             if delta_seconds > 0 or identity_changed:
-                delta_str: str = _format_last_seen_difference(delta_seconds)
                 existing.long_name = long_name
                 existing.short_name = short_name
-                existing.last_update_delta = delta_str
+                existing.role = role
+                existing.hardware_model = hardware_model
+                if latitude is not None:
+                    existing.latitude = latitude
+                if longitude is not None:
+                    existing.longitude = longitude
                 existing.last_seen = now
                 self._save()
                 if self._verbose:
@@ -317,8 +330,13 @@ class NodeDatabase:
                         node_id=node_id,
                         long_name=long_name,
                         short_name=short_name,
-                        delta=delta_str,
                     ))
+            elif position_changed:
+                if latitude is not None:
+                    existing.latitude = latitude
+                if longitude is not None:
+                    existing.longitude = longitude
+                self._save()
             else:
                 if self._verbose:
                     print(_NODE_DB_NO_CHANGE.format(node_id=node_id))

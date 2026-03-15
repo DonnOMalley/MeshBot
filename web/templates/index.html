@@ -7,33 +7,36 @@
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
-    <header>
-      <h1>&#9732; {{ bot_name }}</h1>
-      <div class="header-right">
-        <span id="refresh-label">Auto-refresh: 30s</span>
-        <button onclick="refreshAll()">&#8635; Refresh</button>
-      </div>
-    </header>
+    {% set active_page = 'dashboard' %}
+    {% include "partials/_header.html" %}
 
     <main>
-      <!-- Section 1: Node List -->
+      <!-- Section 1: Node List (collapsible) -->
       <section class="panel">
-        <div class="panel-header">Node List</div>
-        <div class="scroll-box">
-          <table id="node-table">
-            <thead>
-              <tr>
-                <th>Node ID</th>
-                <th>Long Name</th>
-                <th>Short Name</th>
-                <th>Last Seen (UTC)</th>
-                <th>Last Seen Delta</th>
-              </tr>
-            </thead>
-            <tbody id="node-tbody">
-              <tr><td colspan="5" class="empty">Loading&hellip;</td></tr>
-            </tbody>
-          </table>
+        <div class="panel-header collapsible" id="node-panel-header" onclick="toggleNodePanel()">Node List</div>
+        <div class="panel-body" id="node-panel-body">
+          <div class="node-toolbar">
+            <input id="node-filter" type="text" class="node-filter-input" placeholder="Filter by name or device…" oninput="applyNodeFilter(this.value)" />
+            <button class="node-export-btn" onclick="exportNodesCsv()">&#8681; Export CSV</button>
+          </div>
+          <div class="scroll-box">
+            <table id="node-table">
+              <thead>
+                <tr>
+                  <th class="fav-col">&#9734;</th>
+                  <th data-col="long_name" class="sortable" onclick="handleSort('long_name')">Node Name</th>
+                  <th>Role</th>
+                  <th>Device</th>
+                  <th data-col="last_seen" class="sortable" onclick="handleSort('last_seen')">Last Seen (Local)</th>
+                  <th>Position</th>
+                  <th>Trace</th>
+                </tr>
+              </thead>
+              <tbody id="node-tbody">
+                <tr><td colspan="7" class="empty">Loading&hellip;</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -47,24 +50,17 @@
           <p class="empty">Select a channel tab above.</p>
         </div>
       </section>
-
-      <!-- Section 3: Send Message -->
-      <section class="panel">
-        <div class="panel-header">Send Message</div>
-        <form id="send-form" autocomplete="off">
-          <div class="send-row">
-            <label>
-              Channel:&nbsp;
-              <strong id="send-channel-name">&hellip;</strong>
-            </label>
-            <input id="send-text" type="text" placeholder="!hello  &bull;  !list  &bull;  or any message" maxlength="228" />
-            <button type="submit" id="send-btn">Send</button>
-          </div>
-          <div id="send-status"></div>
-        </form>
-      </section>
     </main>
 
     <script src="/static/app.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', async () => {
+        await fetchFavorites();
+        fetchNodes();
+        fetchChannels();
+        setInterval(refreshAll, 30_000);
+        updateSortIndicators();
+      });
+    </script>
   </body>
 </html>

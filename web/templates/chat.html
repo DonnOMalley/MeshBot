@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; Chat</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body class="full-page">
+    {% set active_page = 'chat' %}
+    {% include "partials/_header.html" %}
+
+    <main>
+      <section class="panel">
+        <div class="panel-header">Chat History</div>
+        <div id="channel-tabs" class="tabs">
+          <span class="tab-empty">No channel history found.</span>
+        </div>
+        <div id="chat-messages" class="scroll-box messages">
+          <p class="empty">Select a channel tab above.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="chat-footer">
+      <label>Channel:&nbsp;<strong id="send-channel-name">&hellip;</strong></label>
+      <input id="send-text" type="text" placeholder="Send text message" maxlength="228" autocomplete="off" />
+      <button id="send-btn" type="button">Send</button>
+      <div id="send-status"></div>
+    </footer>
+
+    <script src="/static/app.js"></script>
+    <script src="/static/chat.js"></script>
+  </body>
+</html>

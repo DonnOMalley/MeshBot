@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from common.constants import (
     CHANNEL_NAME_PRIMARY,
+    _BROADCAST_ID,
     _PACKET_KEY_ID,
     _PACKET_KEY_FROM_ID,
     _PACKET_KEY_FROM_NUM,
@@ -11,6 +12,7 @@ from common.constants import (
     _PACKET_KEY_TEXT,
     _PACKET_KEY_HOP_START,
     _PACKET_KEY_HOP_LIMIT,
+    _PACKET_KEY_TO_ID,
     _FORMAT_SHORT_NAME,
     _LATITUDE_SCALE,
     _LONGITUDE_SCALE,
@@ -365,6 +367,23 @@ class MeshtasticHelper:
                 )
     
     @staticmethod
+    def is_direct_message(packet: dict, bot_node_id: str) -> bool:
+        """Returns True if the packet is a direct message addressed to the bot.
+
+        A packet is a DM when its destination node ID matches the bot's own node
+        ID. Channel broadcasts carry '"^all"' as the destination and are not DMs.
+
+        Args:
+            packet: The raw Meshtastic packet dict to inspect.
+            bot_node_id: The bot's own node ID string (e.g. '!deadbeef').
+
+        Returns:
+            True if the packet was sent directly to the bot, False otherwise.
+        """
+        to_id: str = packet.get(_PACKET_KEY_TO_ID, _BROADCAST_ID)
+        return to_id == bot_node_id
+
+    @staticmethod
     def send_text_message(iface: MeshInterface, channelIndex: int, message: str, packet: dict, destinationId: str | None = None, consoleMsg: str | None = None) -> mesh_pb2.MeshPacket | None:
         """Sends a text message reply on the specified channel, or as a DM.
 
@@ -394,6 +413,6 @@ class MeshtasticHelper:
             result = iface.sendText(message, channelIndex=channelIndex, replyId=message_id)
         else:
             result = iface.sendText(message, channelIndex=channelIndex)
-        return result;
+        return result
 
     # endregion Public Functions

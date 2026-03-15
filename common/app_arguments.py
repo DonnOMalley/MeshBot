@@ -5,6 +5,7 @@ import os
 import sys
 from typing import NoReturn, Optional
 from common.constants import (
+    _ARG_BOT_DESCRIPTION,
     _ARG_BOT_NAME,
     _ARG_CASE_SENSITIVE,
     _ARG_CHANNEL,
@@ -13,10 +14,14 @@ from common.constants import (
     _ARG_EXCLUDE_OOTB,
     _ARG_NODE_RETENTION_DAYS,
     _ARG_VERBOSE,
+    _ARG_WEB_PORT,
+    _ARG_WEB_URL,
     _APP_DESCRIPTION,
     _APP_EPILOG,
     _CONFIG_SECTION,
+    _DEFAULT_BOT_DESCRIPTION,
     _DEFAULT_CONFIG_FILE,
+    _HELP_BOT_DESCRIPTION,
     _HELP_BOT_NAME,
     _HELP_CASE_SENSITIVE,
     _HELP_CHANNEL,
@@ -25,6 +30,11 @@ from common.constants import (
     _HELP_EXCLUDE_OOTB,
     _HELP_NODE_RETENTION_DAYS,
     _HELP_VERBOSE,
+    _HELP_WEB_PORT,
+    _HELP_WEB_URL,
+    _NODE_DB_DEFAULT_RETENTION_DAYS,
+    _WEB_SERVER_DISPLAY_HOST,
+    _WEB_SERVER_PORT,
 )
 
 
@@ -51,6 +61,7 @@ class AppArguments:
     """
 
     # region Protected Variables
+    _bot_description: str
     _bot_name: str
     _case_sensitive: bool
     _channel: Optional[str]
@@ -58,9 +69,16 @@ class AppArguments:
     _exclude_ootb: bool
     _node_retention_days: int
     _verbose: bool
+    _web_port: int
+    _web_url: str
     # endregion Protected Variables
 
     # region Public Properties
+    @property
+    def bot_description(self) -> str:
+        """The short description shown alongside the bot name in the web dashboard header."""
+        return self._bot_description
+
     @property
     def bot_name(self) -> str:
         """The display name of the bot, used to derive the command prefix."""
@@ -95,17 +113,30 @@ class AppArguments:
     def verbose(self) -> bool:
         """Whether verbose console output is enabled."""
         return self._verbose
+
+    @property
+    def web_port(self) -> int:
+        """The port number the web portal listens on."""
+        return self._web_port
+
+    @property
+    def web_url(self) -> str:
+        """The hostname shown in the console when the web portal starts."""
+        return self._web_url
     # endregion Public Properties
 
     # region Constructor
     def __init__(self) -> None:
+        self._bot_description = ""
         self._bot_name = ""
         self._case_sensitive = False
         self._channel = None
         self._encryption_key = None
         self._exclude_ootb = False
-        self._node_retention_days = 30
+        self._node_retention_days = _NODE_DB_DEFAULT_RETENTION_DAYS
         self._verbose = False
+        self._web_port = _WEB_SERVER_PORT
+        self._web_url = _WEB_SERVER_DISPLAY_HOST
     # endregion Constructor
 
     # region Public Functions
@@ -127,12 +158,15 @@ class AppArguments:
         )
         parser.add_argument(_ARG_CONFIG, type=str, default=None, metavar="FILE", help=_HELP_CONFIG)
         parser.add_argument(_ARG_BOT_NAME, nargs="?", default=None, type=str, help=_HELP_BOT_NAME)
+        parser.add_argument(_ARG_BOT_DESCRIPTION, type=str, default=None, metavar="TEXT", help=_HELP_BOT_DESCRIPTION)
         parser.add_argument(_ARG_CASE_SENSITIVE, action="store_true", help=_HELP_CASE_SENSITIVE)
         parser.add_argument(_ARG_CHANNEL, type=str, default=None, help=_HELP_CHANNEL)
         parser.add_argument(_ARG_ENCRYPTION_KEY, type=str, default=None, metavar="PASSPHRASE", help=_HELP_ENCRYPTION_KEY)
         parser.add_argument(_ARG_EXCLUDE_OOTB, action="store_true", help=_HELP_EXCLUDE_OOTB)
         parser.add_argument(_ARG_NODE_RETENTION_DAYS, type=int, default=None, metavar="DAYS", help=_HELP_NODE_RETENTION_DAYS)
         parser.add_argument(_ARG_VERBOSE, action="store_true", help=_HELP_VERBOSE)
+        parser.add_argument(_ARG_WEB_PORT, type=int, default=None, metavar="PORT", help=_HELP_WEB_PORT)
+        parser.add_argument(_ARG_WEB_URL, type=str, default=None, metavar="HOST", help=_HELP_WEB_URL)
 
         # Locate the config file before the full parse so its values can be applied
         # as defaults (command-line arguments will still override them).
@@ -165,12 +199,15 @@ class AppArguments:
             )
 
         self._bot_name = args.bot_name
+        self._bot_description = args.BotDescription if args.BotDescription is not None else _DEFAULT_BOT_DESCRIPTION
         self._case_sensitive = args.CaseSensitive
         self._channel = args.Channel
         self._encryption_key = args.EncryptionKey
         self._exclude_ootb = args.ExcludeOOTB
-        self._node_retention_days = args.NodeRetentionDays if args.NodeRetentionDays is not None else 30
+        self._node_retention_days = args.NodeRetentionDays if args.NodeRetentionDays is not None else _NODE_DB_DEFAULT_RETENTION_DAYS
         self._verbose = args.Verbose
+        self._web_port = args.WebPort if args.WebPort is not None else _WEB_SERVER_PORT
+        self._web_url = args.WebUrl if args.WebUrl is not None else _WEB_SERVER_DISPLAY_HOST
     # endregion Public Functions
 
 
@@ -195,6 +232,8 @@ def _load_config_file(path: str) -> dict:
         section = cp[_CONFIG_SECTION]
         if "bot_name" in section:
             defaults["bot_name"] = section["bot_name"]
+        if "bot_description" in section:
+            defaults["BotDescription"] = section["bot_description"]
         if "Channel" in section:
             defaults["Channel"] = section["Channel"]
         if "CaseSensitive" in section:
@@ -207,4 +246,8 @@ def _load_config_file(path: str) -> dict:
             defaults["NodeRetentionDays"] = section.getint("NodeRetentionDays")
         if "Verbose" in section:
             defaults["Verbose"] = section.getboolean("Verbose")
+        if "WebPort" in section:
+            defaults["WebPort"] = section.getint("WebPort")
+        if "WebUrl" in section:
+            defaults["WebUrl"] = section["WebUrl"]
     return defaults

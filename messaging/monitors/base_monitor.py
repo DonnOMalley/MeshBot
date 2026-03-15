@@ -45,11 +45,6 @@ class BaseMonitor(ABC):
 
     # region Protected Properties
     @property
-    def _reply_as_dm(self) -> bool:
-        """When True, command replies are sent as direct messages to the sender."""
-        return False
-
-    @property
     @abstractmethod
     def _message_type(self) -> str:
         """The packet type this monitor handles: ``_PACKET_TYPE_CHANNEL`` or ``_PACKET_TYPE_DM``."""
@@ -137,7 +132,6 @@ class BaseMonitor(ABC):
             user_defined_commands=user_defined_commands,
             exclude_ootb=exclude_ootb,
             verbose=verbose,
-            reply_as_dm=self._reply_as_dm,
             passphrase=passphrase,
         )
     # endregion Constructor
@@ -221,11 +215,19 @@ class BaseMonitor(ABC):
         if self._verbose:
             print(_MSG_CHANNEL_COMMAND_RECEIVED.format(command=command, sender=sender_node_id, params=params))
 
-        if lookup in self._command_register._commands:
-            result = self._command_register._commands[lookup](sender_node_id, params, packet)
+        commands: dict[str, CommandHandler] = self._command_register._commands
+        matched_key: str | None = None
+        if self._case_sensitive:
+            if lookup in commands:
+                matched_key = lookup
+        else:
+            matched_key = next((k for k in commands if k.lower() == lookup), None)
+
+        if matched_key is not None:
+            result = commands[matched_key](sender_node_id, params, packet)
         else:
             if self._verbose:
-                print(_MSG_IGNORED.format(cmdPrefix=_EXCLAMATION_PREFIX,text=text))
+                print(_MSG_IGNORED.format(cmdPrefix=_EXCLAMATION_PREFIX, text=text))
             result = self._on_unrecognized_command(sender_node_id, packet)
         return result
 

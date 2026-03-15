@@ -16,6 +16,10 @@ from common.constants import (
     _CHECKIN_INTERVAL,
     _MSG_BOT_STARTED,
     _MSG_STOP_APPLICATION,
+    _MSG_CHANNEL_MONITOR_STOPPING,
+    _MSG_DM_MONITOR_STOPPING,
+    _MSG_NODE_MONITOR_STOPPING,
+    _WEB_DASHBOARD_URL,
 )
 from common.meshtastic_helper import MeshtasticHelper
 from common.node_database import NodeDatabase
@@ -92,12 +96,15 @@ def main() -> None:
     if args.verbose:
         print(_VERBOSE_ARGS_MESSAGE.format(
             bot_name=args.bot_name,
+            bot_description=args.bot_description,
             channel=args.channel or "(prompt)",
             case_sensitive=args.case_sensitive,
             exclude_ootb=args.exclude_ootb,
             node_retention_days=args.node_retention_days,
             encrypted=args.encryption_key is not None,
             verbose=args.verbose,
+            web_url=args.web_url,
+            web_port=args.web_port,
         ))
         print(_STARTUP_MESSAGE)
 
@@ -128,7 +135,13 @@ def main() -> None:
             current_channel = _resolve_channel(args.channel, config)
 
             if current_channel is not None:
-                bot_lifecycle_messenger = BotLifecycleMessenger(iface, config, bot_name=args.bot_name, verbose=args.verbose)
+                bot_lifecycle_messenger = BotLifecycleMessenger(
+                    iface,
+                    config,
+                    bot_name=args.bot_name,
+                    verbose=args.verbose,
+                    web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port),
+                )
                 bot_lifecycle_messenger.send_welcome_message(current_channel)
 
                 chat_history = ChatHistory(channel_name=current_channel.settings.name or "primary", passphrase=args.encryption_key)
@@ -161,7 +174,10 @@ def main() -> None:
                     iface=iface,
                     channel=current_channel,
                     bot_name=args.bot_name,
+                    bot_description=args.bot_description,
+                    host=args.web_url,
                     passphrase=args.encryption_key,
+                    port=args.web_port,
                 )
                 web_server.start()
 
@@ -177,8 +193,11 @@ def main() -> None:
                             bot_lifecycle_messenger.send_checkin_message(current_channel)
                             last_checkin_time = current_time
                 except KeyboardInterrupt:
+                    print(_MSG_CHANNEL_MONITOR_STOPPING)
                     channel_monitor.stop()
+                    print(_MSG_DM_MONITOR_STOPPING)
                     dm_monitor.stop()
+                    print(_MSG_NODE_MONITOR_STOPPING)
                     node_monitor.stop()
                 bot_lifecycle_messenger.send_signoff_message(current_channel)
 

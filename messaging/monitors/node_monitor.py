@@ -65,9 +65,11 @@ class NodeMonitor:
         long_name: str = user.get("longName", "")
         short_name: str = user.get("shortName", "")
         node_id: str = user.get("id", "") or sender_node_id
+        role: str = user.get("role", "") or ""
+        hardware_model: str = user.get("hwModel", "") or ""
 
         if node_id:
-            self._db.upsert(node_id, long_name, short_name)
+            self._db.upsert(node_id, long_name, short_name, role, hardware_model)
     # endregion Protected Functions
 
     # region Public Functions
