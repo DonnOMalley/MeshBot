@@ -8,3 +8,235 @@ Press Ctrl+C to stop...
  * Serving Flask app 'web.web_server'
 
  * Debug mode: off
+Route traced towards destination:
+!b2a7cb7c --> !9e78e060 (11.0dB)
+Route traced back to us:
+!9e78e060 --> !b2a7cb7c (11.5dB)
+Route traced towards destination:
+!b2a7cb7c --> !f23c3626 (?dB)
+Route traced towards destination:
+!b2a7cb7c --> !503da402 (11.0dB)
+Route traced back to us:
+!503da402 --> !b2a7cb7c (10.75dB)
+Route traced towards destination:
+!b2a7cb7c --> !9e3cdf04 (?dB)
+[2026-03-15 14:37:29,029] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,034] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute
+[2026-03-15 14:37:29,035] ERROR in app: Exception on /api/trace [POST]
+Traceback (most recent call last):
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\donno\source\Repos\Meshtastic\MeshBot\web\web_server.py", line 565, in api_trace
+    self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 677, in sendTraceRoute
+    self.waitForTraceRoute(waitFactor)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\donno\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\meshtastic\mesh_interface.py", line 1040, in waitForTraceRoute
+    raise MeshInterface.MeshInterfaceError("Timed out waiting for traceroute")
+meshtastic.mesh_interface.MeshInterface.MeshInterfaceError: Timed out waiting for traceroute

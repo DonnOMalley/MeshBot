@@ -6,4 +6,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetchNodes();
     setInterval(refreshAll, 30_000);
     updateSortIndicators();
+    _setupTracePopup();
 });

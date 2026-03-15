@@ -66,7 +66,7 @@
                 <tr>
                   <td class="cmd-name">!test</td>
                   <td class="cmd-syntax">!test</td>
-                  <td class="cmd-desc">Sends a test message back to confirm the bot is responding.</td>
+                  <td class="cmd-desc">Reports the hop count to reach the bot (<code>Hops: N 🐇</code>), or confirms a direct connection when there are no relays.</td>
                 </tr>
                 <tr>
                   <td class="cmd-name">!last</td>
@@ -110,10 +110,13 @@
               at startup to require exact capitalisation.
             </p>
             <p>
-              The <code>--ExcludeOOTB</code> flag disables the built-in
-              <span style="font-family:var(--mono);color:var(--accent)">!ping</span> and
-              <span style="font-family:var(--mono);color:var(--accent)">!test</span> commands
-              if you prefer a minimal command set.
+              The <code>--ExcludeOOTB</code> flag disables all built-in commands
+              (<span style="font-family:var(--mono);color:var(--accent)">!hello</span>,
+              <span style="font-family:var(--mono);color:var(--accent)">!ping</span>,
+              <span style="font-family:var(--mono);color:var(--accent)">!test</span>,
+              <span style="font-family:var(--mono);color:var(--accent)">!last</span>,
+              <span style="font-family:var(--mono);color:var(--accent)">!trace</span>)
+              if you prefer to register only your own commands.
             </p>
           </div>
         </section>

@@ -564,8 +564,10 @@ class WebServer:
                 try:
                     self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
                     signalled: bool = event.wait(timeout=_WEB_TRACE_TIMEOUT_SECONDS)
+                    trace_response = jsonify({"status": "timeout", "node_id": node_id}) if not signalled else jsonify(result)
+                except Exception as exc:
+                    trace_response = jsonify({"status": "error", "node_id": node_id, "message": str(exc)})
                 finally:
                     self._pending_web_traces.pop(node_id, None)
-                trace_response = jsonify({"status": "timeout", "node_id": node_id}) if not signalled else jsonify(result)
             return trace_response
     # endregion Protected Functions

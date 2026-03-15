@@ -23,12 +23,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const saveBtn     = document.getElementById('wu-save-btn');
     const cancelBtn   = document.getElementById('wu-cancel-btn');
 
+    let _webUser = null;
+
     async function loadWebUser() {
         try {
             const res = await fetch('/api/web-user');
             if (res.ok) {
-                const u = await res.json();
-                userDisplay.textContent = u.display_name;
+                _webUser = await res.json();
+                userDisplay.textContent = _webUser.display_name;
             }
         } catch (_) { /* non-fatal */ }
     }
@@ -39,8 +41,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     editBtn.addEventListener('click', () => {
-        longInput.value  = '';
-        shortInput.value = '';
+        longInput.value  = _webUser ? _webUser.long_name  : '';
+        shortInput.value = _webUser ? _webUser.short_name : '';
+        longInput.style.borderColor  = '';
+        shortInput.style.borderColor = '';
         showEditForm(true);
         longInput.focus();
     });
@@ -59,15 +63,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({ long_name: long, short_name: short }),
             });
             if (res.ok) {
-                const u = await res.json();
-                userDisplay.textContent = u.display_name;
+                _webUser = await res.json();
+                userDisplay.textContent = _webUser.display_name;
                 showEditForm(false);
             } else {
-                shortInput.style.borderColor = 'var(--danger, #e55)';
-                longInput.style.borderColor  = 'var(--danger, #e55)';
+                longInput.style.borderColor  = 'var(--error)';
+                shortInput.style.borderColor = 'var(--error)';
                 setTimeout(() => {
-                    shortInput.style.borderColor = '';
                     longInput.style.borderColor  = '';
+                    shortInput.style.borderColor = '';
                 }, 2000);
             }
         } catch (_) { /* network error — leave form open */ }

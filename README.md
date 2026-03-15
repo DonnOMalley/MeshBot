@@ -15,12 +15,15 @@ A configurable Meshtastic channel bot with a multi-page web dashboard. Monitors 
 - Welcome message includes the web dashboard URL
 - Optional bot description displayed in the web header
 - Traceroute command with SNR readings and elapsed time in the response
-- Multi-page web dashboard (Flask) with dashboard, nodes, chat, and about pages
+- Multi-page web dashboard (Flask) with dashboard, nodes, chat, console, and about pages
+- Node table: live hop count shown alongside last-seen time
 - Node table: GPS position column with Google Maps link
-- Node table: web-initiated traceroute with live spinner and inline result card
+- Node table: web-initiated traceroute with live spinner and always-visible left-anchored result popup
 - Node table: live filter input (long name, short name, device type)
 - Node table: CSV export button for downloading the current node list
 - Node favourite/star system persisted to disk
+- Web user identity: browser users receive a persistent fake Meshtastic node ID and can customise their display name
+- Live bot console terminal in the web dashboard; all console output is also logged to `log/`
 - Extensible user-defined commands via `commands/user_commands.py`
 
 ---
@@ -148,12 +151,13 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 ### Pages
 
-| Page      | Path      | Description                                                  |
-| --------- | --------- | ------------------------------------------------------------ |
-| Dashboard | `/`       | Node panel (collapsible) and channel chat history.           |
-| Nodes     | `/nodes`  | Full-page node table.                                        |
-| Chat      | `/chat`   | Full-page chat with per-channel tabs and message send form.  |
-| About     | `/about`  | Bot information: name, description, version, and links.      |
+| Page      | Path       | Description                                                  |
+| --------- | ---------- | ------------------------------------------------------------ |
+| Dashboard | `/`        | Node panel (collapsible) and channel chat history.           |
+| Nodes     | `/nodes`   | Full-page node table.                                        |
+| Chat      | `/chat`    | Full-page chat with per-channel tabs and message send form.  |
+| Console   | `/console` | Live bot console terminal; mirrors all stdout/stderr output. |
+| About     | `/about`   | Bot information: name, description, version, and links.      |
 
 ### Node table
 
@@ -171,11 +175,17 @@ The node table appears on both the Dashboard and Nodes pages. A toolbar above th
 | Node Name | Long name with short name in parentheses. Hover the row to see the node ID.              |
 | Role      | Node role as reported by the device.                                                     |
 | Device    | Hardware model.                                                                          |
-| Last Seen | Absolute last-seen time in browser local time.                                           |
+| Last Seen | Last-seen time in browser local time. Hop count shown in parentheses when known.          |
 | Position  | Pin icon linking to Google Maps when GPS coordinates are available.                      |
 | Traceroute | **Trace** button to request a live traceroute from the bot to that node. Shows a spinner while in-flight, then an inline result card with route, SNR, and elapsed time. |
 
 Favourites are persisted to `data/favorites.json`.
+
+### Sending messages
+
+Messages are sent from the **Chat** page. Each browser session is automatically assigned a persistent fake Meshtastic identity: a node ID derived from the session token, a long name (up to 20 characters), and a short name (2–4 alphanumeric characters, must start with `W`). Click **Edit** in the footer bar to customise your display name.
+
+Outgoing messages are prefixed with `[SHORT]` on the mesh (e.g. `[WUSR] Hello mesh!`) so other nodes can identify the web sender. The web portal displays the message under the user's full display name.
 
 ### Chat history display
 
@@ -237,6 +247,7 @@ commands/
 common/
     app_arguments.py            CLI argument parsing
     chat_history.py             Chat history read/write
+    console_logger.py           Console output tee (log file + web buffer)
     constants.py                All shared constants
     encryption_helper.py        Encrypt/decrypt data files
     meshtastic_helper.py        Meshtastic utility helpers
@@ -257,20 +268,24 @@ messaging/
         channel_monitor.py      Channel message monitor
         dm_monitor.py           Direct message monitor
         node_monitor.py         Node announcement monitor
+log/
+    console_<timestamp>.log     Console output log (one per session, git-ignored)
 web/
     web_server.py               Flask web server
     static/
         app.js                  Shared JS module (nodes, channels, history)
-        nodes.js                Page init for /nodes
         chat.js                 Page init for /chat
+        console.js              Page init for /console (terminal polling)
+        nodes.js                Page init for /nodes
         style.css               Dashboard styles
     templates/
         partials/
             _header.html            Shared nav header partial (included by all pages)
         about.html              About page
+        chat.html               Chat full-page view
+        console.html            Console terminal page
         index.html              Dashboard page
         nodes.html              Nodes full-page view
-        chat.html               Chat full-page view
 ```
 
 ---
@@ -284,6 +299,15 @@ When an `EncryptionKey` is provided, all three files are encrypted using AES via
 ---
 
 ## Release Notes
+
+### v0.6.0 — 2026-03-15
+
+- Added live bot console terminal page (`/console`): polls every 2 s and renders new output in a 1980s-style green-on-black CRT terminal.
+- All bot console output (stdout + stderr) is tee'd to a timestamped log file in `log/` at startup; one file is created per session.
+- Added web user identity: each browser session is assigned a persistent fake Meshtastic node ID derived from the session token. Users can customise their long name (up to 20 chars) and short name (2–4 alphanumeric chars, must start with `W`).
+- Messages sent from the web portal are prefixed with `[SHORT]` on the mesh and attributed to the user's full display name in the chat history viewer.
+- Node table: hop count is now shown in parentheses alongside the last-seen time when reported by the device.
+- Trace popup now opens to the left of the icon and is rendered globally (no longer clipped by table overflow or active filter state).
 
 ### v0.5.0 — 2026-03-15
 
@@ -340,218 +364,3 @@ When an `EncryptionKey` is provided, all three files are encrypted using AES via
 - Flask web dashboard on port `6969` with node list, chat history, and message send.
 - `commands/user_commands.py` extensibility point for custom commands.
 - `meshbot.config` INI file support with CLI argument overrides.
-
-
----
-
-## Features
-
-- Monitors a configured channel and responds to bot commands
-- Responds to direct messages (DMs)
-- Tracks and persists node information with configurable retention
-- Logs channel chat history to disk (with optional encryption)
-- Optional command prefix case-sensitivity control
-- Periodic check-in messages to the channel
-- Web dashboard (Flask) for viewing nodes, chat history, and sending messages
-- Extensible user-defined commands via `commands/user_commands.py`
-
----
-
-## Requirements
-
-- Python 3.14+
-- A Meshtastic device connected via USB serial
-
-### Python packages
-
-Install dependencies with:
-
-```bash
-pip install -r requirements.txt
-```
-
-Dependencies: `cryptography`, `flask`, `meshtastic`
-
----
-
-## Configuration
-
-Copy `meshbot.config.example` to `meshbot.config` and edit it:
-
-```ini
-[meshbot]
-bot_name          = MyBot
-Channel           = MyChannel
-CaseSensitive     = false
-ExcludeOOTB       = false
-NodeRetentionDays = 30
-EncryptionKey     =
-Verbose           = false
-```
-
-| Key                 | Description                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------- |
-| `bot_name`          | Display name of the bot. Used in messages and as the command prefix (`@BotName`).     |
-| `Channel`           | Channel name to join on startup. Omit to be prompted at launch.                       |
-| `CaseSensitive`     | When `true`, command prefix and names must match exact case.                          |
-| `ExcludeOOTB`       | When `true`, built-in commands (`ping`, `test`, `hello`, `last`) are not registered.  |
-| `NodeRetentionDays` | Days of inactivity before a node is removed from the local database. Default: `30`.   |
-| `EncryptionKey`     | Passphrase to encrypt the node database and chat history. Leave blank for plain text. |
-| `Verbose`           | When `true`, prints received messages, dispatched commands, and sent notifications.   |
-
-> **Security note:** Prefer setting `EncryptionKey` in the config file rather than on the command line to avoid it appearing in shell history.
-
----
-
-## Running
-
-```bash
-python meshbot.py
-```
-
-Or pass arguments directly (command-line arguments override config file values):
-
-```bash
-python meshbot.py MyBot --Channel primary
-python meshbot.py MyBot --Channel MyMesh --CaseSensitive
-python meshbot.py MyBot --Channel MyMesh --ExcludeOOTB
-python meshbot.py MyBot --Channel MyMesh --Verbose
-python meshbot.py MyBot --NodeRetentionDays 60
-python meshbot.py MyBot --EncryptionKey mysecret
-python meshbot.py --Config path/to/my.config
-```
-
-Press **Ctrl+C** to stop.
-
----
-
-## Built-in Commands
-
-Commands are sent in the monitored channel or via DM, prefixed with `!`:
-
-| Command           | Description                                             |
-| ----------------- | ------------------------------------------------------- |
-| `!hello`          | Bot greets the sender.                                  |
-| `!ping`           | Bot replies with `Pong! 🏓`.                            |
-| `!test`           | Bot replies with the hop count (`Hops: N 🐇`).          |
-| `!last N CHANNEL` | Returns the last N messages from the specified channel. |
-| `!list`           | Lists all available commands.                           |
-
----
-
-## Custom Commands
-
-Add your own commands in `commands/user_commands.py`. Register them via `get_commands()` and they will be passed to the channel monitor at startup.
-
----
-
-## Web Dashboard
-
-A Flask web dashboard starts automatically on port `6969` and is accessible from any machine able to reach yours on the network.
-
-```
-http://<your-ip>:6969
-```
-
-The dashboard provides:
-
-- Live node list with last-seen timestamps
-- Channel chat history viewer
-- Message send form
-
-### Network Access
-
-The server binds to `0.0.0.0` by default, meaning it accepts connections from any network interface. However, your OS firewall may block inbound connections on port `6969`.
-
----
-
-#### Windows
-
-Add a firewall inbound rule (run in an **elevated/Admin PowerShell**):
-
-```powershell
-New-NetFirewallRule -DisplayName "MeshBot Web Dashboard" -Direction Inbound -Protocol TCP -LocalPort 6969 -Action Allow
-```
-
-To verify the rule exists:
-
-```powershell
-Get-NetFirewallRule | Where-Object DisplayName -like "*MeshBot*"
-```
-
-To remove the rule later:
-
-```powershell
-Remove-NetFirewallRule -DisplayName "MeshBot Web Dashboard"
-```
-
----
-
-#### Linux
-
-Allow the port through `ufw` (if enabled):
-
-```bash
-sudo ufw allow 6969/tcp
-sudo ufw reload
-```
-
-Or with `firewalld`:
-
-```bash
-sudo firewall-cmd --permanent --add-port=6969/tcp
-sudo firewall-cmd --reload
-```
-
-To check the current `ufw` status:
-
-```bash
-sudo ufw status
-```
-
----
-
-## Project Structure
-
-```
-meshbot.py                  Entry point
-meshbot.config              Runtime configuration (git-ignored)
-meshbot.config.example      Example configuration template
-requirements.txt            Python dependencies
-commands/
-    user_commands.py        User-defined bot commands
-common/
-    app_arguments.py        CLI argument parsing
-    chat_history.py         Chat history read/write
-    constants.py            All shared constants
-    encryption_helper.py    Encrypt/decrypt data files
-    meshtastic_helper.py    Meshtastic utility helpers
-    node_database.py        Node persistence
-configuration/
-    node_configuration.py   Node config loading
-data/
-    nodes.json              Persisted node database
-messaging/
-    bot_commands.py         Built-in command definitions
-    bot_lifecycle_messenger.py  Welcome/check-in/signoff messages
-    command_handler.py      Command dispatch logic
-    command_register.py     Command registration
-    monitors/
-        base_monitor.py     Abstract base monitor
-        channel_monitor.py  Channel message monitor
-        dm_monitor.py       Direct message monitor
-        node_monitor.py     Node announcement monitor
-web/
-    web_server.py           Flask web server
-    static/                 CSS and JS assets
-    templates/
-        index.html          Dashboard HTML
-```
-
----
-
-## Data & Encryption
-
-Node records are stored in `data/nodes.json`. Chat history is stored per-channel as `data/<channel_name>.txt`.
-
-When an `EncryptionKey` is provided, both files are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.

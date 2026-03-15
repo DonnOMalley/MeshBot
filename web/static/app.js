@@ -10,7 +10,7 @@ let _sortAsc = false;
 let _nodeFilter = '';
 
 // ── Trace state ───────────────────────────────────────────────────────────────
-// Keyed by node_id: { status: 'pending'|'ok'|'timeout', data: {...}|null }
+// Keyed by node_id: { status: 'pending'|'ok'|'timeout'|'error', data: {...}|null }
 
 const _nodeTraces = new Map();
 // Client-side abort guard: slightly longer than _WEB_TRACE_TIMEOUT_SECONDS (30s) on the server
@@ -64,7 +64,10 @@ function renderNodes(nodes) {
         } else if (traceState.status === 'ok') {
             traceCell = `<div class="trace-cell"><div class="trace-result trace-ok"><span class="trace-icon">&#128225;</span><div class="trace-card">${buildTraceCard(traceState.data)}</div></div><button class="trace-btn trace-btn-refresh" onclick="requestTrace(this.closest('tr').title)" title="Refresh trace">&#8635;</button></div>`;
         } else {
-            traceCell = `<div class="trace-cell"><div class="trace-result trace-error"><span class="trace-icon">&#9888;</span><div class="trace-card"><p class="trace-card-err">Last trace failed to get a response.</p></div></div><button class="trace-btn trace-btn-refresh" onclick="requestTrace(this.closest('tr').title)" title="Retry trace">&#8635;</button></div>`;
+            const errMsg = traceState.data && traceState.data.message
+                ? esc(traceState.data.message)
+                : 'Last trace failed to get a response.';
+            traceCell = `<div class="trace-cell"><div class="trace-result trace-error"><span class="trace-icon">&#9888;</span><div class="trace-card"><p class="trace-card-err">${errMsg}</p></div></div><button class="trace-btn trace-btn-refresh" onclick="requestTrace(this.closest('tr').title)" title="Retry trace">&#8635;</button></div>`;
         }
         return `
         <tr title="${esc(n.node_id)}">
@@ -72,7 +75,7 @@ function renderNodes(nodes) {
             <td>${name}</td>
             <td>${esc(n.role || '\u2014')}</td>
             <td>${esc(n.hardware_model || '\u2014')}</td>
-            <td>${esc(fmtDate(n.last_seen))}</td>
+            <td>${esc(fmtDate(n.last_seen))}${n.hops_away != null ? ` (${n.hops_away} ${n.hops_away === 1 ? 'hop' : 'hops'})` : ''}</td>
             <td style="text-align:center">${posCell}</td>
             <td>${traceCell}</td>
         </tr>`;
@@ -96,6 +99,41 @@ function buildTraceCard(data) {
         rows.push(`<div class="trace-card-row"><span class="trace-k">SNR&nbsp;&#8592;</span><span class="trace-v">${data.snr_back.map(v => v.toFixed(1)).join(', ')}&nbsp;dB</span></div>`);
     rows.push(`<div class="trace-card-row"><span class="trace-k">Time</span><span class="trace-v">${data.elapsed}s</span></div>`);
     return rows.join('');
+}
+
+// ── Trace popup ──────────────────────────────────────────────────────────────
+
+function _setupTracePopup() {
+    const popup = document.getElementById('trace-popup');
+    if (!popup) return;
+    const tbody = document.getElementById('node-tbody');
+    if (!tbody) return;
+
+    tbody.addEventListener('mouseover', e => {
+        const result = e.target.closest('.trace-result');
+        if (!result) return;
+        const card = result.querySelector('.trace-card');
+        if (!card) return;
+        popup.innerHTML = card.innerHTML;
+        popup.style.visibility = 'hidden';
+        popup.style.display = 'block';
+        const rect = result.getBoundingClientRect();
+        const pw = popup.offsetWidth;
+        const ph = popup.offsetHeight;
+        const left = rect.left - pw - 8;
+        const top = rect.top + rect.height / 2 - ph / 2;
+        popup.style.left = Math.max(4, left) + 'px';
+        popup.style.top = Math.max(4, Math.min(window.innerHeight - ph - 4, top)) + 'px';
+        popup.style.visibility = '';
+    });
+
+    tbody.addEventListener('mouseout', e => {
+        const result = e.target.closest('.trace-result');
+        if (!result) return;
+        if (!result.contains(e.relatedTarget)) {
+            popup.style.display = 'none';
+        }
+    });
 }
 
 // ── Node filter ───────────────────────────────────────────────────────────────

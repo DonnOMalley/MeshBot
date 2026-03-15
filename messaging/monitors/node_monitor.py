@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 from pubsub import pub
 from common.constants import (
     _EVENT_NODE_INFO,
@@ -67,9 +68,10 @@ class NodeMonitor:
         node_id: str = user.get("id", "") or sender_node_id
         role: str = user.get("role", "") or ""
         hardware_model: str = user.get("hwModel", "") or ""
+        hops_away: Optional[int] = packet.get("hopsAway")
 
         if node_id:
-            self._db.upsert(node_id, long_name, short_name, role, hardware_model)
+            self._db.upsert(node_id, long_name, short_name, role, hardware_model, hops_away=hops_away)
     # endregion Protected Functions
 
     # region Public Functions

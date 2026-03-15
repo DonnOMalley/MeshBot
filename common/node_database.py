@@ -28,6 +28,7 @@ _KEY_ROLE: str = "role"
 _KEY_HARDWARE_MODEL: str = "hardware_model"
 _KEY_LATITUDE: str = "latitude"
 _KEY_LONGITUDE: str = "longitude"
+_KEY_HOPS_AWAY: str = "hops_away"
 
 
 class NodeRecord:
@@ -42,6 +43,7 @@ class NodeRecord:
     hardware_model: str
     latitude: Optional[float]
     longitude: Optional[float]
+    hops_away: Optional[int]
     # endregion Public Variables
 
     # region Constructor
@@ -55,6 +57,7 @@ class NodeRecord:
         hardware_model: str = "",
         latitude: Optional[float] = None,
         longitude: Optional[float] = None,
+        hops_away: Optional[int] = None,
     ) -> None:
         """Initialises the node record with identity and tracking data.
 
@@ -67,6 +70,7 @@ class NodeRecord:
             hardware_model: The hardware model string (e.g. ``'TBEAM'``). Empty string if unknown.
             latitude: GPS latitude in decimal degrees, or None if unavailable.
             longitude: GPS longitude in decimal degrees, or None if unavailable.
+            hops_away: Number of hops to reach this node, or None if unknown.
         """
         self.node_id = node_id
         self.long_name = long_name
@@ -76,6 +80,7 @@ class NodeRecord:
         self.hardware_model = hardware_model
         self.latitude = latitude
         self.longitude = longitude
+        self.hops_away = hops_away
     # endregion Constructor
 
     # region Public Functions
@@ -94,6 +99,7 @@ class NodeRecord:
             _KEY_HARDWARE_MODEL: self.hardware_model,
             _KEY_LATITUDE: self.latitude,
             _KEY_LONGITUDE: self.longitude,
+            _KEY_HOPS_AWAY: self.hops_away,
         }
 
     @staticmethod
@@ -118,6 +124,7 @@ class NodeRecord:
             hardware_model=data.get(_KEY_HARDWARE_MODEL, ""),
             latitude=data.get(_KEY_LATITUDE),
             longitude=data.get(_KEY_LONGITUDE),
+            hops_away=data.get(_KEY_HOPS_AWAY),
         )
     # endregion Public Functions
 
@@ -267,14 +274,15 @@ class NodeDatabase:
                 lon_i: Optional[int] = position.get("longitudeI")
                 latitude: Optional[float] = lat_i * _LATITUDE_SCALE if lat_i is not None else None
                 longitude: Optional[float] = lon_i * _LONGITUDE_SCALE if lon_i is not None else None
+                hops_away: Optional[int] = node_data.get("hopsAway")
                 if node_id:
-                    self.upsert(node_id, long_name, short_name, role, hardware_model, latitude, longitude)
+                    self.upsert(node_id, long_name, short_name, role, hardware_model, latitude, longitude, hops_away=hops_away)
         print(_NODE_DB_LOADED.format(count=len(self._nodes)))
 
-    def upsert(self, node_id: str, long_name: str, short_name: str, role: str = "", hardware_model: str = "", latitude: Optional[float] = None, longitude: Optional[float] = None) -> None:
+    def upsert(self, node_id: str, long_name: str, short_name: str, role: str = "", hardware_model: str = "", latitude: Optional[float] = None, longitude: Optional[float] = None, hops_away: Optional[int] = None) -> None:
         """Adds a new node record or updates an existing one with fresh identity data.
 
-        GPS coordinates are updated whenever non-None values are provided.
+        GPS coordinates and hop count are updated whenever non-None values are provided.
         The database file is saved after every call that produces a change.
 
         Args:
@@ -285,6 +293,7 @@ class NodeDatabase:
             hardware_model: The hardware model string (e.g. ``'TBEAM'``). Defaults to empty string.
             latitude: GPS latitude in decimal degrees, or None to leave existing value unchanged.
             longitude: GPS longitude in decimal degrees, or None to leave existing value unchanged.
+            hops_away: Number of hops to reach this node, or None to leave existing value unchanged.
         """
         now: datetime = datetime.now(tz=timezone.utc)
         existing: Optional[NodeRecord] = self._nodes.get(node_id)
@@ -299,6 +308,7 @@ class NodeDatabase:
                 hardware_model=hardware_model,
                 latitude=latitude,
                 longitude=longitude,
+                hops_away=hops_away,
             )
             self._nodes[node_id] = record
             self._save()
@@ -313,6 +323,7 @@ class NodeDatabase:
                 (latitude is not None and latitude != existing.latitude)
                 or (longitude is not None and longitude != existing.longitude)
             )
+            hops_away_changed: bool = hops_away is not None and hops_away != existing.hops_away
             delta_seconds: float = (now - existing.last_seen).total_seconds()
             if delta_seconds > 0 or identity_changed:
                 existing.long_name = long_name
@@ -323,6 +334,8 @@ class NodeDatabase:
                     existing.latitude = latitude
                 if longitude is not None:
                     existing.longitude = longitude
+                if hops_away is not None:
+                    existing.hops_away = hops_away
                 existing.last_seen = now
                 self._save()
                 if self._verbose:
@@ -331,11 +344,13 @@ class NodeDatabase:
                         long_name=long_name,
                         short_name=short_name,
                     ))
-            elif position_changed:
+            elif position_changed or hops_away_changed:
                 if latitude is not None:
                     existing.latitude = latitude
                 if longitude is not None:
                     existing.longitude = longitude
+                if hops_away is not None:
+                    existing.hops_away = hops_away
                 self._save()
             else:
                 if self._verbose:

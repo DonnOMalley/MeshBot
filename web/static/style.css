@@ -727,13 +727,9 @@ body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 240px); }
 
 .trace-icon { font-size: 15px; line-height: 1; }
 
-/* Hover card */
+/* Hover card — hidden in-row data container; shown via #trace-popup */
 .trace-card {
     display: none;
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 0;
-    z-index: 200;
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -743,7 +739,15 @@ body.full-page #chat-messages.scroll-box { max-height: calc(100vh - 240px); }
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
     pointer-events: none;
 }
-.trace-result:hover .trace-card { display: block; }
+
+/* Global fixed popup — escapes any overflow-clipping ancestor */
+#trace-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+    pointer-events: none;
+}
 
 .trace-card-row {
     display: flex;
