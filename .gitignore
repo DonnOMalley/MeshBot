@@ -42,6 +42,9 @@ Thumbs.db
 # Runtime data (node DB, chat history, encryption salt — all generated at runtime)
 data/
 
+# Console log files (generated at runtime, one per session)
+log/
+
 # Config file contains real credentials / encryption keys.
 # Copy meshbot.config.example → meshbot.config and fill in your own values.
 meshbot.config
