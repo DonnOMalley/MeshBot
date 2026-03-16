@@ -13,8 +13,8 @@ let _nodeFilter = '';
 // Keyed by node_id: { status: 'pending'|'ok'|'timeout'|'error', data: {...}|null }
 
 const _nodeTraces = new Map();
-// Client-side abort guard: slightly longer than _WEB_TRACE_TIMEOUT_SECONDS (30s) on the server
-const _TRACE_FETCH_TIMEOUT_MS = 35000;
+const _TRACE_POLL_INTERVAL_MS = 1500;
+const _TRACE_POLL_TIMEOUT_MS  = 90_000;
 
 // ── Nodes ─────────────────────────────────────────────────────────────────────
 
@@ -203,24 +203,52 @@ function _showTraceSpinner(nodeId) {
 async function requestTrace(nodeId) {
     _nodeTraces.set(nodeId, { status: 'pending', data: null });
     _showTraceSpinner(nodeId);
-    const controller = new AbortController();
-    const abortTimer = setTimeout(() => controller.abort(), _TRACE_FETCH_TIMEOUT_MS);
     try {
         const res = await fetch('/api/trace', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ node_id: nodeId }),
-            signal: controller.signal,
         });
-        clearTimeout(abortTimer);
-        const data = await res.json();
-        _nodeTraces.set(nodeId, { status: data.status, data });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const initial = await res.json();
+        if (initial.status !== 'pending') {
+            _nodeTraces.set(nodeId, { status: initial.status, data: initial });
+            renderNodes(_lastNodes);
+            updateSortIndicators();
+            return;
+        }
     } catch (_) {
-        clearTimeout(abortTimer);
-        _nodeTraces.set(nodeId, { status: 'timeout', data: null });
+        _nodeTraces.set(nodeId, { status: 'error', data: { message: 'Failed to send trace request.' } });
+        renderNodes(_lastNodes);
+        updateSortIndicators();
+        return;
     }
-    renderNodes(_lastNodes);
-    updateSortIndicators();
+    const deadline = Date.now() + _TRACE_POLL_TIMEOUT_MS;
+    const poll = async () => {
+        if (Date.now() > deadline) {
+            _nodeTraces.set(nodeId, { status: 'timeout', data: null });
+            renderNodes(_lastNodes);
+            updateSortIndicators();
+            return;
+        }
+        try {
+            const res = await fetch(`/api/trace/${encodeURIComponent(nodeId)}`);
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+            if (data.status === 'pending') {
+                setTimeout(poll, _TRACE_POLL_INTERVAL_MS);
+            } else {
+                _nodeTraces.set(nodeId, { status: data.status, data });
+                renderNodes(_lastNodes);
+                updateSortIndicators();
+            }
+        } catch (_) {
+            _nodeTraces.set(nodeId, { status: 'error', data: { message: 'Failed to poll trace result.' } });
+            renderNodes(_lastNodes);
+            updateSortIndicators();
+        }
+    };
+    setTimeout(poll, _TRACE_POLL_INTERVAL_MS);
 }
 
 function sortAndGroup(nodes) {

@@ -19,13 +19,16 @@ name = "Alice"
 
 All functions must have an explicit return type annotation. Use `-> None` when the function does not return a value.
 
+Never use `Optional[X]` — always use `X | None` instead.
+
 ```python
 # correct
 def connect(self, iface) -> None: ...
-def get_channel(self, index: int) -> Optional[Channel]: ...
+def get_channel(self, index: int) -> Channel | None: ...
 
 # incorrect
 def connect(self, iface): ...
+def get_channel(self, index: int) -> Optional[Channel]: ...
 ```
 
 ## 3. No Hard Coding
@@ -134,7 +137,7 @@ Document every public and protected method. Use the following sections as applic
 
 ```python
 # correct
-def get_channel_by_name(self, channel_name: str) -> Optional[channel_pb2.Channel]:
+def get_channel_by_name(self, channel_name: str) -> channel_pb2.Channel | None:
     """Looks up a channel by its display name.
 
     A name of 'primary' (case-insensitive, with or without parentheses) is
@@ -305,7 +308,29 @@ class ChannelMonitor(BaseMonitor):
 
 Concrete property implementations that simply return a constant do **not** require a docstring — the abstract declaration in the base class already documents the contract.
 
-## 9. Single Return Statement
+## 9. File Organisation
+
+Each class must live in its own file, named after the class in `snake_case`. Files should be as short as possible — a file that contains only one focused class and its imports is the goal. Prefer creating more, shorter files over fewer, longer files.
+
+The only exception is a class that is **both** of the following:
+- So small it is trivially understood in a single glance (fewer than ~15 lines of body), **and**
+- Guaranteed never to be imported or used outside the one file it appears in (e.g. a private data-holder or named tuple used only as a local return type in the same module).
+
+If either condition is not met, extract the class to its own file.
+
+```python
+# correct — JokeManager has its own file: commands/joke_manager.py
+# correct — NodeDatabase has its own file: common/node_database.py
+
+# incorrect — defining two unrelated classes in the same file
+class Foo:
+    ...
+
+class Bar:      # should be in bar.py
+    ...
+```
+
+## 10. Single Return Statement
 
 Every function or method must have **exactly one** `return` statement, located at the end of the function body. Early returns are not permitted.
 

@@ -14,6 +14,8 @@ from common.constants import (
 )
 from configuration.node_configuration import NodeConfiguration
 
+from common.chat_history import ChatHistory
+from common.meshtastic_helper import MeshtasticHelper
 
 class BotLifecycleMessenger:
     """Sends pre-defined bot lifecycle messages over the Meshtastic network."""
@@ -56,12 +58,18 @@ class BotLifecycleMessenger:
             channel: The channel on which to send the message.
             channel_msg: The message text to broadcast on the channel.
             console_msg: The message text to print to the console.
-        """
-        self._iface.sendText(channel_msg, channelIndex=channel.index)
-        if self._chat_history is not None:
-            self._chat_history.append(_CHAT_HISTORY_BOT_SENDER, channel_msg)
-        if self._verbose:
-            print(console_msg.format(name=channel.settings.name, index=channel.index))
+        """        
+        MeshtasticHelper.send_text_message(
+            iface=self._iface,
+            channelIndex=channel.index,
+            message=channel_msg,
+            packet={},
+            consoleMsg=console_msg.format(name=channel.settings.name, index=channel.index) if self._verbose else None,
+            destinationId=None,
+            chat_history=self._chat_history,
+            chat_sender=_CHAT_HISTORY_BOT_SENDER,
+        )
+            
     # endregion Protected Functions
 
     # region Public Functions

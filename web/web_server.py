@@ -7,9 +7,9 @@ import secrets
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Optional
 
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory, session
+from google.protobuf.json_format import MessageToDict
 from meshtastic import channel_pb2
 from meshtastic.mesh_interface import MeshInterface
 from pubsub import pub
@@ -41,7 +41,6 @@ from common.constants import (
     _WEB_SERVER_HISTORY_LIMIT,
     _WEB_SERVER_PORT,
     _WEB_SERVER_STARTED,
-    _WEB_TRACE_TIMEOUT_SECONDS,
     _WEB_USER_LONG_NAME_DEFAULT,
     _WEB_USER_LONG_NAME_MAX_LEN,
     _WEB_USER_MESSAGE_PREFIX_FORMAT,
@@ -151,15 +150,15 @@ class WebServer:
     _channel: channel_pb2.Channel
     _channel_name: str
     _data_dir: str
-    _passphrase: Optional[str]
-    _fernet_key: Optional[bytes]
+    _passphrase: str | None
+    _fernet_key: bytes | None
     _favorites: set[str]
-    _pending_web_traces: dict[str, tuple[threading.Event, dict, float]]
+    _pending_web_traces: dict[str, tuple[dict, float]]
     _port: int
     _web_dir: str
     _web_users: dict[str, WebUser]
-    _chat_history: Optional[ChatHistory]
-    _console_logger: Optional[ConsoleLogger]
+    _chat_history: ChatHistory | None
+    _console_logger: ConsoleLogger | None
     _app: Flask
     # endregion Protected Variables
 
@@ -174,10 +173,10 @@ class WebServer:
         case_sensitive: bool = False,
         data_dir: str = _NODE_DB_DIR,
         host: str = _WEB_SERVER_DISPLAY_HOST,
-        passphrase: Optional[str] = None,
+        passphrase: str | None = None,
         port: int = _WEB_SERVER_PORT,
-        chat_history: Optional[ChatHistory] = None,
-        console_logger: Optional[ConsoleLogger] = None,
+        chat_history: ChatHistory | None = None,
+        console_logger: ConsoleLogger | None = None,
     ) -> None:
         """Initialises the web server.
 
@@ -287,20 +286,19 @@ class WebServer:
     def _on_web_traceroute_response(self, packet: dict, interface: MeshInterface) -> None:
         """Handles a traceroute response received via pubsub for a web-initiated trace.
 
-        If the responding node has a pending web trace request, parses the packet,
-        populates the result container, and signals the waiting API thread.
+        If the responding node has a pending web trace request, parses the packet
+        and populates the result container so the polling endpoint can return it.
 
         Args:
             packet: The raw Meshtastic traceroute response packet.
             interface: The MeshInterface that received the packet (unused).
         """
         from_id: str = MeshtasticHelper.get_node_id_from_packet(packet)
-        entry: tuple[threading.Event, dict, float] | None = self._pending_web_traces.get(from_id)
+        entry: tuple[dict, float] | None = self._pending_web_traces.get(from_id)
         if entry is not None:
-            event, result, start_time = entry
+            result, start_time = entry
             elapsed: float = time.time() - start_time
             result.update(self._parse_traceroute_packet(packet, from_id, elapsed))
-            event.set()
 
     def _parse_traceroute_packet(self, packet: dict, node_id: str, elapsed: float) -> dict:
         """Parses a raw traceroute response packet into a structured dict for the web API.
@@ -570,17 +568,74 @@ class WebServer:
             if not node_id:
                 abort(400)
             else:
-                event: threading.Event = threading.Event()
                 result: dict = {}
                 start_time: float = time.time()
-                self._pending_web_traces[node_id] = (event, result, start_time)
+                self._pending_web_traces[node_id] = (result, start_time)
                 try:
                     self._iface.sendTraceRoute(dest=node_id, hopLimit=_TRACE_HOP_LIMIT, channelIndex=self._channel.index)
-                    signalled: bool = event.wait(timeout=_WEB_TRACE_TIMEOUT_SECONDS)
-                    trace_response = jsonify({"status": "timeout", "node_id": node_id}) if not signalled else jsonify(result)
+                    trace_response = jsonify({"status": "pending", "node_id": node_id})
                 except Exception as exc:
-                    trace_response = jsonify({"status": "error", "node_id": node_id, "message": str(exc)})
-                finally:
                     self._pending_web_traces.pop(node_id, None)
+                    trace_response = jsonify({"status": "error", "node_id": node_id, "message": str(exc)})
             return trace_response
-    # endregion Protected Functions
+
+        @self._app.route("/api/trace/<string:node_id>")
+        def api_trace_result(node_id: str):
+            entry: tuple[dict, float] | None = self._pending_web_traces.get(node_id)
+            if entry is None:
+                trace_response = jsonify({"status": "not_found", "node_id": node_id})
+            else:
+                result, _ = entry
+                if result:
+                    self._pending_web_traces.pop(node_id, None)
+                    trace_response = jsonify(result)
+                else:
+                    trace_response = jsonify({"status": "pending", "node_id": node_id})
+            return trace_response
+
+        @self._app.route("/settings")
+        def settings_page():
+            return render_template("settings.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
+        @self._app.route("/api/settings")
+        def api_settings():
+            try:
+                local_node = self._iface.localNode
+                lora: dict = MessageToDict(
+                    local_node.localConfig.lora,
+                    preserving_proto_field_name=True,
+                    always_print_fields_with_no_presence=True,
+                )
+                device: dict = MessageToDict(
+                    local_node.localConfig.device,
+                    preserving_proto_field_name=True,
+                    always_print_fields_with_no_presence=True,
+                )
+                channels: list = []
+                for ch in (local_node.channels or []):
+                    if not ch.role:
+                        continue
+                    channels.append({
+                        "index": ch.index,
+                        "name": ch.settings.name if ch.settings.name else ("Primary" if ch.index == 0 else f"Channel {ch.index}"),
+                        "role": channel_pb2.Channel.Role.Name(ch.role),
+                        "uplink_enabled": ch.settings.uplink_enabled,
+                        "downlink_enabled": ch.settings.downlink_enabled,
+                    })
+                my_node: dict = self._iface.getMyNodeInfo() or {}
+                user_data: dict = my_node.get("user", {})
+                return jsonify({
+                    "lora": lora,
+                    "device": device,
+                    "user": {
+                        "node_id": user_data.get("id", ""),
+                        "long_name": user_data.get("longName", ""),
+                        "short_name": user_data.get("shortName", ""),
+                        "hw_model": user_data.get("hwModel", ""),
+                        "is_licensed": user_data.get("isLicensed", False),
+                        "role": user_data.get("role", ""),
+                    },
+                    "channels": channels,
+                })
+            except Exception as exc:
+                return jsonify({"error": str(exc)}), 503

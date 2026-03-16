@@ -101,6 +101,7 @@ CMD_TEST: str = "test"
 CMD_LAST: str = "last"
 CMD_TRACE: str = "trace"
 CMD_WEB: str = "web"
+CMD_JOKE: str = "joke"
 _EXCLAMATION_PREFIX: str = "!"
 # endregion Bot Command Names
 
@@ -261,6 +262,16 @@ _TRACE_SNR_VALUE_SEP: str = ", "
 _TRACE_SNR_LINE_FWD: str = "\nSNR\u2192: {values} dB"
 _TRACE_SNR_LINE_BACK: str = "\nSNR\u2190: {values} dB"
 # endregion Bot Command: Trace
+# region Bot Command: Joke
+_JOKE_API_URL: str = "https://v2.jokeapi.dev/joke/Any?type=single&safe-mode"
+_JOKE_CACHE_FILE: str = "jokes.json"
+_JOKE_API_TIMEOUT: float = 5.0
+_JOKE_API_KEY: str = "joke"
+_JOKE_ERROR_RESPONSE: str = "No jokes available right now. Try again later! \U0001f605"
+_JOKE_CONSOLE_SENT: str = "[BOT] Joke sent to {sender}."
+_JOKE_API_FAILED_CONSOLE: str = "[BOT] JokeAPI unavailable. Using cached joke."
+_JOKE_NO_JOKES_CONSOLE: str = "[BOT] No jokes available (API failed, cache empty)."
+# endregion Bot Command: Joke
 # region Command Send Delays
 _CMD_SEND_DELAY: float = 2.0
 _CMD_LIST_HEADER: str = "Available commands:"
@@ -301,7 +312,6 @@ _WEB_SERVER_HISTORY_LIMIT: int = 200
 _WEB_SERVER_MAX_SEND_LENGTH: int = 228
 _WEB_SERVER_STARTED: str = "Web dashboard running at http://{host}:{port}"
 _WEB_DASHBOARD_URL: str = "http://{host}:{port}"
-_WEB_TRACE_TIMEOUT_SECONDS: int = 30
 _GITHUB_REPO_URL: str = "https://github.com/DonnOMalley/MeshBot"
 # endregion Web Dashboard
 
@@ -343,7 +353,7 @@ _MSG_CONNECTION_MONITOR_STOPPED: str = "\nConnection monitor stopped."
 # endregion Connection Monitor Messages
 
 # region Bot Lifecycle Messages
-_BOT_WELCOME_MESSAGE: str = f"Hello Mesh!\n{{bot_name}} is online.\nRunning on {{long_name}} ({{short_name}})\n\nMessage me here or send me a DM\n\nSend !{CMD_LIST} to see the list of available commands\n\nView the Web dashboard at:\n{{web_url}}"
+_BOT_WELCOME_MESSAGE: str = f"{{bot_name}} is online via {{long_name}} ({{short_name}})\n\nMessage me here or send me a DM\n\nSend !{CMD_LIST} to see the list of available commands\n\nView the Web dashboard at:\n{{web_url}}"
 _BOT_CHECKIN_MESSAGE: str = f"{{bot_name}} just checking in... Still online\nSend !{CMD_LIST} to see the list of available commands"
 _BOT_SIGNOFF_MESSAGE: str = "{bot_name} signing off!\n\nCatch you on the flip side!"
 
