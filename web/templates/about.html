@@ -23,16 +23,21 @@
           <div class="about-section-header">About {{ bot_name }}</div>
           <div class="about-section-body">
             <p>
-              <strong>{{ bot_name }}</strong> is a configurable Meshtastic channel bot that monitors
-              a mesh network channel via serial connection, responds to commands, tracks active
-              nodes, logs chat history, and exposes this web dashboard for monitoring and messaging.
+              <strong>{{ bot_name }}</strong> is a configurable Meshtastic channel bot that connects
+              to a device via USB serial, monitors a mesh network channel, responds to commands,
+              tracks active nodes, logs chat history, and exposes this multi-page web dashboard
+              for monitoring, messaging, and device inspection.
             </p>
             <p>
               The bot listens for commands prefixed with
               <span style="font-family:var(--mono);color:var(--accent)">!</span>
-              on the configured channel (e.g. <span style="font-family:var(--mono);color:var(--accent)">!ping</span>),
-              and also accepts the same commands via direct message.
+              on the configured channel (e.g. <span style="font-family:var(--mono);color:var(--accent)">!ping</span>)
+              and accepts the same commands via direct message. Outgoing web messages are
+              prefixed with the sender&rsquo;s short name so other mesh nodes can identify the source.
             </p>
+            {% if bot_description %}
+            <p style="color:var(--muted);font-size:12px;font-family:var(--mono);">{{ bot_description }}</p>
+            {% endif %}
             <p>
               Source code and documentation:
               <a href="{{ github_url }}" target="_blank" rel="noopener noreferrer">{{ github_url }}</a>
@@ -61,18 +66,18 @@
                 <tr>
                   <td class="cmd-name">!ping</td>
                   <td class="cmd-syntax">!ping</td>
-                  <td class="cmd-desc">Responds with a pong — useful for testing reachability.</td>
+                  <td class="cmd-desc">Responds with a pong &mdash; useful for testing reachability.</td>
                 </tr>
                 <tr>
                   <td class="cmd-name">!test</td>
                   <td class="cmd-syntax">!test</td>
-                  <td class="cmd-desc">Reports the hop count to reach the bot (<code>Hops: N 🐇</code>), or confirms a direct connection when there are no relays.</td>
+                  <td class="cmd-desc">Reports the hop count to reach the bot (<code>Hops: N &#x1F407;</code>), or confirms a direct connection when there are no relays.</td>
                 </tr>
                 <tr>
                   <td class="cmd-name">!last</td>
                   <td class="cmd-syntax">!last &lt;N&gt; &lt;CHANNEL&gt;</td>
                   <td class="cmd-desc">
-                    Returns the last <em>N</em> messages from the specified channel.
+                    Returns the last <em>N</em> messages from the specified channel as DMs (max&nbsp;5).
                     <em>N</em> must be a positive integer; <em>CHANNEL</em> is the channel name.
                   </td>
                 </tr>
@@ -80,23 +85,84 @@
                   <td class="cmd-name">!trace</td>
                   <td class="cmd-syntax">!trace</td>
                   <td class="cmd-desc">
-                    Initiates a traceroute from the bot node back to the sender, reporting each hop,
-                    signal-to-noise ratio readings, and total round-trip duration.
+                    Initiates a traceroute from the bot back to the sender, reporting each hop,
+                    SNR readings (forward and return), and total round-trip duration.
                   </td>
                 </tr>
                 <tr>
                   <td class="cmd-name">!web</td>
                   <td class="cmd-syntax">!web</td>
                   <td class="cmd-desc">
-                    Replies with the URL of the web dashboard so any mesh node can find the portal.
+                    Replies with the URL of this web dashboard so any mesh node can find the portal.
                   </td>
                 </tr>
                 <tr>
                   <td class="cmd-name">!cmdList</td>
                   <td class="cmd-syntax">!cmdList</td>
                   <td class="cmd-desc">
-                    Sends a direct message to the requester listing all available commands.
+                    Sends a direct message listing all available commands.
                   </td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">!joke</td>
+                  <td class="cmd-syntax">!joke</td>
+                  <td class="cmd-desc">
+                    Fetches a joke from JokeAPI and replies with it. Falls back to a local cache when offline.
+                    <span style="font-size:10px;color:var(--muted);font-family:var(--mono);">user command</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Web Dashboard -->
+        <section class="about-section">
+          <div class="about-section-header">Web Dashboard</div>
+          <div class="about-section-body" style="padding: 0;">
+            <table class="cmd-table">
+              <thead>
+                <tr>
+                  <th>Page</th>
+                  <th>Path</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cmd-name"><a href="/" style="color:var(--accent);text-decoration:none;">Dashboard</a></td>
+                  <td class="cmd-syntax">/</td>
+                  <td class="cmd-desc">Collapsible node panel and channel chat history.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name"><a href="/nodes" style="color:var(--accent);text-decoration:none;">Nodes</a></td>
+                  <td class="cmd-syntax">/nodes</td>
+                  <td class="cmd-desc">Full-page node table with filter, sort, favourites, CSV export, GPS links, and live traceroute.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name"><a href="/chat" style="color:var(--accent);text-decoration:none;">Chat</a></td>
+                  <td class="cmd-syntax">/chat</td>
+                  <td class="cmd-desc">Per-channel chat history with a collapsible send form. Messages are attributed to a persistent browser identity.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name"><a href="/console" style="color:var(--accent);text-decoration:none;">Console</a></td>
+                  <td class="cmd-syntax">/console</td>
+                  <td class="cmd-desc">Live CRT-style console terminal mirroring all bot stdout&thinsp;/&thinsp;stderr output.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name"><a href="/dm" style="color:var(--accent);text-decoration:none;">Bot Test</a></td>
+                  <td class="cmd-syntax">/dm</td>
+                  <td class="cmd-desc">Interactive DM session with the bot. Quick-command buttons for every command; responses appear in a live conversation window.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name"><a href="/settings" style="color:var(--accent);text-decoration:none;">Settings</a></td>
+                  <td class="cmd-syntax">/settings</td>
+                  <td class="cmd-desc">Read-only view of the connected device&rsquo;s LoRa, device, owner, and channel configuration.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name"><a href="/about" style="color:var(--accent);text-decoration:none;">About</a></td>
+                  <td class="cmd-syntax">/about</td>
+                  <td class="cmd-desc">This page &mdash; bot info, command reference, dashboard guide, and full README.</td>
                 </tr>
               </tbody>
             </table>
@@ -110,7 +176,7 @@
             <p>
               All commands use the <span style="font-family:var(--mono);color:var(--accent)">!</span> prefix
               (e.g. <span style="font-family:var(--mono);color:var(--accent)">!ping</span>).
-              Commands can be sent on any monitored channel or via direct message to the bot.
+              Commands can be sent on either the monitored channel or via direct message to the bot.
             </p>
             <p>
               {% if case_sensitive %}
@@ -125,6 +191,11 @@
                 <span style="font-family:var(--mono);color:var(--accent)">!Ping</span>, and
                 <span style="font-family:var(--mono);color:var(--accent)">!PING</span> are all equivalent.
               {% endif %}
+            </p>
+            <p>
+              To test commands without a physical Meshtastic radio, use the
+              <a href="/dm">Bot Test</a> page. It runs a live DM session in the browser and
+              supports all commands including quick-send buttons for the most common ones.
             </p>
           </div>
         </section>
