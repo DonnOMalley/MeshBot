@@ -188,6 +188,11 @@ body.settings-page main {
   padding: 16px 16px 24px;
 }
 
+/* DM / Bot Test page: force main to fill available width so panels match dashboard width */
+body.dm-page main {
+  width: 100%;
+}
+
 /* ── Panel ───────────────────────────────────────────────────────────── */
 .panel {
   background: var(--surface);
