@@ -719,6 +719,7 @@ class WebServer:
                         "role": user_data.get("role", ""),
                     },
                     "channels": channels,
+                    "monitored_channel": self._channel_name,
                 })
             except Exception as exc:
                 return jsonify({"error": str(exc)}), 503

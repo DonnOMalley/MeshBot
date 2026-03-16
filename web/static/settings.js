@@ -20,7 +20,7 @@ async function loadSettings() {
         renderLora(data.lora || {});
         renderDevice(data.device || {});
         renderUser(data.user || {});
-        renderChannels(data.channels || []);
+        renderChannels(data.channels || [], data.monitored_channel || '');
     } catch (e) {
         showSettingsError(e.message || 'Failed to load settings.');
     }
@@ -81,13 +81,20 @@ function renderDevice(device) {
         ['Role', formatEnumName(device.role)],
         ['Serial Enabled', device.serial_enabled ? 'Yes' : 'No'],
         ['Rebroadcast Mode', formatEnumName(device.rebroadcast_mode)],
-        ['Node Info Broadcast (secs)', device.node_info_broadcast_secs ?? '\u2014'],
+        ['Node Info Broadcast', formatBroadcastInterval(device.node_info_broadcast_secs)],
         ['Double Tap as Button', device.double_tap_as_button_press ? 'Yes' : 'No'],
         ['Is Managed', device.is_managed ? 'Yes' : 'No'],
         ['Timezone', device.tzdef || '\u2014'],
         ['LED Heartbeat Disabled', device.led_heartbeat_disabled ? 'Yes' : 'No'],
     ];
     body.innerHTML = rows.map(([k, v]) => settingsRow(k, v)).join('');
+}
+
+function formatBroadcastInterval(secs) {
+    if (secs === null || secs === undefined || secs === '') return '\u2014';
+    const hrs = secs / 3600;
+    const display = Number.isInteger(hrs) ? hrs : hrs.toFixed(2).replace(/\.?0+$/, '');
+    return `${display} hr${hrs === 1 ? '' : 's'}`;
 }
 
 function renderUser(user) {
@@ -104,23 +111,36 @@ function renderUser(user) {
     body.innerHTML = rows.map(([k, v]) => settingsRow(k, v)).join('');
 }
 
-function renderChannels(channels) {
+function renderChannels(channels, monitoredChannel) {
     const body = document.getElementById('settings-channels-body');
     if (!body) return;
     if (!channels.length) {
         body.innerHTML = '<p class="empty" style="padding:14px">No channels found.</p>';
         return;
     }
+    const monLower = (monitoredChannel || '').toLowerCase();
     const rows = channels.map(ch => {
         const roleLower = (ch.role || '').toLowerCase();
-        const up   = ch.uplink_enabled   ? '<span class="badge badge-yes">On</span>'  : '<span class="badge badge-no">Off</span>';
-        const down = ch.downlink_enabled ? '<span class="badge badge-yes">On</span>'  : '<span class="badge badge-no">Off</span>';
-        return `<tr>
+        const isPrimary   = ch.index === 0;
+        const isMonitored = monLower && (ch.name || '').toLowerCase() === monLower;
+        const visible = isPrimary || isMonitored;
+        if (visible) {
+            const up   = ch.uplink_enabled   ? '<span class="badge badge-yes">On</span>'  : '<span class="badge badge-no">Off</span>';
+            const down = ch.downlink_enabled ? '<span class="badge badge-yes">On</span>'  : '<span class="badge badge-no">Off</span>';
+            return `<tr>
+                <td>${ch.index}</td>
+                <td>${esc(ch.name || '\u2014')}</td>
+                <td><span class="role-badge role-${roleLower}">${esc(ch.role)}</span></td>
+                <td style="text-align:center">${up}</td>
+                <td style="text-align:center">${down}</td>
+            </tr>`;
+        }
+        return `<tr class="channel-masked">
             <td>${ch.index}</td>
-            <td>${esc(ch.name || '\u2014')}</td>
+            <td style="color:var(--muted);font-style:italic;letter-spacing:2px">&bull;&bull;&bull;&bull;&bull;</td>
             <td><span class="role-badge role-${roleLower}">${esc(ch.role)}</span></td>
-            <td style="text-align:center">${up}</td>
-            <td style="text-align:center">${down}</td>
+            <td style="text-align:center;color:var(--muted)">&mdash;</td>
+            <td style="text-align:center;color:var(--muted)">&mdash;</td>
         </tr>`;
     }).join('');
     body.innerHTML = `<table class="settings-channel-table">
