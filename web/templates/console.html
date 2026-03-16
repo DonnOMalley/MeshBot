@@ -8,14 +8,15 @@
     <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
   <body class="full-page console-page">
-    {% set active_page = 'console' %}
-    {% include "partials/_header.html" %}
+    {% set active_page = 'console' %} {% include "partials/_header.html" %}
 
     <main class="console-main">
       <div class="terminal-frame">
         <div class="terminal-titlebar">
           <span class="terminal-titlebar-dots">
-            <span></span><span></span><span></span>
+            <span></span>
+            <span></span>
+            <span></span>
           </span>
           <span class="terminal-titlebar-text">{{ bot_name|upper }} SYSTEM CONSOLE &mdash; VT100</span>
           <span id="terminal-status" class="terminal-status terminal-status--connecting">&#9679; CONNECTING</span>

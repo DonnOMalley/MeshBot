@@ -63,18 +63,18 @@ WebUrl            = localhost
 WebPort           = 7331
 ```
 
-| Key                 | Description                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------- |
-| `bot_name`          | Display name of the bot. Used in messages and as the command prefix (`@BotName`).     |
-| `bot_description`   | Optional description shown in the web header beneath the bot name.                    |
-| `Channel`           | Channel name to join on startup. Omit to be prompted at launch.                       |
-| `CaseSensitive`     | When `true`, command prefix and names must match exact case.                          |
-| `ExcludeOOTB`       | When `true`, built-in commands (`ping`, `test`, `hello`, `last`) are not registered.  |
-| `NodeRetentionDays` | Days of inactivity before a node is removed from the local database. Default: `30`.   |
-| `EncryptionKey`     | Passphrase to encrypt the node database and chat history. Leave blank for plain text. |
-| `Verbose`           | When `true`, prints received messages, dispatched commands, and sent notifications.   |
+| Key                 | Description                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `bot_name`          | Display name of the bot. Used in messages and as the command prefix (`@BotName`).                      |
+| `bot_description`   | Optional description shown in the web header beneath the bot name.                                     |
+| `Channel`           | Channel name to join on startup. Omit to be prompted at launch.                                        |
+| `CaseSensitive`     | When `true`, command prefix and names must match exact case.                                           |
+| `ExcludeOOTB`       | When `true`, built-in commands (`ping`, `test`, `hello`, `last`) are not registered.                   |
+| `NodeRetentionDays` | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
+| `EncryptionKey`     | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
+| `Verbose`           | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
 | `WebUrl`            | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
-| `WebPort`           | Port the web dashboard listens on. Default: `7331`.                                   |
+| `WebPort`           | Port the web dashboard listens on. Default: `7331`.                                                    |
 
 > **Security note:** Prefer setting `EncryptionKey` in the config file rather than on the command line to avoid it appearing in shell history.
 
@@ -108,15 +108,15 @@ Press **Ctrl+C** to stop.
 
 Commands are sent in the monitored channel or via DM, prefixed with `!`:
 
-| Command           | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `!hello`          | Bot greets the sender.                                                              |
-| `!ping`           | Bot replies with `Pong! 🏓`.                                                        |
-| `!test`           | Bot replies with the hop count (`Hops: N 🐇`), or confirms a direct connection.     |
-| `!last N CHANNEL` | Returns the last N messages from the specified channel as DMs (max 5).              |
+| Command           | Description                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `!hello`          | Bot greets the sender.                                                                 |
+| `!ping`           | Bot replies with `Pong! 🏓`.                                                           |
+| `!test`           | Bot replies with the hop count (`Hops: N 🐇`), or confirms a direct connection.        |
+| `!last N CHANNEL` | Returns the last N messages from the specified channel as DMs (max 5).                 |
 | `!trace`          | Sends a traceroute to the requester and reports the route, SNR readings, and duration. |
-| `!web`            | Replies with the web dashboard URL so any mesh node can find the portal.            |
-| `!cmdList`        | Lists all registered commands.                                                      |
+| `!web`            | Replies with the web dashboard URL so any mesh node can find the portal.               |
+| `!cmdList`        | Lists all registered commands.                                                         |
 
 ### Traceroute response format
 
@@ -152,15 +152,15 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 ### Pages
 
-| Page      | Path       | Description                                                  |
-| --------- | ---------- | ------------------------------------------------------------ |
-| Dashboard | `/`        | Node panel (collapsible) and channel chat history.           |
-| Nodes     | `/nodes`   | Full-page node table.                                        |
-| Chat      | `/chat`    | Full-page chat with per-channel tabs and message send form.  |
-| Console   | `/console` | Live bot console terminal; mirrors all stdout/stderr output. |
-| Bot Test  | `/dm`      | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window. |
-| Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration. |
-| About     | `/about`   | Bot information: name, description, version, and links.      |
+| Page      | Path        | Description                                                                                             |
+| --------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| Dashboard | `/`         | Node panel (collapsible) and channel chat history.                                                      |
+| Nodes     | `/nodes`    | Full-page node table.                                                                                   |
+| Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                             |
+| Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                            |
+| Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window. |
+| Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                |
+| About     | `/about`    | Bot information: name, description, version, and links.                                                 |
 
 ### Node table
 
@@ -172,14 +172,14 @@ The node table appears on both the Dashboard and Nodes pages. A toolbar above th
 
 ### Node table columns
 
-| Column    | Description                                                                              |
-| --------- | ---------------------------------------------------------------------------------------- |
-| ★         | Favourite toggle. Favourites float to the top of the list and are persisted to disk.     |
-| Node Name | Long name with short name in parentheses. Hover the row to see the node ID.              |
-| Role      | Node role as reported by the device.                                                     |
-| Device    | Hardware model.                                                                          |
-| Last Seen | Last-seen time in browser local time. Hop count shown in parentheses when known.          |
-| Position  | Pin icon linking to Google Maps when GPS coordinates are available.                      |
+| Column     | Description                                                                                                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ★          | Favourite toggle. Favourites float to the top of the list and are persisted to disk.                                                                                    |
+| Node Name  | Long name with short name in parentheses. Hover the row to see the node ID.                                                                                             |
+| Role       | Node role as reported by the device.                                                                                                                                    |
+| Device     | Hardware model.                                                                                                                                                         |
+| Last Seen  | Last-seen time in browser local time. Hop count shown in parentheses when known.                                                                                        |
+| Position   | Pin icon linking to Google Maps when GPS coordinates are available.                                                                                                     |
 | Traceroute | **Trace** button to request a live traceroute from the bot to that node. Shows a spinner while in-flight, then an inline result card with route, SNR, and elapsed time. |
 
 Favourites are persisted to `data/favorites.json`.
@@ -197,7 +197,7 @@ The **Settings** page (`/settings`) displays a read-only view of the connected M
 - **Owner** — the node's long name, short name, and hardware model.
 - **Channels** — all configured channel slots with their name, role, and PSK status.
 
- Each browser session is automatically assigned a persistent fake Meshtastic identity: a node ID derived from the session token, a long name (up to 20 characters), and a short name (2–4 alphanumeric characters, must start with `W`). Click **Edit** in the footer bar to customise your display name.
+Each browser session is automatically assigned a persistent fake Meshtastic identity: a node ID derived from the session token, a long name (up to 20 characters), and a short name (2–4 alphanumeric characters, must start with `W`). Click **Edit** in the footer bar to customise your display name.
 
 Outgoing messages are prefixed with `[SHORT]` on the mesh (e.g. `[WUSR] Hello mesh!`) so other nodes can identify the web sender. The web portal displays the message under the user's full display name.
 

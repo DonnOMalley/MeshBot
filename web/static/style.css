@@ -444,8 +444,8 @@ td.empty {
 /* ── Full-page layout (nodes + chat + console pages) ────────────────── */
 body.full-page main {
   max-width: 100%;
-  width: 100%;       /* overrides flex-child auto-margin centering */
-  margin: 0;         /* remove the 0 auto that narrows content-driven pages */
+  width: 100%; /* overrides flex-child auto-margin centering */
+  margin: 0; /* remove the 0 auto that narrows content-driven pages */
   padding: 0;
   display: flex;
   flex-direction: column;
