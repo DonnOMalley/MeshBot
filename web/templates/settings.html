@@ -7,19 +7,17 @@
     <link rel="stylesheet" href="/static/style.css" />
     <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
-  <body class="full-page">
-    {% set active_page = 'settings' %}
-    {% include "partials/_header.html" %}
+  <body class="full-page settings-page">
+    {% set active_page = 'settings' %} {% include "partials/_header.html" %}
 
     <main>
-      <div class="about-content">
-
+      <div class="about-content settings-content">
         <!-- LoRa Settings -->
         <section class="about-section">
           <div class="about-section-header">LoRa Settings</div>
-          <div class="about-section-body" style="padding: 0;">
+          <div class="about-section-body" style="padding: 0">
             <div id="settings-lora-body">
-              <p class="settings-loading empty" style="padding: 14px;">Loading&hellip;</p>
+              <p class="settings-loading empty" style="padding: 14px">Loading&hellip;</p>
             </div>
           </div>
         </section>
@@ -27,9 +25,9 @@
         <!-- Device Settings -->
         <section class="about-section">
           <div class="about-section-header">Device Settings</div>
-          <div class="about-section-body" style="padding: 0;">
+          <div class="about-section-body" style="padding: 0">
             <div id="settings-device-body">
-              <p class="settings-loading empty" style="padding: 14px;">Loading&hellip;</p>
+              <p class="settings-loading empty" style="padding: 14px">Loading&hellip;</p>
             </div>
           </div>
         </section>
@@ -37,9 +35,9 @@
         <!-- Owner -->
         <section class="about-section">
           <div class="about-section-header">Owner</div>
-          <div class="about-section-body" style="padding: 0;">
+          <div class="about-section-body" style="padding: 0">
             <div id="settings-user-body">
-              <p class="settings-loading empty" style="padding: 14px;">Loading&hellip;</p>
+              <p class="settings-loading empty" style="padding: 14px">Loading&hellip;</p>
             </div>
           </div>
         </section>
@@ -47,13 +45,12 @@
         <!-- Channels -->
         <section class="about-section">
           <div class="about-section-header">Channels</div>
-          <div class="about-section-body" style="padding: 0;">
+          <div class="about-section-body" style="padding: 0">
             <div id="settings-channels-body">
-              <p class="settings-loading empty" style="padding: 14px;">Loading&hellip;</p>
+              <p class="settings-loading empty" style="padding: 14px">Loading&hellip;</p>
             </div>
           </div>
         </section>
-
       </div>
     </main>
 

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; Bot Test</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="dm-page">
+    {% set active_page = 'dm' %} {% include "partials/_header.html" %}
+
+    <main>
+      <!-- ── Onboarding card (shown until identity confirmed) ── -->
+      <div id="dm-onboarding" class="dm-onboarding-wrap">
+        <div class="dm-onboarding-card">
+          <div class="dm-onboarding-icon">&#128172;</div>
+          <div class="dm-onboarding-title">Direct Message&#8202;{{ bot_name }}</div>
+          <p class="dm-onboarding-desc">Set your web node identity before chatting. This gives your messages a name on the mesh. You can change it at any time while the conversation is open.</p>
+          <div class="dm-onboarding-form">
+            <div class="dm-field-group">
+              <label for="dm-long-name">Long Name</label>
+              <input id="dm-long-name" type="text" maxlength="20" placeholder="e.g. Web User" autocomplete="off" />
+            </div>
+            <div class="dm-field-group">
+              <label>
+                Short Name
+                <span class="dm-field-hint">(W + up to 3 chars)</span>
+              </label>
+              <div class="wu-short-wrap">
+                <span class="wu-short-prefix">W</span>
+                <input id="dm-short-name" type="text" maxlength="3" placeholder="USR" autocomplete="off" />
+              </div>
+            </div>
+            <div id="dm-onboarding-error" class="dm-onboarding-error" aria-live="polite"></div>
+            <button id="dm-start-btn" type="button" class="dm-start-btn">&#128172;&nbsp;Start DM Chat</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DM Interface (revealed after identity confirmed) ── -->
+      <div id="dm-interface" class="dm-interface" style="display: none">
+        <!-- Identity bar -->
+        <section class="panel">
+          <div class="panel-header dm-identity-bar">
+            <span class="dm-identity-label">
+              &#128172;&nbsp;DM&nbsp;&mdash;&nbsp;
+              <strong class="dm-bot-name">{{ bot_name }}</strong>
+            </span>
+            <span class="dm-identity-user">
+              Chatting as&nbsp;
+              <span id="dm-current-user" class="dm-current-user-name">&hellip;</span>
+              <button id="dm-change-user-btn" class="web-user-edit-btn" type="button">Edit</button>
+              <span id="dm-edit-form" class="web-user-edit-form" style="display: none">
+                <input id="dm-edit-long" type="text" maxlength="20" placeholder="Long name" autocomplete="off" />
+                <span class="wu-short-wrap">
+                  <span class="wu-short-prefix">W</span>
+                  <input id="dm-edit-short" type="text" maxlength="3" placeholder="USR" autocomplete="off" />
+                </span>
+                <button id="dm-edit-save" type="button">Save</button>
+                <button id="dm-edit-cancel" type="button">Cancel</button>
+              </span>
+            </span>
+          </div>
+        </section>
+
+        <!-- Command buttons panel -->
+        <section class="panel">
+          <div class="panel-header collapsible" id="dm-cmd-header" onclick="toggleDmCmdPanel()">
+            <span>&#128273;&nbsp;Quick Commands</span>
+          </div>
+          <div id="dm-cmd-body" class="panel-body">
+            <div class="dm-cmd-grid">
+              <button class="dm-cmd-btn" data-cmd="hello" title="Ask the bot for a greeting">
+                <span class="dm-cmd-icon">&#128075;</span>
+                <span class="dm-cmd-label">Hello</span>
+                <span class="dm-cmd-desc">Greeting</span>
+              </button>
+
+              <button class="dm-cmd-btn" data-cmd="ping" title="Check connectivity to the bot">
+                <span class="dm-cmd-icon">&#128309;</span>
+                <span class="dm-cmd-label">Ping</span>
+                <span class="dm-cmd-desc">Connectivity Check</span>
+              </button>
+
+              <button class="dm-cmd-btn" data-cmd="test" title="Report hop count to reach the bot">
+                <span class="dm-cmd-icon">&#128225;</span>
+                <span class="dm-cmd-label">Test</span>
+                <span class="dm-cmd-desc">Hop Count</span>
+              </button>
+
+              <button class="dm-cmd-btn dm-cmd-btn--params" data-cmd="last" title="Retrieve recent channel messages — tap to set parameters">
+                <span class="dm-cmd-icon">&#128196;</span>
+                <span class="dm-cmd-label">Last</span>
+                <span class="dm-cmd-desc">Recent Messages</span>
+                <span class="dm-cmd-params-hint">&#9881;&nbsp;needs params</span>
+              </button>
+
+              <button class="dm-cmd-btn dm-cmd-btn--params" data-cmd="trace" title="Run a traceroute to a selected node">
+                <span class="dm-cmd-icon">&#128270;</span>
+                <span class="dm-cmd-label">Trace</span>
+                <span class="dm-cmd-desc">Traceroute</span>
+                <span class="dm-cmd-params-hint">&#9881;&nbsp;select node</span>
+              </button>
+
+              <button class="dm-cmd-btn" data-cmd="web" title="Get the web dashboard URL from the bot">
+                <span class="dm-cmd-icon">&#127760;</span>
+                <span class="dm-cmd-label">Web</span>
+                <span class="dm-cmd-desc">Dashboard URL</span>
+              </button>
+
+              <button class="dm-cmd-btn" data-cmd="joke" title="Ask the bot to tell you a joke">
+                <span class="dm-cmd-icon">&#128514;</span>
+                <span class="dm-cmd-label">Joke</span>
+                <span class="dm-cmd-desc">Tell a Joke</span>
+              </button>
+            </div>
+
+            <!-- !last inline parameter builder (hidden until button clicked) -->
+            <div id="dm-last-params" class="dm-last-params" style="display: none">
+              <span class="dm-last-params-label">!last:</span>
+              <input id="dm-last-count" type="number" min="1" max="20" value="5" class="dm-last-input dm-last-count-input" title="Number of messages to retrieve" />
+              <span class="dm-last-sep">messages from</span>
+              <input id="dm-last-channel" type="text" class="dm-last-input dm-last-channel-input" placeholder="channel name" autocomplete="off" list="dm-channel-datalist" />
+              <datalist id="dm-channel-datalist"></datalist>
+              <button id="dm-last-send" type="button" class="dm-last-send-btn">Send</button>
+              <button id="dm-last-cancel" type="button" class="dm-last-cancel-btn">Cancel</button>
+            </div>
+
+            <!-- !trace inline parameter builder (hidden until button clicked) -->
+            <div id="dm-trace-params" class="dm-last-params" style="display: none">
+              <span class="dm-last-params-label">!trace:</span>
+              <input id="dm-trace-node" type="text" class="dm-last-input dm-trace-node-input" placeholder="type to search nodes&hellip;" autocomplete="off" list="dm-trace-datalist" />
+              <datalist id="dm-trace-datalist"></datalist>
+              <button id="dm-trace-send" type="button" class="dm-last-send-btn">Send</button>
+              <button id="dm-trace-cancel" type="button" class="dm-last-cancel-btn">Cancel</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- DM conversation window -->
+        <section class="panel">
+          <div class="panel-header">
+            &#128172;&nbsp;Conversation
+            <span class="dm-session-note">&mdash; this session only, not saved to chat logs</span>
+          </div>
+          <div id="dm-chat-window" class="dm-chat-window">
+            <div class="dm-empty-hint">
+              <span class="dm-empty-icon">&#128172;</span>
+              <p>Use a quick command or type a message below to start your private DM session with {{ bot_name }}.</p>
+              <p class="dm-empty-sub">Responses appear here. This conversation is not saved to the channel chat logs.</p>
+            </div>
+          </div>
+          <div class="dm-input-bar">
+            <input id="dm-text-input" type="text" class="dm-text-field" placeholder="Send a DM to {{ bot_name }}&hellip;" maxlength="228" autocomplete="off" />
+            <button id="dm-send-btn" type="button" class="dm-send-btn">Send</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/static/app.js"></script>
+    <script src="/static/dm.js"></script>
+  </body>
+</html>

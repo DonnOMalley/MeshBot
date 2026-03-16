@@ -158,6 +158,8 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | Nodes     | `/nodes`   | Full-page node table.                                        |
 | Chat      | `/chat`    | Full-page chat with per-channel tabs and message send form.  |
 | Console   | `/console` | Live bot console terminal; mirrors all stdout/stderr output. |
+| Bot Test  | `/dm`      | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window. |
+| Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration. |
 | About     | `/about`   | Bot information: name, description, version, and links.      |
 
 ### Node table
@@ -182,9 +184,20 @@ The node table appears on both the Dashboard and Nodes pages. A toolbar above th
 
 Favourites are persisted to `data/favorites.json`.
 
-### Sending messages
+### Bot Test (Direct Message)
 
-Messages are sent from the **Chat** page. Each browser session is automatically assigned a persistent fake Meshtastic identity: a node ID derived from the session token, a long name (up to 20 characters), and a short name (2–4 alphanumeric characters, must start with `W`). Click **Edit** in the footer bar to customise your display name.
+The **Bot Test** page (`/dm`) lets you send direct messages to the bot from the browser without needing a physical Meshtastic device. A one-time identity setup associates your browser session with a fake Meshtastic node (the same identity used on the Chat page). Quick-command buttons for `!hello`, `!ping`, `!test`, `!last`, `!trace`, `!web`, and `!joke` let you test common commands with one click. Responses appear in a live conversation window that is not saved to the channel chat logs.
+
+### Settings
+
+The **Settings** page (`/settings`) displays a read-only view of the connected Meshtastic device's configuration:
+
+- **LoRa Settings** — region, modem preset, and key radio parameters.
+- **Device Settings** — device role, serial, GPS, debug, and power settings.
+- **Owner** — the node's long name, short name, and hardware model.
+- **Channels** — all configured channel slots with their name, role, and PSK status.
+
+ Each browser session is automatically assigned a persistent fake Meshtastic identity: a node ID derived from the session token, a long name (up to 20 characters), and a short name (2–4 alphanumeric characters, must start with `W`). Click **Edit** in the footer bar to customise your display name.
 
 Outgoing messages are prefixed with `[SHORT]` on the mesh (e.g. `[WUSR] Hello mesh!`) so other nodes can identify the web sender. The web portal displays the message under the user's full display name.
 
@@ -300,6 +313,15 @@ When an `EncryptionKey` is provided, all three files are encrypted using AES via
 ---
 
 ## Release Notes
+
+### v0.7.0 — 2026-03-16
+
+- All pages are now viewport-locked: the browser document never scrolls; only the content panels within each page scroll internally.
+- The last panel on every page (node table, chat history, console terminal, DM conversation) fills the remaining viewport height, eliminating dead space at page bottom.
+- The **About** page retains natural document scrolling so the long README can be read without restriction.
+- Added **Settings** page (`/settings`) to the README documentation: shows LoRa, device, owner, and channel configuration from the connected device.
+- Added **Bot Test** page (`/dm`) to the README documentation: interactive DM session with quick-command buttons for all built-in and user commands.
+- `scrollbar-gutter: stable` added to primary scroll areas to prevent layout shift when a scrollbar appears or disappears.
 
 ### v0.6.0 — 2026-03-15
 

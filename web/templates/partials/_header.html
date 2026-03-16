@@ -1,20 +1,36 @@
-    <header>
-      <div class="header-identity">
-        <h1><img src="/images/logo.png" class="header-logo" alt=""><a href="/" class="header-title-link">{{ bot_name }}</a></h1>
-        <span class="bot-description">{{ bot_description }}</span>
-      </div>
-      <div class="header-right">
-        {% if active_page != 'about' %}
-        <span id="refresh-label">Auto-refresh: 30s</span>
-        <button onclick="refreshAll()">&#8635; Refresh</button>
-        {% endif %}
-      </div>
-    </header>
-    <nav>
-      <a href="/" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}"><img src="/images/dashboard%20icon.png" class="nav-icon" alt="">Dashboard</a>
-      <a href="/nodes" class="nav-link{% if active_page == 'nodes' %} active{% endif %}"><img src="/images/nodes%20icon.png" class="nav-icon" alt="">Nodes</a>
-      <a href="/chat" class="nav-link{% if active_page == 'chat' %} active{% endif %}"><img src="/images/chat%20icon.png" class="nav-icon" alt="">Chat</a>
-      <a href="/console" class="nav-link{% if active_page == 'console' %} active{% endif %}">&#x276F;&#x005F; Console</a>
-      <a href="/settings" class="nav-link{% if active_page == 'settings' %} active{% endif %}">&#9881; Settings</a>
-      <a href="/about" class="nav-link{% if active_page == 'about' %} active{% endif %}"><img src="/images/about%20icon.png" class="nav-icon" alt="">About</a>
-    </nav>
+<header>
+  <div class="header-identity">
+    <h1>
+      <img src="/images/logo.png" class="header-logo" alt="" />
+      <a href="/" class="header-title-link">{{ bot_name }}</a>
+    </h1>
+    <span class="bot-description">{{ bot_description }}</span>
+  </div>
+  <div class="header-right">
+    {% if active_page != 'about' and active_page != 'dm' %}
+    <span id="refresh-label">Auto-refresh: 30s</span>
+    <button onclick="refreshAll()">&#8635; Refresh</button>
+    {% endif %}
+  </div>
+</header>
+<nav>
+  <a href="/" class="nav-link{% if active_page == 'dashboard' %} active{% endif %}">
+    <img src="/images/dashboard%20icon.png" class="nav-icon" alt="" />
+    Dashboard
+  </a>
+  <a href="/nodes" class="nav-link{% if active_page == 'nodes' %} active{% endif %}">
+    <img src="/images/nodes%20icon.png" class="nav-icon" alt="" />
+    Nodes
+  </a>
+  <a href="/chat" class="nav-link{% if active_page == 'chat' %} active{% endif %}">
+    <img src="/images/chat%20icon.png" class="nav-icon" alt="" />
+    Chat
+  </a>
+  <a href="/dm" class="nav-link{% if active_page == 'dm' %} active{% endif %}">&#129514; Bot Test</a>
+  <a href="/console" class="nav-link{% if active_page == 'console' %} active{% endif %}">&#x276F;&#x005F; Console</a>
+  <a href="/settings" class="nav-link{% if active_page == 'settings' %} active{% endif %}">&#9881; Settings</a>
+  <a href="/about" class="nav-link{% if active_page == 'about' %} active{% endif %}">
+    <img src="/images/about%20icon.png" class="nav-icon" alt="" />
+    About
+  </a>
+</nav>

@@ -248,6 +248,7 @@ def main() -> None:
                 node_db=node_db,
                 iface=iface,
                 channel=current_channel,
+                config=config,
                 bot_name=args.bot_name,
                 bot_description=args.bot_description,
                 case_sensitive=args.case_sensitive,

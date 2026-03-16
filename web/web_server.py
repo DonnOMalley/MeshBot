@@ -7,19 +7,23 @@ import secrets
 import threading
 import time
 from datetime import datetime, timezone
+from typing import cast
 
-from flask import Flask, abort, jsonify, render_template, request, send_from_directory, session
+from flask import Flask, Response, abort, jsonify, render_template, request, send_from_directory, session
 from google.protobuf.json_format import MessageToDict
 from meshtastic import channel_pb2
 from meshtastic.mesh_interface import MeshInterface
 from pubsub import pub
 
+from commands.user_commands import UserCommands
 from common.chat_history import ChatHistory
 from common.console_logger import ConsoleLogger
 from common.constants import (
     CHANNEL_NAME_PRIMARY,
     _CHAT_HISTORY_BOT_SENDER,
     _DEFAULT_BOT_DESCRIPTION,
+    _DM_RESPONSE_WAIT_SECS,
+    _EXCLAMATION_PREFIX,
     _README_FILENAME,
     _EVENT_TRACEROUTE,
     _FAVORITES_FILE,
@@ -27,14 +31,18 @@ from common.constants import (
     _NODE_DB_DIR,
     _NODE_DB_SALT_FILE,
     _PACKET_KEY_DECODED,
+    _PACKET_KEY_FROM_ID,
+    _PACKET_KEY_TO_ID,
     _PACKET_KEY_TRACEROUTE,
     _PACKET_KEY_TRACE_ROUTE,
     _PACKET_KEY_TRACE_ROUTE_BACK,
     _PACKET_KEY_TRACE_SNR_TOWARDS,
     _PACKET_KEY_TRACE_SNR_BACK,
+    _PACKET_KEY_WEB_RESPONSES,
     _TRACE_HOP_LIMIT,
     _TRACE_LABEL_BOT,
     _TRACE_SNR_SCALE,
+    _WEB_DASHBOARD_URL,
     _WEB_SERVER_DISPLAY_HOST,
     _WEB_SERVER_HOST,
     _WEB_SERVER_MAX_SEND_LENGTH,
@@ -54,6 +62,58 @@ from common.constants import (
 from common.encryption_helper import EncryptionHelper
 from common.meshtastic_helper import MeshtasticHelper
 from common.node_database import NodeDatabase
+from configuration.node_configuration import NodeConfiguration
+from messaging.command_register import CommandRegister
+
+_dm_response_tl: threading.local = threading.local()
+
+
+class _CapturingIface:
+    """Proxy around a real MeshInterface that captures sendText calls.
+
+    Instead of transmitting messages over the mesh, each call to ``sendText``
+    appends the message text to the per-request list stored in
+    ``_dm_response_tl.responses``.  All other attribute access is forwarded
+    transparently to the underlying real interface.
+    """
+
+    # region Protected Variables
+    _real: MeshInterface
+    # endregion Protected Variables
+
+    # region Constructor
+    def __init__(self, real_iface: MeshInterface) -> None:
+        """Wraps a real MeshInterface for response capture.
+
+        Args:
+            real_iface: The underlying active MeshInterface to proxy.
+        """
+        self._real = real_iface
+    # endregion Constructor
+
+    # region Public Functions
+    def sendText(self, text: str, **kwargs) -> None:
+        """Captures the message text instead of transmitting over the mesh.
+
+        Args:
+            text: The message text that would have been sent.
+            **kwargs: Ignored keyword arguments (destinationId, channelIndex, etc.).
+        """
+        print(f"[DM Command] {text}")
+        if hasattr(_dm_response_tl, "responses"):
+            _dm_response_tl.responses.append(str(text))
+
+    def __getattr__(self, name: str) -> object:
+        """Forwards all other attribute lookups to the real interface.
+
+        Args:
+            name: The attribute name to look up on the real interface.
+
+        Returns:
+            The attribute value from the underlying real interface.
+        """
+        return getattr(self._real, name)
+    # endregion Public Functions
 
 
 class WebUser:
@@ -143,7 +203,9 @@ class WebServer:
     # region Protected Variables
     _bot_description: str
     _bot_name: str
+    _capturing_iface: _CapturingIface
     _case_sensitive: bool
+    _config: NodeConfiguration
     _display_host: str
     _node_db: NodeDatabase
     _iface: MeshInterface
@@ -159,6 +221,7 @@ class WebServer:
     _web_users: dict[str, WebUser]
     _chat_history: ChatHistory | None
     _console_logger: ConsoleLogger | None
+    _dm_command_register: CommandRegister
     _app: Flask
     # endregion Protected Variables
 
@@ -168,6 +231,7 @@ class WebServer:
         node_db: NodeDatabase,
         iface: MeshInterface,
         channel: channel_pb2.Channel,
+        config: NodeConfiguration,
         bot_name: str,
         bot_description: str = _DEFAULT_BOT_DESCRIPTION,
         case_sensitive: bool = False,
@@ -185,6 +249,8 @@ class WebServer:
             iface: The active MeshInterface used to send messages.
             channel: The channel the bot is monitoring. Outgoing messages are
                      sent on this channel.
+            config: The local node configuration used to build the DM command
+                    register and identify the bot when constructing synthetic packets.
             bot_name: The runtime name of the bot, shown in the dashboard.
             bot_description: Short description shown alongside the bot name in the header.
             case_sensitive: When True the bot requires exact capitalisation for command names.
@@ -204,6 +270,7 @@ class WebServer:
         self._bot_name = bot_name
         self._bot_description = bot_description
         self._case_sensitive = case_sensitive
+        self._config = config
         self._node_db = node_db
         self._iface = iface
         self._channel = channel
@@ -220,6 +287,20 @@ class WebServer:
         self._chat_history = chat_history
         self._console_logger = console_logger
         pub.subscribe(self._on_web_traceroute_response, _EVENT_TRACEROUTE)
+
+        self._capturing_iface = _CapturingIface(iface)
+        
+        self._dm_command_register = CommandRegister(
+            iface=cast(MeshInterface, self._capturing_iface),
+            config=config,
+            channel=channel,
+            passphrase=passphrase,
+            chat_history=None,
+            web_url=_WEB_DASHBOARD_URL.format(host=host, port=port),
+            user_defined_commands=UserCommands(iface, config, channel, verbose=False).get_commands(),
+        )
+        
+        #print("Command Register built with commands:", self._dm_command_register._commands.keys())
 
         _base = os.path.dirname(os.path.abspath(__file__))
         self._web_dir = _base
@@ -265,6 +346,7 @@ class WebServer:
         self._channel = channel
         self._channel_name = channel.settings.name or CHANNEL_NAME_PRIMARY
         self._pending_web_traces.clear()
+        self._capturing_iface._real = iface
     # endregion Public Functions
 
     # region Protected Functions
@@ -563,6 +645,7 @@ class WebServer:
 
         @self._app.route("/api/trace", methods=["POST"])
         def api_trace():
+            trace_response: Response = jsonify({"status": "error", "message": "Unknown error"})
             body = request.get_json(force=True, silent=True) or {}
             node_id: str = str(body.get("node_id", "")).strip()
             if not node_id:
@@ -639,3 +722,42 @@ class WebServer:
                 })
             except Exception as exc:
                 return jsonify({"error": str(exc)}), 503
+
+        @self._app.route("/dm")
+        def dm():
+            return render_template("dm.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
+        @self._app.route("/api/dm", methods=["POST"])
+        def api_dm():
+            body: dict = request.get_json(force=True, silent=True) or {}
+            text: str = str(body.get("text", "")).strip()
+            if not text or len(text) > _WEB_SERVER_MAX_SEND_LENGTH:
+                abort(400)
+            web_user: WebUser = self._get_or_create_web_user()
+            packet: dict = {
+                _PACKET_KEY_FROM_ID: web_user.node_id,
+                _PACKET_KEY_TO_ID: self._config.node_id,
+                _PACKET_KEY_DECODED: {"text": text},
+            }
+            trimmed: str = text.strip()
+            remainder: str = trimmed[len(_EXCLAMATION_PREFIX):].strip() if trimmed.startswith(_EXCLAMATION_PREFIX) else trimmed
+            parts: list[str] = remainder.split(None, 1)
+            command: str = parts[0] if parts else ""
+            params: str = parts[1] if len(parts) > 1 else ""
+            lookup: str = command if self._case_sensitive else command.lower()
+            commands_dict: dict = self._dm_command_register._commands
+            matched_key: str | None = next((k for k in commands_dict if k.lower() == lookup), None)
+            print(f"[DM Command] Received command '{command}' with params '{params}' from web user '{web_user.display_name}' with matched key '{matched_key}'")
+            responses: list[str] = []
+            _dm_response_tl.responses = []
+            try:
+                if matched_key is not None:
+                    commands_dict[matched_key](web_user.node_id, params, packet)
+                web_responses: list[str] = packet.get(_PACKET_KEY_DECODED, {}).get(_PACKET_KEY_WEB_RESPONSES, [])
+                responses = web_responses if web_responses else list(_dm_response_tl.responses)
+            finally:
+                if hasattr(_dm_response_tl, "responses"):
+                    del _dm_response_tl.responses
+            response_text: str | None = "\n".join(responses) if responses else None
+            dm_response = jsonify({"ok": True, "response": response_text}) if response_text else jsonify({"ok": False, "response": f"Invalid Command Text: '{text}'"})
+            return dm_response

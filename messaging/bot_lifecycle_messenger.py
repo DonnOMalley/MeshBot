@@ -5,12 +5,14 @@ from meshtastic.mesh_interface import MeshInterface
 from common.chat_history import ChatHistory
 from common.constants import (
     _BOT_WELCOME_MESSAGE,
+    _BOT_WELCOME_MESSAGE_NO_WEB,
     _BOT_CHECKIN_MESSAGE,
     _BOT_SIGNOFF_MESSAGE,
     _BOT_WELCOME_MESSAGE_SENT,
     _BOT_CHECKIN_MESSAGE_SENT,
     _BOT_SIGNOFF_MESSAGE_SENT,
     _CHAT_HISTORY_BOT_SENDER,
+    _WEB_SERVER_DISPLAY_HOST,
 )
 from configuration.node_configuration import NodeConfiguration
 
@@ -76,10 +78,15 @@ class BotLifecycleMessenger:
     def send_welcome_message(self, channel: channel_pb2.Channel) -> None:
         """Broadcasts the bot online announcement to the specified channel.
 
+        The web dashboard URL is omitted from the message when the configured
+        URL contains 'localhost', as remote nodes cannot access a local address.
+
         Args:
             channel: The channel on which to send the welcome message.
         """
-        message: str = _BOT_WELCOME_MESSAGE.format(
+        is_localhost: bool = _WEB_SERVER_DISPLAY_HOST in self._web_url
+        template: str = _BOT_WELCOME_MESSAGE_NO_WEB if is_localhost else _BOT_WELCOME_MESSAGE
+        message: str = template.format(
             bot_name=self._bot_name,
             long_name=self._config.long_name,
             short_name=self._config.short_name,

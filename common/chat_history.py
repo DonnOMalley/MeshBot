@@ -93,7 +93,7 @@ class ChatHistory:
                 for raw in raw_lines:
                     decrypted: Optional[str] = EncryptionHelper.decrypt(raw, key)
                     if decrypted is not None:
-                        lines.append(decrypted)
+                        lines.extend([part for part in decrypted.split("\n") if part.strip()])
             else:
                 lines = raw_lines
             tail: list[str] = lines[-count:] if len(lines) > count else lines

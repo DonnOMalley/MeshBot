@@ -170,6 +170,7 @@ _PACKET_KEY_TRACE_ROUTE: str = "route"
 _PACKET_KEY_TRACE_ROUTE_BACK: str = "routeBack"
 _PACKET_KEY_TRACE_SNR_TOWARDS: str = "snrTowards"
 _PACKET_KEY_TRACE_SNR_BACK: str = "snrBack"
+_PACKET_KEY_WEB_RESPONSES: str = "webResponses"
 # endregion Packet Keys
 
 # region Packet Types
@@ -243,6 +244,8 @@ _MSG_LAST_CONSOLE: str = "[BOT] last — {count} messages from '{channel}' sent 
 
 _WEB_RESPONSE: str = "Web dashboard: {web_url}"
 _WEB_CONSOLE_RESPONSE: str = "[BOT] Web command received from {sender}."
+
+_USER_HELLO_RESPONSE: str = _HELLO_RESPONSE_NO_PARAMS + " :: {hop_count} 🐇hops"
 # endregion Bot Command Responses
 # region Bot Command: Trace
 _TRACE_RESPONSE_WAITING: str = "Tracerouting... \U0001f4e1 Stand by."
@@ -277,6 +280,7 @@ _CMD_SEND_DELAY: float = 2.0
 _CMD_LIST_HEADER: str = "Available commands:"
 _CMD_LIST_ITEM_FORMAT: str = "- !{cmd}"
 _CMD_LAST_MAX_MESSAGES: int = 5
+_DM_RESPONSE_WAIT_SECS: float = 0.15
 # endregion Command Send Delays
 
 # region Node Database
@@ -354,6 +358,7 @@ _MSG_CONNECTION_MONITOR_STOPPED: str = "\nConnection monitor stopped."
 
 # region Bot Lifecycle Messages
 _BOT_WELCOME_MESSAGE: str = f"{{bot_name}} is online via {{long_name}} ({{short_name}})\n\nMessage me here or send me a DM\n\nSend !{CMD_LIST} to see the list of available commands\n\nView the Web dashboard at:\n{{web_url}}"
+_BOT_WELCOME_MESSAGE_NO_WEB: str = f"{{bot_name}} is online via {{long_name}} ({{short_name}})\n\nMessage me here or send me a DM\n\nSend !{CMD_LIST} to see the list of available commands"
 _BOT_CHECKIN_MESSAGE: str = f"{{bot_name}} just checking in... Still online\nSend !{CMD_LIST} to see the list of available commands"
 _BOT_SIGNOFF_MESSAGE: str = "{bot_name} signing off!\n\nCatch you on the flip side!"
 

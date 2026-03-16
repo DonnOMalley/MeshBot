@@ -24,6 +24,7 @@ from common.constants import (
     _CHANNEL_NAME_PRIMARY_LABEL,
     _CHANNEL_NAME_FORMAT,
     _ROLE_NAMES,
+    _WEB_USER_NODE_ID_BYTE,
 )
 from meshtastic import channel_pb2, mesh_pb2
 from meshtastic.mesh_interface import MeshInterface
@@ -367,6 +368,24 @@ class MeshtasticHelper:
                     )
                 )
     
+    @staticmethod
+    def is_web_user_packet(packet: dict) -> bool:
+        """Returns True if the packet originates from a web portal user.
+
+        Web user node IDs start with the reserved prefix ``'!fe'`` (the web user
+        node ID byte). Command handlers use this to avoid transmitting a mesh
+        message and instead write the response directly into the packet so the
+        web server can read it back.
+
+        Args:
+            packet: The raw packet dict to inspect.
+
+        Returns:
+            True if the packet's fromId begins with the web user node ID prefix.
+        """
+        from_id: str = packet.get(_PACKET_KEY_FROM_ID, "")
+        return from_id.startswith(f"!{_WEB_USER_NODE_ID_BYTE}")
+
     @staticmethod
     def is_direct_message(packet: dict, bot_node_id: str) -> bool:
         """Returns True if the packet is a direct message addressed to the bot.

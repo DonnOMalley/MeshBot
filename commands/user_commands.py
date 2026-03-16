@@ -1,5 +1,5 @@
 from __future__ import annotations
-from commands.joke_manager import JokeManager
+from commands.user_command_helper import UserCommandHelper
 from common.meshtastic_helper import MeshtasticHelper
 from configuration.node_configuration import NodeConfiguration
 from messaging.command_handler import CommandHandler
@@ -11,13 +11,12 @@ from common.constants import (
     CMD_JOKE,
     CMD_HELLO,
     _HELLO_CONSOLE_RESPONSE,
-    _HELLO_RESPONSE_NO_PARAMS,
     _JOKE_CONSOLE_SENT,
-    _JOKE_ERROR_RESPONSE,
     _NODE_DB_DIR,
-    _CHAT_HISTORY_BOT_SENDER
+    _CHAT_HISTORY_BOT_SENDER,
+    _PACKET_KEY_DECODED,
+    _PACKET_KEY_WEB_RESPONSES,
 )
-_HELLO_RESPONSE: str = _HELLO_RESPONSE_NO_PARAMS + " :: {hop_count} 🐇hops"
 
 
 class UserCommands:
@@ -32,9 +31,9 @@ class UserCommands:
     _iface: MeshInterface
     _config: NodeConfiguration
     _channel: channel_pb2.Channel
-    _joke_manager: JokeManager
     _chat_history: ChatHistory | None
     _verbose: bool
+    _helper: UserCommandHelper
     # endregion Protected Variables
 
     # region Constructor
@@ -61,8 +60,8 @@ class UserCommands:
         self._config = config
         self._channel = channel
         self._verbose = verbose
-        self._joke_manager = JokeManager(data_dir=data_dir)
         self._chat_history = chat_history
+        self._helper = UserCommandHelper(data_dir=data_dir)
     # endregion Constructor
 
     # region Protected Functions
@@ -90,6 +89,9 @@ class UserCommands:
     def _cmd_hello(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
         """Responds to the custom hello2 command with a personalised greeting and hop count.
 
+        When the packet originates from a web user the response is written into
+        the packet rather than transmitted over the mesh.
+
         Args:
             sender: The node ID string of the message sender.
             params: Any text that followed the command name (unused).
@@ -97,41 +99,55 @@ class UserCommands:
         """
         display_name: str = MeshtasticHelper.resolve_display_name(sender, self._iface)
         hop_count: int = MeshtasticHelper.get_hop_count_from_packet(packet)
-        return MeshtasticHelper.send_text_message(
-            iface=self._iface,
-            channelIndex=self._channel.index,
-            packet=packet,
-            message=_HELLO_RESPONSE.format(display_name=display_name, hop_count=hop_count),
-            consoleMsg=_HELLO_CONSOLE_RESPONSE.format(display_name=display_name, params=params) if self._verbose else None,
-            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
-            chat_history=self._chat_history,
-            chat_sender=_CHAT_HISTORY_BOT_SENDER
-        )
+        message: str = self._helper.compute_hello(display_name, hop_count)
+        result: mesh_pb2.MeshPacket | None
+        if MeshtasticHelper.is_web_user_packet(packet):
+            packet[_PACKET_KEY_DECODED][_PACKET_KEY_WEB_RESPONSES] = [message]
+            result = None
+        else:
+            result = MeshtasticHelper.send_text_message(
+                iface=self._iface,
+                channelIndex=self._channel.index,
+                packet=packet,
+                message=message,
+                consoleMsg=_HELLO_CONSOLE_RESPONSE.format(display_name=display_name, params=params) if self._verbose else None,
+                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                chat_history=self._chat_history,
+                chat_sender=_CHAT_HISTORY_BOT_SENDER,
+            )
+        return result
 
     def _cmd_joke(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
         """Responds to the 'joke' command with a joke fetched from JokeAPI or the local cache.
 
         Fetches a fresh joke from the JokeAPI and saves it to the local cache. Falls
         back to a randomly selected cached joke if the API is unavailable. Sends an
-        error reply when neither source has a joke available.
+        error reply when neither source has a joke available. When the packet
+        originates from a web user the response is written into the packet rather
+        than transmitted over the mesh.
 
         Args:
             sender: The node ID string of the message sender.
             params: Any text that followed the command name (unused).
             packet: The full raw Meshtastic packet dictionary.
         """
-        joke: str | None = self._joke_manager.fetch_joke()
-        message: str = joke if joke is not None else _JOKE_ERROR_RESPONSE
-        return MeshtasticHelper.send_text_message(
-            iface=self._iface,
-            channelIndex=self._channel.index,
-            packet=packet,
-            message=message,
-            consoleMsg=_JOKE_CONSOLE_SENT.format(sender=sender) if self._verbose else None,
-            destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
-            chat_history=self._chat_history,
-            chat_sender=_CHAT_HISTORY_BOT_SENDER
-        )
+        message: str = self._helper.compute_joke()
+        result: mesh_pb2.MeshPacket | None
+        if MeshtasticHelper.is_web_user_packet(packet):
+            packet[_PACKET_KEY_DECODED][_PACKET_KEY_WEB_RESPONSES] = [message]
+            result = None
+        else:
+            result = MeshtasticHelper.send_text_message(
+                iface=self._iface,
+                channelIndex=self._channel.index,
+                packet=packet,
+                message=message,
+                consoleMsg=_JOKE_CONSOLE_SENT.format(sender=sender) if self._verbose else None,
+                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                chat_history=self._chat_history,
+                chat_sender=_CHAT_HISTORY_BOT_SENDER,
+            )
+        return result
     # endregion Protected Functions
 
     # region Public Functions
