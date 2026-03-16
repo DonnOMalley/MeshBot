@@ -441,9 +441,11 @@ td.empty {
   font-family: var(--sans);
 }
 
-/* ── Full-page layout (nodes + chat pages) ───────────────────────────── */
+/* ── Full-page layout (nodes + chat + console pages) ────────────────── */
 body.full-page main {
   max-width: 100%;
+  width: 100%;       /* overrides flex-child auto-margin centering */
+  margin: 0;         /* remove the 0 auto that narrows content-driven pages */
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -455,6 +457,16 @@ body.full-page .panel {
   border-left: none;
   border-right: none;
   border-top: none;
+}
+
+/* Chat page: remove gap so panels flow edge-to-edge, no dead space */
+body.chat-page main {
+  gap: 0;
+}
+
+/* Console page: restore padding around the terminal frame */
+body.console-page main {
+  padding: 10px 12px 16px;
 }
 
 /* ── Last panel in main fills remaining height ───────────────────────── */
