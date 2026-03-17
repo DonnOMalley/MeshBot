@@ -2,6 +2,8 @@ import time
 
 from common.app_arguments import AppArguments
 from common.constants import (
+    _MSG_NODE_INIT_APPLYING,
+    _MSG_NODE_INIT_APPLIED,
     CHANNEL_NAME_PRIMARY,
     _STARTUP_MESSAGE,
     _VERBOSE_ARGS_MESSAGE,
@@ -26,10 +28,14 @@ from common.constants import (
     _MSG_RECONNECT_ATTEMPT,
     _MSG_RECONNECT_SUCCESS,
     _MSG_RECONNECT_FAILED,
+    _MSG_NODE_INIT_REBOOT_WAIT,
+    _MSG_NODE_INIT_RECONNECT_SUCCESS,
+    _NODE_INIT_REBOOT_INITIAL_WAIT,
 )
 from common.console_logger import ConsoleLogger
 from common.meshtastic_helper import MeshtasticHelper
 from common.node_database import NodeDatabase
+from common.node_initializer import NodeInitializer
 from common.chat_history import ChatHistory
 from configuration.node_configuration import NodeConfiguration
 from messaging.bot_lifecycle_messenger import BotLifecycleMessenger
@@ -146,6 +152,25 @@ def _resolve_channel(channel_name: str | None, config: NodeConfiguration) -> cha
 
     return result
 
+def reconnect_device(iface: meshtastic.serial_interface.SerialInterface, args: AppArguments, node_initializer: NodeInitializer) -> meshtastic.serial_interface.SerialInterface:
+    print(_MSG_NODE_INIT_REBOOT_WAIT)
+    try:
+        iface.close()
+    except Exception:
+        pass
+    time.sleep(_NODE_INIT_REBOOT_INITIAL_WAIT)
+    reconnect_ok = False
+    while not reconnect_ok:
+        try:
+            iface = meshtastic.serial_interface.SerialInterface()
+            reconnect_ok = iface is not None and iface.devPath is not None
+            time.sleep(_RECONNECT_DELAY_SECONDS)
+        except Exception as reconnect_err:
+            if args.verbose:
+                print(_MSG_RECONNECT_FAILED.format(error=reconnect_err, delay=_RECONNECT_DELAY_SECONDS))
+            time.sleep(_RECONNECT_DELAY_SECONDS)
+    return iface
+
 def main() -> None:
     """Entry point for the DAMNBot application.
 
@@ -168,6 +193,9 @@ def main() -> None:
     web_server: WebServer
     chat_history: ChatHistory
     iface: meshtastic.serial_interface.SerialInterface | None
+    node_initializer: NodeInitializer
+    reboot_triggered: bool
+    reconnect_ok: bool
     keyboard_interrupted: bool
     reconnected: bool
     disconnected: bool
@@ -185,6 +213,7 @@ def main() -> None:
             channel=args.channel or "(prompt)",
             case_sensitive=args.case_sensitive,
             exclude_ootb=args.exclude_ootb,
+            no_node_init=args.no_node_init,
             node_retention_days=args.node_retention_days,
             encrypted=args.encryption_key is not None,
             verbose=args.verbose,
@@ -206,6 +235,31 @@ def main() -> None:
         if args.verbose:
             print(_NODE_IDENTITY_MESSAGE.format(long_name=config.long_name, short_name=config.short_name, node_id=config.node_id))
 
+        node_initializer = NodeInitializer(iface)
+        reboot_triggered: bool = False
+        device_changed: bool = False
+        if not args.no_node_init:
+            # reboot_triggered = node_initializer.apply()
+            print(_MSG_NODE_INIT_APPLYING)
+            reboot_triggered = node_initializer._apply_lora_settings()
+            device_changed = node_initializer._apply_device_settings()
+            print(_MSG_NODE_INIT_APPLIED)
+            
+        if(device_changed == True and reboot_triggered == False):
+            print("Device configuration changed but reboot not triggered — waiting briefly before continuing...")
+            reboot_triggered = True
+            iface.localNode.reboot()
+            time.sleep(_NODE_INIT_REBOOT_INITIAL_WAIT)
+        
+
+        if reboot_triggered:
+            iface = reconnect_device(iface, args, node_initializer)
+            config = NodeConfiguration(iface)
+            node_initializer.update_iface(iface)
+            print(_MSG_NODE_INIT_RECONNECT_SUCCESS)
+        else:
+            print("Device reboot not triggered")
+            
         node_db = NodeDatabase(
             retention_days=args.node_retention_days,
             passphrase=args.encryption_key,
@@ -288,6 +342,8 @@ def main() -> None:
 
                 if keyboard_interrupted and current_channel is not None:
                     bot_lifecycle_messenger.send_signoff_message(current_channel)
+                    if not args.no_node_init:
+                        node_initializer.restore()
                 else:
                     try:
                         iface.close()

@@ -321,6 +321,8 @@ class BotCommands:
             interface: The MeshInterface that received the packet (unused).
         """
         from_id: str = MeshtasticHelper.get_node_id_from_packet(packet)
+        to_id: str = packet.get("toId", "") #(_PACKET_KEY_TO_ID, "")
+        print(f"Received trace response from {from_id} to {to_id}")
         pending: tuple[bool, float] | None = self._pending_traces.pop(from_id, None)
         if pending is not None:
             # as_dm: bool = pending[0]

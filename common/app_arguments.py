@@ -12,6 +12,7 @@ from common.constants import (
     _ARG_CONFIG,
     _ARG_ENCRYPTION_KEY,
     _ARG_EXCLUDE_OOTB,
+    _ARG_NO_NODE_INIT,
     _ARG_NODE_RETENTION_DAYS,
     _ARG_VERBOSE,
     _ARG_WEB_PORT,
@@ -28,6 +29,7 @@ from common.constants import (
     _HELP_CONFIG,
     _HELP_ENCRYPTION_KEY,
     _HELP_EXCLUDE_OOTB,
+    _HELP_NO_NODE_INIT,
     _HELP_NODE_RETENTION_DAYS,
     _HELP_VERBOSE,
     _HELP_WEB_PORT,
@@ -67,6 +69,7 @@ class AppArguments:
     _channel: Optional[str]
     _encryption_key: Optional[str]
     _exclude_ootb: bool
+    _no_node_init: bool
     _node_retention_days: int
     _verbose: bool
     _web_port: int
@@ -105,6 +108,11 @@ class AppArguments:
         return self._exclude_ootb
 
     @property
+    def no_node_init(self) -> bool:
+        """Whether node configuration changes on startup and shutdown are skipped."""
+        return self._no_node_init
+
+    @property
     def node_retention_days(self) -> int:
         """Number of days without activity before a node is removed from the local database."""
         return self._node_retention_days
@@ -133,6 +141,7 @@ class AppArguments:
         self._channel = None
         self._encryption_key = None
         self._exclude_ootb = False
+        self._no_node_init = False
         self._node_retention_days = _NODE_DB_DEFAULT_RETENTION_DAYS
         self._verbose = False
         self._web_port = _WEB_SERVER_PORT
@@ -163,6 +172,7 @@ class AppArguments:
         parser.add_argument(_ARG_CHANNEL, type=str, default=None, help=_HELP_CHANNEL)
         parser.add_argument(_ARG_ENCRYPTION_KEY, type=str, default=None, metavar="PASSPHRASE", help=_HELP_ENCRYPTION_KEY)
         parser.add_argument(_ARG_EXCLUDE_OOTB, action="store_true", help=_HELP_EXCLUDE_OOTB)
+        parser.add_argument(_ARG_NO_NODE_INIT, action="store_true", help=_HELP_NO_NODE_INIT)
         parser.add_argument(_ARG_NODE_RETENTION_DAYS, type=int, default=None, metavar="DAYS", help=_HELP_NODE_RETENTION_DAYS)
         parser.add_argument(_ARG_VERBOSE, action="store_true", help=_HELP_VERBOSE)
         parser.add_argument(_ARG_WEB_PORT, type=int, default=None, metavar="PORT", help=_HELP_WEB_PORT)
@@ -204,6 +214,7 @@ class AppArguments:
         self._channel = args.Channel
         self._encryption_key = args.EncryptionKey
         self._exclude_ootb = args.ExcludeOOTB
+        self._no_node_init = args.NoNodeInit
         self._node_retention_days = args.NodeRetentionDays if args.NodeRetentionDays is not None else _NODE_DB_DEFAULT_RETENTION_DAYS
         self._verbose = args.Verbose
         self._web_port = args.WebPort if args.WebPort is not None else _WEB_SERVER_PORT
@@ -242,6 +253,8 @@ def _load_config_file(path: str) -> dict:
             defaults["EncryptionKey"] = section["EncryptionKey"]
         if "ExcludeOOTB" in section:
             defaults["ExcludeOOTB"] = section.getboolean("ExcludeOOTB")
+        if "NoNodeInit" in section:
+            defaults["NoNodeInit"] = section.getboolean("NoNodeInit")
         if "NodeRetentionDays" in section:
             defaults["NodeRetentionDays"] = section.getint("NodeRetentionDays")
         if "Verbose" in section:

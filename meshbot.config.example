@@ -24,6 +24,11 @@ CaseSensitive    = false
 ; When true, the built-in commands (ping, test, hello, last) are not registered.
 ExcludeOOTB      = false
 
+; When true, skips all node configuration changes on startup and shutdown.
+; The device is left exactly as it is — no required settings are applied and
+; no original configuration is restored on exit.
+NoNodeInit       = false
+
 ; Number of days before an inactive node is removed from the node database.
 NodeRetentionDays = 30
 

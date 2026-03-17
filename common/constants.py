@@ -10,6 +10,7 @@ _ARG_CHANNEL: str = "--Channel"
 _ARG_CONFIG: str = "--Config"
 _ARG_ENCRYPTION_KEY: str = "--EncryptionKey"
 _ARG_EXCLUDE_OOTB: str = "--ExcludeOOTB"
+_ARG_NO_NODE_INIT: str = "--NoNodeInit"
 _ARG_NODE_RETENTION_DAYS: str = "--NodeRetentionDays"
 _ARG_VERBOSE: str = "--Verbose"
 _ARG_WEB_PORT: str = "--WebPort"
@@ -39,6 +40,7 @@ _APP_EPILOG: str = (
     "  Channel           = MyMesh\n"
     "  CaseSensitive     = false\n"
     "  ExcludeOOTB       = false\n"
+    "  NoNodeInit        = false\n"
     "  NodeRetentionDays = 30\n"
     "  EncryptionKey     = mysecret\n"
     "  Verbose           = false\n"
@@ -70,6 +72,11 @@ _HELP_CHANNEL: str = (
 _HELP_EXCLUDE_OOTB: str = (
     "When set, the out-of-the-box default commands (ping, test) are not registered. "
     "Only the hello command remains active by default."
+)
+_HELP_NO_NODE_INIT: str = (
+    "When set, skips all node configuration changes on startup and shutdown. "
+    "The device is left exactly as it is — no required settings are applied and "
+    "no original configuration is restored on exit."
 )
 _HELP_VERBOSE: str = (
     "When set, enables verbose console output. Prints received messages, "
@@ -112,7 +119,7 @@ CHANNEL_NAME_PRIMARY: str = "primary"
 # region Application Messages (Startup)
 _VERBOSE_ARGS_MESSAGE: str = (
     "[ARGS] bot_name={bot_name} | bot_description={bot_description} | channel={channel} | "
-    "CaseSensitive={case_sensitive} | ExcludeOOTB={exclude_ootb} | "
+    "CaseSensitive={case_sensitive} | ExcludeOOTB={exclude_ootb} | NoNodeInit={no_node_init} | "
     "NodeRetentionDays={node_retention_days} | Encrypted={encrypted} | Verbose={verbose} | "
     "WebUrl={web_url} | WebPort={web_port}"
 )
@@ -366,3 +373,42 @@ _BOT_WELCOME_MESSAGE_SENT: str = "Welcome message sent on channel '{index}: {nam
 _BOT_CHECKIN_MESSAGE_SENT: str = "Check-in message sent on channel '{index}: {name}'."
 _BOT_SIGNOFF_MESSAGE_SENT: str = "Signoff message sent on channel '{index}: {name}'."
 # endregion Bot Lifecycle Messages
+
+# region Node Initialization
+# Required settings applied on startup and restored on clean shutdown.
+_NODE_INIT_HOP_LIMIT: int = 7
+_NODE_INIT_NODE_INFO_BROADCAST_SECS: int = 21600  # 6 hours in seconds
+#_NODE_INIT_ROLE: int = 0  # Config.DeviceConfig.Role.CLIENT (base client role)
+#_NODE_INIT_ROLE: int = 8  # Config.DeviceConfig.Role.CLIENT_HIDDEN (STEALTH MODE - LOOK INTO THIS MORE)
+#_NODE_INIT_REBROADCAST_MODE: int = 0  # Config.DeviceConfig.RebroadcastMode.ALL
+
+# ### DEFAULT SETTINGS.
+# _NODE_INIT_HOP_LIMIT: int = 5
+# _NODE_INIT_NODE_INFO_BROADCAST_SECS: int = 259200  # 72 hours in seconds
+_NODE_INIT_ROLE: int = 1  # Config.DeviceConfig.Role.CLIENT_MUTE (base client_mute role)
+_NODE_INIT_REBROADCAST_MODE: int = 4  # Config.DeviceConfig.RebroadcastMode.NONE
+
+# Expected settings — verified on startup; a warning is logged for any mismatch.
+_NODE_INIT_EXPECTED_REGION: int = 1           # Config.LoRaConfig.RegionCode.US
+_NODE_INIT_EXPECTED_USE_PRESET: bool = True
+_NODE_INIT_EXPECTED_MODEM_PRESET: int = 4     # Config.LoRaConfig.ModemPreset.MEDIUM_FAST
+_NODE_INIT_EXPECTED_TX_ENABLED: bool = True
+_NODE_INIT_EXPECTED_TX_POWER: int = 30
+_NODE_INIT_EXPECTED_IGNORE_MQTT: bool = True
+_NODE_INIT_EXPECTED_CONFIG_OK_TO_MQTT: bool = False
+
+# Reboot wait — time to pause before reconnecting after a config write triggers a device restart.
+_NODE_INIT_REBOOT_INITIAL_WAIT: float = 15.0  # seconds
+
+# Console messages
+_MSG_NODE_INIT_APPLYING: str = "[NODE INIT] Applying required node configuration..."
+_MSG_NODE_INIT_APPLIED: str = "[NODE INIT] Node configuration applied."
+_MSG_NODE_INIT_REBOOT_WAIT: str = "[NODE INIT] Configuration changed — waiting for device to restart..."
+_MSG_NODE_INIT_RECONNECT_SUCCESS: str = "[NODE INIT] Device restarted. Connection restored."
+_MSG_NODE_INIT_RESTORING: str = "[NODE INIT] Restoring original node configuration..."
+_MSG_NODE_INIT_RESTORED: str = "[NODE INIT] Original node configuration restored."
+_MSG_NODE_INIT_SET: str = "[NODE INIT]   Set {field} = {value}"
+_MSG_NODE_INIT_NO_CHANGE: str = "[NODE INIT]   {field} already {value} — no change."
+_MSG_NODE_INIT_VERIFY_OK: str = "[NODE INIT]   {field}: OK ({value})"
+_MSG_NODE_INIT_VERIFY_WARN: str = "[NODE INIT]   WARNING — {field}: expected {expected}, got {actual}"
+# endregion Node Initialization
