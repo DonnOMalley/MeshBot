@@ -377,7 +377,7 @@ _BOT_SIGNOFF_MESSAGE_SENT: str = "Signoff message sent on channel '{index}: {nam
 # region Node Initialization
 # Required settings applied on startup and restored on clean shutdown.
 _NODE_INIT_HOP_LIMIT: int = 7
-_NODE_INIT_NODE_INFO_BROADCAST_SECS: int = 21600  # 6 hours in seconds
+_NODE_INIT_NODE_INFO_BROADCAST_SECS: int = 86400  # 24 hours in seconds
 #_NODE_INIT_ROLE: int = 0  # Config.DeviceConfig.Role.CLIENT (base client role)
 #_NODE_INIT_ROLE: int = 8  # Config.DeviceConfig.Role.CLIENT_HIDDEN (STEALTH MODE - LOOK INTO THIS MORE)
 #_NODE_INIT_REBROADCAST_MODE: int = 0  # Config.DeviceConfig.RebroadcastMode.ALL
