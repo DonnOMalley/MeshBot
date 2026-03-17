@@ -110,7 +110,7 @@ class BotCommands:
                 message=message,
                 packet=packet,
                 consoleMsg=_HELLO_CONSOLE_RESPONSE.format(display_name=display_name, params=params) if self._verbose else None,
-                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
@@ -136,7 +136,7 @@ class BotCommands:
                 message=message,
                 packet=packet,
                 consoleMsg=_PING_CONSOLE_RESPONSE.format(sender=sender) if self._verbose else None,
-                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
@@ -165,7 +165,7 @@ class BotCommands:
                 message=message,
                 packet=packet,
                 consoleMsg=_TEST_CONSOLE_RESPONSE.format(sender=sender) if self._verbose else None,
-                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
@@ -276,7 +276,7 @@ class BotCommands:
                 message=_TRACE_RESPONSE_WAITING,
                 packet=packet,
                 consoleMsg=_TRACE_CONSOLE_SENT.format(sender=sender) if self._verbose else None,
-                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
@@ -304,7 +304,7 @@ class BotCommands:
                 message=message,
                 packet=packet,
                 consoleMsg=_WEB_CONSOLE_RESPONSE.format(sender=sender) if self._verbose else None,
-                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )

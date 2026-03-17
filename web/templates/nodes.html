@@ -8,12 +8,14 @@
     <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
   <body class="full-page">
-    {% set active_page = 'nodes' %}
-    {% include "partials/_header.html" %}
+    {% set active_page = 'nodes' %} {% include "partials/_header.html" %}
 
     <main>
       <section class="panel">
-        <div class="panel-header" id="node-panel-header"><img src="/images/nodes%20icon.png" class="panel-icon" alt=""><span class="panel-header-text">Node List</span></div>
+        <div class="panel-header" id="node-panel-header">
+          <img src="/images/nodes%20icon.png" class="panel-icon" alt="" />
+          <span class="panel-header-text">Node List</span>
+        </div>
         <div class="node-toolbar">
           <input id="node-filter" type="text" class="node-filter-input" placeholder="Filter by name or device…" oninput="applyNodeFilter(this.value)" />
           <button class="node-export-btn" onclick="exportNodesCsv()">&#8681; Export CSV</button>
@@ -26,20 +28,18 @@
                 <th data-col="long_name" class="sortable" onclick="handleSort('long_name')">Node Name</th>
                 <th>Role</th>
                 <th class="device-col">Device</th>
-                <th data-col="last_seen" class="sortable last-seen-col" onclick="handleSort('last_seen')">Last Seen (Local)</th>
+                <th data-col="last_seen" class="sortable last-seen-col" onclick="handleSort('last_seen')">Last Seen</th>
                 <th class="position-col">Position</th>
-                <th>Trace</th>
               </tr>
             </thead>
             <tbody id="node-tbody">
-              <tr><td colspan="7" class="empty">Loading&hellip;</td></tr>
+              <tr><td colspan="6" class="empty">Loading&hellip;</td></tr>
             </tbody>
           </table>
         </div>
       </section>
     </main>
 
-    <div id="trace-popup" class="trace-card"></div>
     <script src="/static/app.js"></script>
     <script src="/static/nodes.js"></script>
   </body>

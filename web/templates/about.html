@@ -161,7 +161,7 @@
                 <tr>
                   <td class="cmd-name"><a href="/about" style="color: var(--accent); text-decoration: none">About</a></td>
                   <td class="cmd-syntax">/about</td>
-                  <td class="cmd-desc">This page &mdash; bot info, command reference, dashboard guide, and full README.</td>
+                  <td class="cmd-desc">This page &mdash; bot info, command reference, dashboard guide, and release notes.</td>
                 </tr>
               </tbody>
             </table>
@@ -204,14 +204,14 @@
           </div>
         </section>
 
-        <!-- README -->
+        <!-- Release Notes -->
         <section class="about-section">
           <div class="about-section-header">
-            <span>README</span>
-            <a href="/api/readme" target="_blank" rel="noopener noreferrer" class="readme-raw-link">View raw</a>
+            <span>Release Notes</span>
+            <a href="/api/readme" target="_blank" rel="noopener noreferrer" class="readme-raw-link">View full README</a>
           </div>
-          <div class="about-section-body readme-body" id="readme-body">
-            <p class="readme-loading" id="readme-loading">Loading README&hellip;</p>
+          <div class="about-section-body readme-body" id="release-notes-body">
+            <p class="readme-loading" id="release-notes-loading">Loading release notes&hellip;</p>
           </div>
         </section>
       </div>
@@ -221,18 +221,18 @@
     <script src="/static/app.js"></script>
     <script>
       (function () {
-        fetch("/api/readme")
+        fetch("/api/release-notes")
           .then(function (r) {
             return r.text();
           })
           .then(function (md) {
-            var body = document.getElementById("readme-body");
+            var body = document.getElementById("release-notes-body");
             body.innerHTML = marked.parse(md);
           })
           .catch(function () {
-            var el = document.getElementById("readme-loading");
+            var el = document.getElementById("release-notes-loading");
             if (el) {
-              el.textContent = "Failed to load README.";
+              el.textContent = "Failed to load release notes.";
             }
           });
       })();

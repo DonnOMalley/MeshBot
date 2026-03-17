@@ -402,6 +402,20 @@ class MeshtasticHelper:
         """
         to_id: str = packet.get(_PACKET_KEY_TO_ID, _BROADCAST_ID)
         return to_id == bot_node_id
+    
+    @staticmethod
+    def get_message_destination_id(packet: dict, sender: str, bot_node_id: str) -> str | None:
+        """Extracts the destination node ID from a Meshtastic packet.
+
+        Args:
+            packet: The raw Meshtastic packet dict.
+            sender: The node ID string of the message sender.
+            bot_node_id: The bot's own node ID string (e.g. '!deadbeef').
+
+        Returns:
+            The destination node ID if the packet is a direct message, None otherwise.
+        """
+        return (sender if MeshtasticHelper.is_direct_message(packet, bot_node_id) else None)
 
     @staticmethod
     def send_text_message(iface: MeshInterface, channelIndex: int, message: str, packet: dict, destinationId: str | None = None, consoleMsg: str | None = None, chat_history: Optional[ChatHistory] = None, chat_sender: str = "") -> mesh_pb2.MeshPacket | None:
@@ -441,6 +455,7 @@ class MeshtasticHelper:
             result = iface.sendText(message, channelIndex=channelIndex)
         if destinationId is None and chat_history is not None:
             chat_history.append(chat_sender, message)
+            
         return result
 
     # endregion Public Functions

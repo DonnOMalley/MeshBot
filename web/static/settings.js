@@ -2,7 +2,7 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   loadSettings();
-  setInterval(refreshAll, 30_000);
+  setInterval(refreshAll, REFRESH_INTERVAL_MS);
 });
 
 // Override app.js refreshAll for this page.

@@ -69,14 +69,13 @@ def _build_channel_monitor(
         channel=channel,
         case_sensitive=args.case_sensitive,
         exclude_ootb=args.exclude_ootb,
-        user_defined_commands=UserCommands(iface, config, channel, verbose=args.verbose).get_commands(),
+        user_defined_commands=UserCommands(iface, config, channel, chat_history=chat_history, verbose=args.verbose).get_commands(),
         verbose=args.verbose,
         chat_history=chat_history,
         passphrase=args.encryption_key,
         web_url=web_url,
     )
     return monitor
-
 
 def _build_dm_monitor(
     iface: meshtastic.serial_interface.SerialInterface,
@@ -146,7 +145,6 @@ def _resolve_channel(channel_name: str | None, config: NodeConfiguration) -> cha
         print(err_msg)
 
     return result
-
 
 def main() -> None:
     """Entry point for the DAMNBot application.

@@ -99,7 +99,6 @@ class _CapturingIface:
             text: The message text that would have been sent.
             **kwargs: Ignored keyword arguments (destinationId, channelIndex, etc.).
         """
-        print(f"[DM Command] {text}")
         if hasattr(_dm_response_tl, "responses"):
             _dm_response_tl.responses.append(str(text))
 
@@ -548,6 +547,22 @@ class WebServer:
                     content: str = f.read()
                 return content, 200, {"Content-Type": "text/plain; charset=utf-8"}
 
+        @self._app.route("/api/release-notes")
+        def api_release_notes():
+            readme_path: str = os.path.normpath(os.path.join(self._web_dir, "..", _README_FILENAME))
+            if not os.path.isfile(readme_path):
+                abort(404)
+            else:
+                with open(readme_path, "r", encoding="utf-8") as f:
+                    content: str = f.read()
+                marker: str = "## Release Notes"
+                idx: int = content.find(marker)
+                if idx == -1:
+                    abort(404)
+                else:
+                    release_notes: str = content[idx:]
+                    return release_notes, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
         @self._app.route("/api/nodes")
         def api_nodes():
             return jsonify([n.to_dict() for n in self._node_db.nodes])
@@ -748,7 +763,6 @@ class WebServer:
             lookup: str = command if self._case_sensitive else command.lower()
             commands_dict: dict = self._dm_command_register._commands
             matched_key: str | None = next((k for k in commands_dict if k.lower() == lookup), None)
-            print(f"[DM Command] Received command '{command}' with params '{params}' from web user '{web_user.display_name}' with matched key '{matched_key}'")
             responses: list[str] = []
             _dm_response_tl.responses = []
             try:

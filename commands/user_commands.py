@@ -66,25 +66,6 @@ class UserCommands:
 
     # region Protected Functions
     
-    # def _cmd_hey_hey(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
-    #     """Responds to the 'heyhey' command with a personalised greeting and hop count.
-
-    #     Args:
-    #         sender: The node ID string of the message sender.
-    #         params: Any text that followed the command name (unused).
-    #         packet: The full raw Meshtastic packet dictionary.
-    #     """
-    #     display_name: str = MeshtasticHelper.resolve_display_name(sender, self._iface)
-    #     hop_count: int = MeshtasticHelper.get_hop_count_from_packet(packet)
-    #     return MeshtasticHelper.send_text_message(
-    #         iface=self._iface,
-    #         channelIndex=self._channel.index,
-    #         packet=packet,
-    #         message=_HEY_HEY_RESPONSE.format(display_name=display_name, hop_count=hop_count),
-    #         consoleMsg=_HEY_HEY_CONSOLE_RESPONSE.format(display_name=display_name, hop_count=hop_count) if self._verbose else None,
-    #         destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None
-    #     )
-    
     
     def _cmd_hello(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
         """Responds to the custom hello2 command with a personalised greeting and hop count.
@@ -111,7 +92,7 @@ class UserCommands:
                 packet=packet,
                 message=message,
                 consoleMsg=_HELLO_CONSOLE_RESPONSE.format(display_name=display_name, params=params) if self._verbose else None,
-                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
@@ -132,10 +113,10 @@ class UserCommands:
             packet: The full raw Meshtastic packet dictionary.
         """
         message: str = self._helper.compute_joke()
-        result: mesh_pb2.MeshPacket | None
+        result: mesh_pb2.MeshPacket | None = None
         if MeshtasticHelper.is_web_user_packet(packet):
             packet[_PACKET_KEY_DECODED][_PACKET_KEY_WEB_RESPONSES] = [message]
-            result = None
+            result = None        
         else:
             result = MeshtasticHelper.send_text_message(
                 iface=self._iface,
@@ -143,7 +124,7 @@ class UserCommands:
                 packet=packet,
                 message=message,
                 consoleMsg=_JOKE_CONSOLE_SENT.format(sender=sender) if self._verbose else None,
-                destinationId=sender if MeshtasticHelper.is_direct_message(packet, self._config.node_id) else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
@@ -158,8 +139,8 @@ class UserCommands:
             A dict mapping command name strings to their handler callables.
         """
         return {
+            # CMD_HELLO: self._cmd_hello,
             f"{CMD_HELLO}2": self._cmd_hello,
-            # _CMD_HEY_HEY: self._cmd_hey_hey
             CMD_JOKE: self._cmd_joke,
         }
     # endregion Public Functions
