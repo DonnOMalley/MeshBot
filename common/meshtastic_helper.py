@@ -415,7 +415,8 @@ class MeshtasticHelper:
         Returns:
             The destination node ID if the packet is a direct message, None otherwise.
         """
-        return (sender if MeshtasticHelper.is_direct_message(packet, bot_node_id) else None)
+        # return (sender if MeshtasticHelper.is_direct_message(packet, bot_node_id) else None)
+        return sender #Forces a DM for all responses, even those sent to channels. Hack for now. Want to update to better allow each command to define if it supports broadcast, DM, or both in the responses.
 
     @staticmethod
     def send_text_message(iface: MeshInterface, channelIndex: int, message: str, packet: dict, destinationId: str | None = None, consoleMsg: str | None = None, chat_history: Optional[ChatHistory] = None, chat_sender: str = "") -> mesh_pb2.MeshPacket | None:

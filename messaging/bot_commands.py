@@ -323,17 +323,16 @@ class BotCommands:
         from_id: str = MeshtasticHelper.get_node_id_from_packet(packet)
         pending: tuple[bool, float] | None = self._pending_traces.pop(from_id, None)
         if pending is not None:
-            as_dm: bool = pending[0]
+            # as_dm: bool = pending[0]
             elapsed: float = time.time() - pending[1]
             result: str = self._helper.format_traceroute(packet) + _TRACE_DURATION_SUFFIX.format(seconds=elapsed)
-            if self._verbose:
-                print(_TRACE_CONSOLE_RECEIVED.format(sender=from_id))
             MeshtasticHelper.send_text_message(
                 iface=self._iface,
                 channelIndex=self._channel.index,
                 message=result,
                 packet={},
-                destinationId=from_id if as_dm else None,
+                destinationId=from_id, #if as_dm else None, #Updated to Force DM for all trace responses to avoid channel spam and ensure delivery even when original command came from a channel.
+                consoleMsg=_TRACE_CONSOLE_RECEIVED.format(sender=from_id) if self._verbose else None,
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
