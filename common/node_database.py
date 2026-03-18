@@ -277,6 +277,20 @@ class NodeDatabase:
                 hops_away: Optional[int] = node_data.get("hopsAway")
                 if node_id:
                     self.upsert(node_id, long_name, short_name, role, hardware_model, latitude, longitude, hops_away=hops_away)
+        bot_id: str = f"!{iface.myInfo.my_node_num:08x}" if iface.myInfo else ""
+        if bot_id and bot_id not in self._nodes:
+            bot_long_name: str = iface.getLongName() or ""
+            bot_short_name: str = iface.getShortName() or ""
+            bot_node_info: dict = (iface.localNode.nodeInfo or {}) if iface.localNode else {}
+            bot_user: dict = bot_node_info.get("user", {})
+            bot_role: str = bot_user.get("role", "") or ""
+            bot_hw: str = bot_user.get("hwModel", "") or ""
+            bot_pos: dict = bot_node_info.get("position", {})
+            bot_lat_i: Optional[int] = bot_pos.get("latitudeI")
+            bot_lon_i: Optional[int] = bot_pos.get("longitudeI")
+            bot_lat: Optional[float] = bot_lat_i * _LATITUDE_SCALE if bot_lat_i is not None else None
+            bot_lon: Optional[float] = bot_lon_i * _LONGITUDE_SCALE if bot_lon_i is not None else None
+            self.upsert(bot_id, bot_long_name, bot_short_name, bot_role, bot_hw, bot_lat, bot_lon)
         print(_NODE_DB_LOADED.format(count=len(self._nodes)))
 
     def upsert(self, node_id: str, long_name: str, short_name: str, role: str = "", hardware_model: str = "", latitude: Optional[float] = None, longitude: Optional[float] = None, hops_away: Optional[int] = None) -> None:

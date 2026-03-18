@@ -81,7 +81,7 @@ function renderMap(data) {
 function _buildMarker(node) {
   const lastSeen = node.last_seen ? new Date(node.last_seen).toLocaleString() : "\u2014";
   const tooltipHtml = [
-    `<strong>${esc(node.long_name || "\u2014")}</strong>`,
+    `<strong>${esc(node.long_name || "\u2014")}</strong> - ${esc(node.node_id)}`,
     `<span class="map-tt-row"><span class="map-tt-label">Short Name</span>${esc(node.short_name || "\u2014")}</span>`,
     `<span class="map-tt-row"><span class="map-tt-label">Device</span>${esc(node.hardware_model || "\u2014")}</span>`,
     `<span class="map-tt-row"><span class="map-tt-label">Role</span>${esc(node.role || "\u2014")}</span>`,
@@ -196,6 +196,7 @@ function _updateBotControl() {
 
 function clickBotButton() {
   if (!_map) return;
+
   const botNode = _allNodes.find((n) => n.node_id === _botNodeId);
   const selectedNode = _selectedNodeId && _selectedNodeId !== _botNodeId ? _allNodes.find((n) => n.node_id === _selectedNodeId) : null;
   if (botNode && selectedNode) {
@@ -210,6 +211,7 @@ function clickBotButton() {
     if (botMarker) botMarker.openTooltip();
     if (selMarker) selMarker.openTooltip();
   } else if (botNode) {
+    console.log("bot button clicked");
     _programmaticSetView([botNode.latitude, botNode.longitude], 13);
     const botMarker = _markers[_botNodeId];
     if (botMarker) botMarker.openTooltip();
