@@ -109,6 +109,7 @@ CMD_LAST: str = "last"
 CMD_TRACE: str = "trace"
 CMD_WEB: str = "web"
 CMD_JOKE: str = "joke"
+CMD_RANGE: str = "range"
 _EXCLAMATION_PREFIX: str = "!"
 # endregion Bot Command Names
 

@@ -519,6 +519,10 @@ class WebServer:
         def nodes():
             return render_template("nodes.html", bot_name=self._bot_name, bot_description=self._bot_description)
 
+        @self._app.route("/map")
+        def map_page():
+            return render_template("map.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
         @self._app.route("/chat")
         def chat():
             return render_template("chat.html", bot_name=self._bot_name, bot_description=self._bot_description)
@@ -567,6 +571,23 @@ class WebServer:
         def api_nodes():
             return jsonify([n.to_dict() for n in self._node_db.nodes])
 
+        @self._app.route("/api/map-nodes")
+        def api_map_nodes():
+            all_nodes: list = self._node_db.nodes
+            nodes_with_pos: list = [n for n in all_nodes if n.latitude is not None and n.longitude is not None]
+            bot_node_id: str = ""
+            try:
+                my_info: dict = self._iface.getMyNodeInfo() or {}
+                bot_node_id = my_info.get("user", {}).get("id", "")
+            except Exception:
+                pass
+            return jsonify({
+                "bot_node_id": bot_node_id,
+                "nodes": [n.to_dict() for n in nodes_with_pos],
+                "positioned_count": len(nodes_with_pos),
+                "total_count": len(all_nodes),
+            })
+
         @self._app.route("/api/favorites", methods=["GET", "POST"])
         def api_favorites():
             if request.method == "POST":
@@ -585,6 +606,13 @@ class WebServer:
         @self._app.route("/api/channel")
         def api_channel():
             return jsonify({"name": self._channel_name, "index": self._channel.index})
+
+        @self._app.route("/api/chat-channels")
+        def api_chat_channels():
+            result: list[dict] = [{"key": CHANNEL_NAME_PRIMARY, "label": "Primary", "can_send": False}]
+            if self._channel_name != CHANNEL_NAME_PRIMARY:
+                result.append({"key": self._channel_name, "label": self._channel_name, "can_send": True})
+            return jsonify(result)
 
         @self._app.route("/api/channels")
         def api_channels():

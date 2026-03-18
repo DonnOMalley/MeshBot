@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; Map</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/leaflet.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="map-page">
+    {% set active_page = 'map' %} {% include "partials/_header.html" %}
+
+    <main class="map-main">
+      <aside class="map-sidebar">
+        <div class="map-sidebar-header">
+          <input id="map-filter" type="text" class="map-filter-input" placeholder="Filter by name&hellip;" autocomplete="off" />
+          <div id="map-status" class="map-status">Loading&hellip;</div>
+        </div>
+        <div id="map-node-list" class="map-node-list"></div>
+      </aside>
+      <div id="map" class="map-container"></div>
+    </main>
+
+    <script src="/static/app.js"></script>
+    <script src="/static/leaflet.js"></script>
+    <script src="/static/map.js"></script>
+  </body>
+</html>

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import threading
 from commands.user_command_helper import UserCommandHelper
 from common.meshtastic_helper import MeshtasticHelper
 from configuration.node_configuration import NodeConfiguration
@@ -10,6 +11,8 @@ from common.chat_history import ChatHistory
 from common.constants import (
     CMD_JOKE,
     CMD_HELLO,
+    CMD_RANGE,
+    _CMD_SEND_DELAY,
     _HELLO_CONSOLE_RESPONSE,
     _JOKE_CONSOLE_SENT,
     _NODE_DB_DIR,
@@ -129,6 +132,27 @@ class UserCommands:
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
         return result
+    
+    def _cmd_range_test(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
+        range_test_limit: int = 5
+        for i in range(1, range_test_limit):
+            delay: float = (_CMD_SEND_DELAY * 5) * (i) # Incremental delay for each message
+            message: str = f"Range test message {i} of {range_test_limit} after {delay} seconds"
+            threading.Timer(
+                delay,
+                MeshtasticHelper.send_text_message,
+                kwargs=dict(
+                    iface=self._iface,
+                    channelIndex=self._channel.index,
+                    packet=packet,
+                    message=message,
+                    consoleMsg=f"Sent range test message {i} of {range_test_limit} to {sender}" if self._verbose else None,
+                    destinationId=sender,
+                    chat_history=self._chat_history,
+                    chat_sender=_CHAT_HISTORY_BOT_SENDER,
+                ),
+            ).start()
+        return None
     # endregion Protected Functions
 
     # region Public Functions
@@ -142,5 +166,6 @@ class UserCommands:
             # CMD_HELLO: self._cmd_hello,
             f"{CMD_HELLO}2": self._cmd_hello,
             CMD_JOKE: self._cmd_joke,
+            CMD_RANGE: self._cmd_range_test,
         }
     # endregion Public Functions

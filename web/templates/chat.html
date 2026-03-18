@@ -11,8 +11,8 @@
     {% set active_page = 'chat' %} {% include "partials/_header.html" %}
 
     <main>
-      <!-- Send panel — collapsed by default; expands to reveal the compose form -->
-      <section class="panel">
+      <!-- Send panel — shown only when viewing a channel that allows sending -->
+      <section class="panel" id="send-section" style="display: none">
         <div class="panel-header collapsible collapsed" id="send-panel-header" onclick="toggleSendPanel()">
           <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
           <span class="panel-header-text">Send Message</span>

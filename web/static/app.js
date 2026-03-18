@@ -7,6 +7,7 @@ const REFRESH_INTERVAL_MS = 60_000;
 // ── Shared state ─────────────────────────────────────────────────────────────
 
 let _activeChannel = null;
+let _chatChannels = [];
 let _lastNodes = [];
 let _favorites = new Set();
 let _sortCol = "last_seen";
@@ -15,9 +16,9 @@ let _nodeFilter = "";
 
 // ── Refresh label ────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
-    const label = document.getElementById('refresh-label');
-    if (label) label.textContent = 'Auto-refresh: ' + (REFRESH_INTERVAL_MS / 1000) + 's';
+document.addEventListener("DOMContentLoaded", () => {
+  const label = document.getElementById("refresh-label");
+  if (label) label.textContent = "Auto-refresh: " + REFRESH_INTERVAL_MS / 1000 + "s";
 });
 
 // ── Nodes ─────────────────────────────────────────────────────────────────────
@@ -196,11 +197,11 @@ async function toggleFavorite(nodeId, event) {
 
 async function fetchChannels() {
   try {
-    const res = await fetch("/api/channels");
+    const res = await fetch("/api/chat-channels");
     if (!res.ok) return;
-    const channels = await res.json();
-    renderChannelTabs(channels);
-    if (channels.length > 0) selectChannel(channels[0]);
+    _chatChannels = await res.json();
+    renderChannelTabs(_chatChannels);
+    if (_chatChannels.length > 0) selectChannel(_chatChannels[0].key);
   } catch (_) {
     /* ignore */
   }
@@ -212,7 +213,7 @@ function renderChannelTabs(channels) {
     bar.innerHTML = '<span class="tab-empty">No channel history found.</span>';
     return;
   }
-  bar.innerHTML = channels.map((ch) => `<button class="tab-btn" data-ch="${esc(ch)}" onclick="selectChannel(this.dataset.ch)">${esc(ch)}</button>`).join("");
+  bar.innerHTML = channels.map((ch) => `<button class="tab-btn" data-ch="${esc(ch.key)}" onclick="selectChannel(this.dataset.ch)">${esc(ch.label)}</button>`).join("");
 }
 
 function selectChannel(channel) {
@@ -220,6 +221,16 @@ function selectChannel(channel) {
   document.querySelectorAll(".tab-btn").forEach((b) => {
     b.classList.toggle("active", b.dataset.ch === channel);
   });
+  const chanObj = _chatChannels.find((c) => c.key === channel);
+  const canSend = chanObj ? chanObj.can_send : false;
+  const sendSection = document.getElementById("send-section");
+  if (sendSection) {
+    sendSection.style.display = canSend ? "" : "none";
+    if (canSend) {
+      const nameEl = document.getElementById("send-channel-name");
+      if (nameEl) nameEl.textContent = chanObj.label;
+    }
+  }
   fetchHistory(channel);
 }
 

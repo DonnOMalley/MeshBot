@@ -11,15 +11,6 @@ function toggleSendPanel() {
 
 // Page init for /chat
 document.addEventListener("DOMContentLoaded", async () => {
-  fetch("/api/channel")
-    .then((r) => r.json())
-    .then((d) => {
-      document.getElementById("send-channel-name").textContent = d.name || "primary";
-    })
-    .catch(() => {
-      document.getElementById("send-channel-name").textContent = "(unavailable)";
-    });
-
   fetchChannels();
   setInterval(refreshAll, REFRESH_INTERVAL_MS);
 
