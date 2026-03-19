@@ -209,6 +209,7 @@ class WebServer:
     _capturing_iface: _CapturingIface
     _case_sensitive: bool
     _config: NodeConfiguration
+    _verbose: bool = False
     _display_host: str
     _node_db: NodeDatabase
     _iface: MeshInterface
@@ -246,6 +247,7 @@ class WebServer:
         port: int = _WEB_SERVER_PORT,
         chat_history: ChatHistory | None = None,
         console_logger: ConsoleLogger | None = None,
+        verbose: bool = False,
     ) -> None:
         """Initialises the web server.
 
@@ -277,6 +279,7 @@ class WebServer:
         self._bot_description = bot_description
         self._case_sensitive = case_sensitive
         self._config = config
+        self._verbose = verbose
         self._node_db = node_db
         self._iface = iface
         self._channel = channel
@@ -304,7 +307,7 @@ class WebServer:
             passphrase=passphrase,
             chat_history=None,
             web_url=_WEB_DASHBOARD_URL.format(host=host, port=port),
-            user_defined_commands=UserCommands(iface, config, channel, verbose=False).get_commands(),
+            user_defined_commands=UserCommands(iface, config, channel, verbose=self._verbose).get_commands(),
         )
         
         #print("Command Register built with commands:", self._dm_command_register._commands.keys())
@@ -813,6 +816,8 @@ class WebServer:
             responses: list[str] = []
             _dm_response_tl.responses = []
             try:
+                if self._verbose:
+                    print(f"Received DM command from web user {web_user.display_name}: '{text}' and matched key to: '{matched_key}")
                 if matched_key is not None:
                     commands_dict[matched_key](web_user.node_id, params, packet)
                 web_responses: list[str] = packet.get(_PACKET_KEY_DECODED, {}).get(_PACKET_KEY_WEB_RESPONSES, [])
@@ -821,5 +826,7 @@ class WebServer:
                 if hasattr(_dm_response_tl, "responses"):
                     del _dm_response_tl.responses
             response_text: str | None = "\n".join(responses) if responses else None
+            if self._verbose:
+                print(f"DM command response text: '{response_text}'")
             dm_response = jsonify({"ok": True, "response": response_text}) if response_text else jsonify({"ok": False, "response": f"Invalid Command Text: '{text}'"})
             return dm_response

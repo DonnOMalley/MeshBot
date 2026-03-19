@@ -45,11 +45,12 @@ class DMMonitor(BaseMonitor):
 
     # region Protected Functions
     def _on_unrecognized_command(self, sender: str, packet: dict) -> mesh_pb2.MeshPacket | None:
-        """Sends a DM to the sender explaining that only commands are supported."""
+        text: str = MeshtasticHelper.get_sender_text(packet)
+        """Sends a DM to the sender just repeating the received text back to the user"""
         return MeshtasticHelper.send_text_message(
             iface=self._iface,
             channelIndex=self._channel.index,
-            message=_MSG_DM_UNKNOWN_COMMAND,
+            message=text ,#_MSG_DM_UNKNOWN_COMMAND,
             packet=packet,
             destinationId=sender,
         )

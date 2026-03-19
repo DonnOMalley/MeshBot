@@ -262,7 +262,8 @@ class NodeDatabase:
             iface: The active MeshInterface connection whose node table is read.
         """
         if iface.nodes:
-            for node_data in iface.nodes.values():
+            nodeValues = iface.nodes.values()
+            for node_data in nodeValues:
                 user: dict = node_data.get("user", {})
                 node_id: str = user.get("id", "")
                 long_name: str = user.get("longName", "")
@@ -281,7 +282,7 @@ class NodeDatabase:
         if bot_id and bot_id not in self._nodes:
             bot_long_name: str = iface.getLongName() or ""
             bot_short_name: str = iface.getShortName() or ""
-            bot_node_info: dict = (iface.localNode.nodeInfo or {}) if iface.localNode else {}
+            bot_node_info: dict = iface.getMyNodeInfo() or {}
             bot_user: dict = bot_node_info.get("user", {})
             bot_role: str = bot_user.get("role", "") or ""
             bot_hw: str = bot_user.get("hwModel", "") or ""
