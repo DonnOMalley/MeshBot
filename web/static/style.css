@@ -85,6 +85,82 @@ nav {
   flex-shrink: 0;
 }
 
+/* ── Admin dropdown ──────────────────────────────────────────────────── */
+.nav-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+.nav-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family: var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    border-color 0.12s;
+}
+.nav-dropdown-trigger:hover,
+.nav-dropdown:hover .nav-dropdown-trigger {
+  color: var(--text);
+}
+.nav-dropdown-trigger.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.nav-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  min-width: 170px;
+  flex-direction: column;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  display: flex;
+}
+.nav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-family: var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+.nav-dropdown-item:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.nav-dropdown-item.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 /* ── Header ─────────────────────────────────────────────────────────── */
 header {
   display: flex;
@@ -1460,11 +1536,13 @@ main > section:last-child #chat-messages {
 }
 
 /* ── Settings grid layout ──────────────────────────────────────────── */
-.settings-content {
-  max-width: 1400px;
+.settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
   align-items: start;
+  max-width: 1400px;
+  width: 100%;
 }
 
 /* ── Mobile / Responsive ──────────────────────────────────────────── */
@@ -1515,6 +1593,16 @@ main > section:last-child #chat-messages {
   .nav-icon {
     width: 13px;
     height: 13px;
+  }
+  .nav-dropdown-trigger {
+    padding: 8px 10px;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+  }
+  .nav-dropdown-menu {
+    right: auto;
+    left: 0;
   }
 
   /* Main layout — no gaps/padding, panels go edge-to-edge */
@@ -1639,7 +1727,7 @@ main > section:last-child #chat-messages {
   }
 
   /* Settings page */
-  .settings-content {
+  .settings-grid {
     grid-template-columns: 1fr;
   }
   .settings-row {

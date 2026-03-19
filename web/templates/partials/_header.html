@@ -28,11 +28,14 @@
     Chat
   </a>
   <a href="/history" class="nav-link{% if active_page == 'history' %} active{% endif %}">&#128197; History</a>
-  <a href="/dm" class="nav-link{% if active_page == 'dm' %} active{% endif %}">&#129514; Bot Test</a>
-  <a href="/console" class="nav-link{% if active_page == 'console' %} active{% endif %}">&#x276F;&#x005F; Console</a>
-  <a href="/settings" class="nav-link{% if active_page == 'settings' %} active{% endif %}">&#9881; Settings</a>
-  <a href="/about" class="nav-link{% if active_page == 'about' %} active{% endif %}">
-    <img src="/images/about%20icon.png" class="nav-icon" alt="" />
-    About
-  </a>
+  {% set _admin_active = active_page in ['settings', 'console', 'dm', 'about'] %}
+  <div class="nav-dropdown{% if _admin_active %} admin-active{% endif %}">
+    <button class="nav-dropdown-trigger{% if _admin_active %} active{% endif %}" aria-haspopup="true">&#9881; Administration &#9662;</button>
+    <div class="nav-dropdown-menu" role="menu">
+      <a href="/settings" class="nav-dropdown-item{% if active_page == 'settings' %} active{% endif %}" role="menuitem">&#9881; Settings</a>
+      <a href="/console" class="nav-dropdown-item{% if active_page == 'console' %} active{% endif %}" role="menuitem">&#x276F;&#x005F; Console</a>
+      <a href="/dm" class="nav-dropdown-item{% if active_page == 'dm' %} active{% endif %}" role="menuitem">&#129514; Bot Test</a>
+      <a href="/about" class="nav-dropdown-item{% if active_page == 'about' %} active{% endif %}" role="menuitem">&#9432; About</a>
+    </div>
+  </div>
 </nav>

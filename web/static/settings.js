@@ -51,13 +51,13 @@ function formatEnumName(s) {
 function renderLora(lora) {
   const body = document.getElementById("settings-lora-body");
   if (!body) return;
+  // Modem Preset always first; Hop Limit always second
   const rows = [
-    ["Region", formatEnumName(lora.region)],
-    ["Use Preset", lora.use_preset ? "Yes" : "No"]
+    ["Modem Preset", formatEnumName(lora.modem_preset)],
+    ["Hop Limit", lora.hop_limit ?? "\u2014"],
+    ["Region", formatEnumName(lora.region)]
   ];
-  if (lora.use_preset) {
-    rows.push(["Modem Preset", formatEnumName(lora.modem_preset)]);
-  } else {
+  if (!lora.use_preset) {
     rows.push(["Bandwidth (kHz)", lora.bandwidth || "\u2014"]);
     rows.push(["Spread Factor", lora.spread_factor || "\u2014"]);
     rows.push(["Coding Rate", lora.coding_rate || "\u2014"]);
@@ -68,14 +68,7 @@ function renderLora(lora) {
   if (lora.frequency_offset) {
     rows.push(["Frequency Offset (Hz)", lora.frequency_offset]);
   }
-  rows.push(
-    ["Hop Limit", lora.hop_limit ?? "\u2014"],
-    ["TX Enabled", lora.tx_enabled ? "Yes" : "No"],
-    ["TX Power (dBm)", lora.tx_power || "\u2014"],
-    ["Channel Number", lora.channel_num || "\u2014"],
-    ["Ignore MQTT", lora.ignore_mqtt ? "Yes" : "No"],
-    ["Config OK to MQTT", lora.config_ok_to_mqtt ? "Yes" : "No"]
-  );
+  rows.push(["TX Enabled", lora.tx_enabled ? "Yes" : "No"], ["TX Power (dBm)", lora.tx_power || "\u2014"], ["Ignore MQTT", lora.ignore_mqtt ? "Yes" : "No"], ["Config OK to MQTT", lora.config_ok_to_mqtt ? "Yes" : "No"]);
   body.innerHTML = rows.map(([k, v]) => settingsRow(k, v)).join("");
 }
 
@@ -84,12 +77,12 @@ function renderDevice(device) {
   if (!body) return;
   const rows = [
     ["Role", formatEnumName(device.role)],
+    ["Node Info Broadcast", formatBroadcastInterval(device.node_info_broadcast_secs)],
+    ["Timezone", device.tzdef || "\u2014"],
     ["Serial Enabled", device.serial_enabled ? "Yes" : "No"],
     ["Rebroadcast Mode", formatEnumName(device.rebroadcast_mode)],
-    ["Node Info Broadcast", formatBroadcastInterval(device.node_info_broadcast_secs)],
     ["Double Tap as Button", device.double_tap_as_button_press ? "Yes" : "No"],
     ["Is Managed", device.is_managed ? "Yes" : "No"],
-    ["Timezone", device.tzdef || "\u2014"],
     ["LED Heartbeat Disabled", device.led_heartbeat_disabled ? "Yes" : "No"]
   ];
   body.innerHTML = rows.map(([k, v]) => settingsRow(k, v)).join("");
@@ -110,8 +103,7 @@ function renderUser(user) {
     ["Long Name", user.long_name || "\u2014"],
     ["Short Name", user.short_name || "\u2014"],
     ["Hardware Model", formatEnumName(user.hw_model)],
-    ["Licensed HAM", user.is_licensed ? "Yes" : "No"],
-    ["Role", formatEnumName(user.role)]
+    ["Licensed HAM", user.is_licensed ? "Yes" : "No"]
   ];
   body.innerHTML = rows.map(([k, v]) => settingsRow(k, v)).join("");
 }
