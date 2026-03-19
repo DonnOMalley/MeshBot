@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import random
 import secrets
 import threading
 import time
@@ -60,7 +61,17 @@ from common.constants import (
     _WEB_USER_ERR_SHORT_NAME,
 )
 from common.constants import (
+    _AFFIRM_CACHE_FILE,
+    _JOKE_CACHE_FILE,
     _TILE_MAX_ZOOM,
+    _TODAY_IN_HISTORY_FILE_FORMAT,
+    _TODAY_IN_HISTORY_KEY_TEXT,
+    _TODAY_IN_HISTORY_KEY_WIKIPEDIA,
+    _TODAY_IN_HISTORY_KEY_YEAR,
+    _TODAY_IN_HISTORY_SUBDIR,
+    _ZEN_QUOTES_CACHE_FILE,
+    _ZEN_QUOTES_KEY_AUTHOR,
+    _ZEN_QUOTES_KEY_QUOTE,
 )
 from common.encryption_helper import EncryptionHelper
 from common.meshtastic_helper import MeshtasticHelper
@@ -360,6 +371,27 @@ class WebServer:
     # endregion Public Functions
 
     # region Protected Functions
+    def _read_random_cache_item(self, path: str) -> object | None:
+        """Reads a JSON array from a cache file and returns a randomly selected element.
+
+        Args:
+            path: Absolute path to the JSON cache file.
+
+        Returns:
+            A randomly chosen element from the array, or None if the file does not
+            exist, cannot be read, or is empty.
+        """
+        result: object | None = None
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data: object = json.load(f)
+                if isinstance(data, list) and data:
+                    result = random.choice(data)
+            except Exception:
+                pass
+        return result
+
     def _label_node_num(self, num: int) -> str:
         """Resolves a node number to its short name, or falls back to the node ID string.
 
@@ -610,6 +642,56 @@ class WebServer:
                 "total_count": len(all_nodes),
             })
 
+        @self._app.route("/api/today-in-history")
+        def api_today_in_history():
+            now: datetime = datetime.now(timezone.utc)
+            path: str = os.path.join(
+                self._data_dir,
+                _TODAY_IN_HISTORY_SUBDIR,
+                _TODAY_IN_HISTORY_FILE_FORMAT.format(month=now.month, day=now.day),
+            )
+            events: list[dict] = []
+            if os.path.isfile(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        raw: object = json.load(f)
+                    if isinstance(raw, list):
+                        events = [
+                            {
+                                "year": str(e.get(_TODAY_IN_HISTORY_KEY_YEAR, "")),
+                                "text": str(e.get(_TODAY_IN_HISTORY_KEY_TEXT, "")),
+                                "wikipedia": str(e.get(_TODAY_IN_HISTORY_KEY_WIKIPEDIA, "")),
+                            }
+                            for e in raw
+                            if isinstance(e, dict) and e.get(_TODAY_IN_HISTORY_KEY_TEXT)
+                        ]
+                except Exception:
+                    pass
+            return jsonify({"events": events, "month": now.month, "day": now.day})
+
+        @self._app.route("/api/joy")
+        def api_joy():
+            affirmation_raw: object = self._read_random_cache_item(
+                os.path.join(self._data_dir, _AFFIRM_CACHE_FILE)
+            )
+            zen_raw: object = self._read_random_cache_item(
+                os.path.join(self._data_dir, _ZEN_QUOTES_CACHE_FILE)
+            )
+            joke_raw: object = self._read_random_cache_item(
+                os.path.join(self._data_dir, _JOKE_CACHE_FILE)
+            )
+            zen_quote: dict | None = None
+            if isinstance(zen_raw, dict):
+                q: str = str(zen_raw.get(_ZEN_QUOTES_KEY_QUOTE, ""))
+                a: str = str(zen_raw.get(_ZEN_QUOTES_KEY_AUTHOR, ""))
+                if q:
+                    zen_quote = {"quote": q, "author": a}
+            return jsonify({
+                "affirmation": affirmation_raw if isinstance(affirmation_raw, str) else None,
+                "zen_quote": zen_quote,
+                "joke": joke_raw if isinstance(joke_raw, str) else None,
+            })
+
         @self._app.route("/api/favorites", methods=["GET", "POST"])
         def api_favorites():
             if request.method == "POST":
@@ -788,6 +870,58 @@ class WebServer:
                 })
             except Exception as exc:
                 return jsonify({"error": str(exc)}), 503
+
+        @self._app.route("/history")
+        def history():
+            return render_template("history.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
+        @self._app.route("/api/history-calendar")
+        def api_history_calendar():
+            try:
+                month: int = int(request.args.get("month", datetime.now(timezone.utc).month))
+            except (ValueError, TypeError):
+                month = datetime.now(timezone.utc).month
+            month = max(1, min(12, month))
+            calendar_dir: str = os.path.join(self._data_dir, _TODAY_IN_HISTORY_SUBDIR)
+            days_with_data: list[int] = []
+            for day in range(1, 32):
+                path: str = os.path.join(calendar_dir, _TODAY_IN_HISTORY_FILE_FORMAT.format(month=month, day=day))
+                if os.path.isfile(path):
+                    days_with_data.append(day)
+            return jsonify({"month": month, "days_with_data": days_with_data})
+
+        @self._app.route("/api/history-day")
+        def api_history_day():
+            try:
+                month: int = int(request.args.get("month", 1))
+                day: int = int(request.args.get("day", 1))
+            except (ValueError, TypeError):
+                return jsonify({"events": [], "month": 1, "day": 1})
+            month = max(1, min(12, month))
+            day = max(1, min(31, day))
+            path: str = os.path.join(
+                self._data_dir,
+                _TODAY_IN_HISTORY_SUBDIR,
+                _TODAY_IN_HISTORY_FILE_FORMAT.format(month=month, day=day),
+            )
+            events: list[dict] = []
+            if os.path.isfile(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        raw: object = json.load(f)
+                    if isinstance(raw, list):
+                        events = [
+                            {
+                                "year": str(e.get(_TODAY_IN_HISTORY_KEY_YEAR, "")),
+                                "text": str(e.get(_TODAY_IN_HISTORY_KEY_TEXT, "")),
+                                "wikipedia": str(e.get(_TODAY_IN_HISTORY_KEY_WIKIPEDIA, "")),
+                            }
+                            for e in raw
+                            if isinstance(e, dict) and e.get(_TODAY_IN_HISTORY_KEY_TEXT)
+                        ]
+                except Exception:
+                    pass
+            return jsonify({"events": events, "month": month, "day": day})
 
         @self._app.route("/dm")
         def dm():

@@ -37,6 +37,8 @@ from common.meshtastic_helper import MeshtasticHelper
 from common.node_database import NodeDatabase
 from common.node_initializer import NodeInitializer
 from common.chat_history import ChatHistory
+from common.today_in_history_api import TodayInHistoryApi
+from common.zen_quotes_api import ZenQuotesApi
 from configuration.node_configuration import NodeConfiguration
 from messaging.bot_broadcaster import BotBroadcaster
 from messaging.monitors.channel_monitor import ChannelMonitor
@@ -229,6 +231,8 @@ def main() -> None:
     chat_history: ChatHistory
     iface: meshtastic.serial_interface.SerialInterface | None
     node_initializer: NodeInitializer
+    zen_quotes_api: ZenQuotesApi
+    today_in_history_api: TodayInHistoryApi
     reboot_triggered: bool
     reconnect_ok: bool
     keyboard_interrupted: bool
@@ -256,6 +260,7 @@ def main() -> None:
             web_port=args.web_port,
             range_test_requests=args.range_test_requests,
             range_test_delay=args.range_test_delay_minutes,
+            zen_quotes_poll_interval=args.zen_quotes_poll_interval_minutes,
         ))
         print(_STARTUP_MESSAGE)
 
@@ -274,15 +279,15 @@ def main() -> None:
 
         node_initializer = NodeInitializer(iface)
         reboot_triggered: bool = False
-        device_changed: bool = False
+        settings_changed: bool = False
         if not args.no_node_init:
-            # reboot_triggered = node_initializer.apply()
             print(_MSG_NODE_INIT_APPLYING)
-            reboot_triggered = node_initializer._apply_lora_settings()
-            device_changed = node_initializer._apply_device_settings()
+            settings_changed = node_initializer.apply()
+            # reboot_triggered = node_initializer._apply_lora_settings()
+            # settings_changed = node_initializer._apply_device_settings() or settings_changed
             print(_MSG_NODE_INIT_APPLIED)
             
-        if(device_changed == True and reboot_triggered == False):
+        if(settings_changed == True):
             print("Device configuration changed but reboot not triggered — waiting briefly before continuing...")
             reboot_triggered = True
             iface.localNode.reboot()
@@ -304,6 +309,12 @@ def main() -> None:
         )
         node_db.load_from_interface(iface)
         node_db.prune()
+
+        zen_quotes_api = ZenQuotesApi(
+            poll_interval_minutes=args.zen_quotes_poll_interval_minutes,
+            verbose=args.verbose,
+        )
+        today_in_history_api = TodayInHistoryApi(verbose=args.verbose)
 
         primary_channel = _resolve_channel(CHANNEL_NAME_PRIMARY, config)
         if(primary_channel is None):
@@ -441,6 +452,8 @@ def main() -> None:
                                     keyboard_interrupted = True
 
                     print(_MSG_CONNECTION_MONITOR_STOPPING)
+                    zen_quotes_api.stop_polling()
+                    today_in_history_api.stop_polling()
                     connection_monitor.stop()
 
                     try:

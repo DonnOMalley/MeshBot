@@ -6,6 +6,8 @@ from meshtastic import config_pb2
 from meshtastic.mesh_interface import MeshInterface
 
 from common.constants import (
+    _MSG_NODE_INIT_APPLYING,
+    _MSG_NODE_INIT_APPLIED,
     _MSG_NODE_INIT_RESTORING,
     _MSG_NODE_INIT_RESTORED,
     _MSG_NODE_INIT_SET,
@@ -156,7 +158,27 @@ class NodeInitializer:
                 print(_MSG_NODE_INIT_VERIFY_WARN.format(field=field, expected=expected, actual=actual))
     # endregion Private Functions
 
-    # region Public Functions        
+    # region Public Functions      
+    
+    def apply(self) -> bool:
+        """Applies required configuration settings to the local node if they differ from the required values.
+
+        Writes both LoRa and device configuration sections back to the device if changes are made.
+        Call this on startup immediately after connecting to the node.
+
+        Logs each change made, or if no change was needed for a field. Also logs a verification
+        of expected values for all relevant LoRa settings, which may differ from the required
+        values but are still expected to be correct for the bot's operation.
+        """
+        print(_MSG_NODE_INIT_APPLYING)
+        lora_changed: bool = self._apply_lora_settings()
+        device_changed: bool = self._apply_device_settings()
+        if lora_changed or device_changed:
+            print(_MSG_NODE_INIT_APPLIED)
+            self._verify_settings()
+        else:
+            print(_MSG_NODE_INIT_VERIFY_OK.format(field="all checked fields", value="already correct"))  
+        return lora_changed or device_changed
 
     def restore(self) -> None:
         """Restores the original node configuration that was snapshotted on construction.

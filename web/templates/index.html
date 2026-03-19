@@ -5,45 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ bot_name }} Dashboard</title>
     <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/leaflet.css" />
     <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
-  <body>
+  <body class="dashboard-page">
     {% set active_page = 'dashboard' %} {% include "partials/_header.html" %}
 
     <main>
-      <!-- Section 1: Node List (collapsible) -->
-      <section class="panel">
-        <div class="panel-header collapsible" id="node-panel-header" onclick="toggleNodePanel()">
-          <img src="/images/dashboard%20icon.png" class="panel-icon" alt="" />
-          <span class="panel-header-text">Node List</span>
-        </div>
-        <div class="panel-body" id="node-panel-body">
-          <div class="node-toolbar">
-            <input id="node-filter" type="text" class="node-filter-input" placeholder="Filter by name or device…" oninput="applyNodeFilter(this.value)" />
-            <button class="node-export-btn" onclick="exportNodesCsv()">&#8681; Export CSV</button>
-          </div>
-          <div class="scroll-box">
-            <table id="node-table">
-              <thead>
-                <tr>
-                  <th class="fav-col">&#9734;</th>
-                  <th data-col="long_name" class="sortable" onclick="handleSort('long_name')">Node Name</th>
-                  <th>Role</th>
-                  <th class="device-col">Device</th>
-                  <th data-col="last_seen" class="sortable last-seen-col" onclick="handleSort('last_seen')">Last Seen</th>
-                  <th class="position-col">Position</th>
-                </tr>
-              </thead>
-              <tbody id="node-tbody">
-                <tr><td colspan="6" class="empty">Loading&hellip;</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- Section 2: Chat History -->
-      <section class="panel">
+      <!-- Left column: Chat History -->
+      <div class="dash-left panel">
         <div class="panel-header">
           <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
           <span class="panel-header-text">Chat History</span>
@@ -54,17 +24,66 @@
         <div id="chat-messages" class="scroll-box messages">
           <p class="empty">Select a channel tab above.</p>
         </div>
-      </section>
+      </div>
+
+      <!-- Right column -->
+      <div class="dash-right">
+        <!-- Joy panel: Affirmation + Zen Quote + Joke -->
+        <div class="dash-joy panel" id="dash-joy">
+          <div class="panel-header">
+            <span class="panel-header-text">&#10024; Joy</span>
+          </div>
+          <div class="dash-joy-body" id="dash-joy-body">
+            <!-- populated by dashboard.js -->
+          </div>
+        </div>
+
+        <!-- Bottom row: Today in History + Map side by side -->
+        <div class="dash-bottom-row">
+          <!-- Today in History panel -->
+          <div class="dash-history panel" id="dash-history">
+            <div class="panel-header">
+              <span class="panel-header-text" id="dash-history-title">&#128197; Today in History</span>
+            </div>
+            <div class="dash-history-body scroll-box" id="dash-history-body">
+              <!-- populated by dashboard.js -->
+            </div>
+          </div>
+
+          <!-- Map / Bot Info panel -->
+          <div class="dash-map-wrap panel" id="dash-map-outer">
+            <div class="panel-header" id="dash-map-header">
+              <img src="/images/nodes%20icon.png" class="panel-icon" alt="" />
+              <span class="panel-header-text" id="dash-map-title">Map</span>
+              <a href="/map" class="dash-map-link" title="Open full map">&#8599;</a>
+            </div>
+
+            <a href="/map" id="dash-map-link-wrap" class="dash-map-anchor">
+              <div id="dash-map"></div>
+            </a>
+
+            <!-- Bot info fallback (shown when tiles are unavailable) -->
+            <div id="dash-bot-info" class="dash-bot-info" style="display: none">
+              <div class="dbi-name" id="dbi-long-name"></div>
+              <div class="dbi-sub" id="dbi-sub"></div>
+              <div class="dbi-grid" id="dbi-grid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <script src="/static/app.js"></script>
+    <script src="/static/leaflet.js"></script>
+    <script src="/static/dashboard.js"></script>
     <script>
-      document.addEventListener("DOMContentLoaded", async () => {
-        await fetchFavorites();
-        fetchNodes();
+      document.addEventListener("DOMContentLoaded", () => {
         fetchChannels();
-        setInterval(refreshAll, REFRESH_INTERVAL_MS);
-        updateSortIndicators();
+        dashboardInit();
+        setInterval(() => {
+          fetchChannels();
+          dashboardRefresh();
+        }, REFRESH_INTERVAL_MS);
       });
     </script>
   </body>

@@ -17,6 +17,7 @@ _ARG_RANGE_TEST_REQUESTS: str = "--RangeTestRequests"
 _ARG_VERBOSE: str = "--Verbose"
 _ARG_WEB_PORT: str = "--WebPort"
 _ARG_WEB_URL: str = "--WebUrl"
+_ARG_ZEN_QUOTES_POLL_INTERVAL: str = "--ZenQuotesPollInterval"
 
 _DEFAULT_BOT_DESCRIPTION: str = "Damn Are Mesh Nerds"
 _DEFAULT_CONFIG_FILE: str = "meshbot.config"
@@ -50,6 +51,7 @@ _APP_EPILOG: str = (
     "  WebPort           = 7331\n"
     "  RangeTestRequests = 5\n"
     "  RangeTestDelay    = 1\n"
+    "  ZenQuotesPollInterval = 60\n"
 )
 _HELP_BOT_NAME: str = (
     "The display name for the bot. Used as the command prefix (@BotName) and in "
@@ -108,6 +110,9 @@ _HELP_RANGE_TEST_REQUESTS: str = (
 _HELP_RANGE_TEST_DELAY: str = (
     "Delay in minutes between each !range test message. Min 1, max 10. Defaults to 1."
 )
+_HELP_ZEN_QUOTES_POLL_INTERVAL: str = (
+    "Interval in minutes between automatic ZenQuotes API polls. Defaults to 60."
+)
 # endregion CLI Arguments
 
 # region Bot Command Names
@@ -119,7 +124,10 @@ CMD_LAST: str = "last"
 CMD_TRACE: str = "trace"
 CMD_WEB: str = "web"
 CMD_JOKE: str = "joke"
+CMD_AFFIRM: str = "affirm"
 CMD_RANGE: str = "range"
+CMD_TIH: str = "tih"
+CMD_TIH_LINK: str = "tih_link"
 _EXCLAMATION_PREFIX: str = "!"
 # endregion Bot Command Names
 
@@ -133,7 +141,8 @@ _VERBOSE_ARGS_MESSAGE: str = (
     "CaseSensitive={case_sensitive} | ExcludeOOTB={exclude_ootb} | NoNodeInit={no_node_init} | "
     "NodeRetentionDays={node_retention_days} | Encrypted={encrypted} | Verbose={verbose} | "
     "WebUrl={web_url} | WebPort={web_port} | "
-    "RangeTestRequests={range_test_requests} | RangeTestDelay={range_test_delay}"
+    "RangeTestRequests={range_test_requests} | RangeTestDelay={range_test_delay} | "
+    "ZenQuotesPollInterval={zen_quotes_poll_interval}"
 )
 # endregion Application Messages (Startup)
 
@@ -141,6 +150,7 @@ _VERBOSE_ARGS_MESSAGE: str = (
 _MONITOR_POLL_INTERVAL: float = 0.1
 _CHECKIN_INTERVAL: float = 21600.0
 _RECONNECT_DELAY_SECONDS: float = 5.0
+_MESH_MAX_MESSAGE_CHARS: int = 228
 # endregion Application Settings
 
 # region Application Messages
@@ -295,6 +305,42 @@ _JOKE_CONSOLE_SENT: str = "[BOT] Joke sent to {sender}."
 _JOKE_API_FAILED_CONSOLE: str = "[BOT] JokeAPI unavailable. Using cached joke."
 _JOKE_NO_JOKES_CONSOLE: str = "[BOT] No jokes available (API failed, cache empty)."
 # endregion Bot Command: Joke
+# region Bot Command: Affirm
+_AFFIRM_API_URL: str = "https://www.affirmations.dev/"
+_AFFIRM_CACHE_FILE: str = "affirmations.json"
+_AFFIRM_API_TIMEOUT: float = 5.0
+_AFFIRM_API_KEY: str = "affirmation"
+_AFFIRM_ERROR_RESPONSE: str = "No affirmations available right now. Try again later! \U0001f31f"
+_AFFIRM_CONSOLE_SENT: str = "[BOT] Affirmation sent to {sender}."
+_AFFIRM_API_FAILED_CONSOLE: str = "[BOT] Affirmations API unavailable. Using cached affirmation."
+_AFFIRM_NO_AFFIRMS_CONSOLE: str = "[BOT] No affirmations available (API failed, cache empty)."
+# endregion Bot Command: Affirm
+# region Bot Command: TIH
+_TIH_ERROR_RESPONSE: str = "No Today in History data available right now."
+_TIH_CONSOLE_SENT: str = "[BOT] Today in History sent to {sender}."
+_TIH_MESSAGE_TEMPLATE: str = "{year}: {text}"
+_TIH_MESSAGE_ELLIPSIS: str = "\u2026"
+_TIH_LINK_NOT_A_REPLY: str = "Reply to one of my TIH messages to get its Wikipedia link."
+_TIH_LINK_NOT_FOUND: str = "No TIH event found for that message."
+_TIH_LINK_NO_LINK: str = "No Wikipedia link available for that event."
+_TIH_LINK_CONSOLE_SENT: str = "[BOT] Today in History link sent to {sender}."
+# endregion Bot Command: TIH
+# region API Service
+_API_SERVICE_POLL_ERROR: str = "[API] {name}: poll error — {error}."
+# endregion API Service
+# region Zen Quotes API
+_ZEN_QUOTES_API_URL: str = "https://zenquotes.io/api/quotes"
+_ZEN_QUOTES_CACHE_FILE: str = "zen_quotes.json"
+_ZEN_QUOTES_API_TIMEOUT: float = 10.0
+_ZEN_QUOTES_KEY_QUOTE: str = "q"
+_ZEN_QUOTES_KEY_AUTHOR: str = "a"
+_ZEN_QUOTES_KEY_HTML: str = "h"
+_ZEN_QUOTES_DEFAULT_POLL_INTERVAL_MINUTES: int = 60
+_ZEN_QUOTES_DEFAULT_POLL_INTERVAL_SECONDS: float = 3600.0
+_ZEN_QUOTES_API_FAILED_CONSOLE: str = "[BOT] ZenQuotes API unavailable. Using cached quotes."
+_ZEN_QUOTES_NO_QUOTES_CONSOLE: str = "[BOT] No Zen Quotes available (API failed, cache empty)."
+_ZEN_QUOTES_MERGED_CONSOLE: str = "[BOT] ZenQuotes: {new} new quote(s) added ({total} total)."
+# endregion Zen Quotes API
 # region Bot Command: Range
 _RANGE_TEST_DEFAULT_REQUESTS: int = 5
 _RANGE_TEST_DEFAULT_DELAY_MINUTES: int = 1
@@ -305,6 +351,7 @@ _RANGE_TEST_MAX_DELAY_MINUTES: int = 10
 _RANGE_TEST_SECONDS_PER_MINUTE: int = 60
 _RANGE_TEST_MSG_TEMPLATE: str = "Range test message {i} of {total}"
 _RANGE_TEST_CONSOLE_SENT: str = "[BOT] Range test {i}/{total} sent to {sender}."
+_RANGE_TEST_WEB_RESPONSE: str = "Range test queued: {num_requests} message(s) would be sent over the mesh, {delay_minutes} minute(s) apart. **Nothing will actually be sent as this is not a real Node**"
 # endregion Bot Command: Range
 # region Command Send Delays
 _CMD_SEND_DELAY: float = 2.0
@@ -453,3 +500,19 @@ _TILE_REFRESH_FAILED: str = "[TILES] Failed to refresh tile {z}/{x}/{y}: {error}
 _TILE_INTERNET_AVAILABLE: str = "[TILES] Internet available — map tiles will be cached locally."
 _TILE_INTERNET_UNAVAILABLE: str = "[TILES] No internet access — serving cached map tiles (if available)."
 # endregion Tile Cache
+
+# region Today in History API
+_TODAY_IN_HISTORY_API_URL: str = "https://today.zenquotes.io/api/{month}/{day}"
+_TODAY_IN_HISTORY_SUBDIR: str = "TodayInHistory"
+_TODAY_IN_HISTORY_FILE_FORMAT: str = "{month:02d}-{day:02d}.json"
+_TODAY_IN_HISTORY_API_TIMEOUT: float = 10.0
+_TODAY_IN_HISTORY_POLL_INTERVAL_SECONDS: float = 3600.0
+_TODAY_IN_HISTORY_KEY_DATA: str = "data"
+_TODAY_IN_HISTORY_KEY_EVENTS: str = "Events"
+_TODAY_IN_HISTORY_KEY_LINKS: str = "links"
+_TODAY_IN_HISTORY_KEY_YEAR: str = "year"
+_TODAY_IN_HISTORY_KEY_TEXT: str = "text"
+_TODAY_IN_HISTORY_KEY_WIKIPEDIA: str = "wikipedia"
+_TODAY_IN_HISTORY_API_FAILED_CONSOLE: str = "[BOT] Today in History API unavailable for {month}/{day}."
+_TODAY_IN_HISTORY_SAVED_CONSOLE: str = "[BOT] Today in History: {count} event(s) saved for {month}/{day}."
+# endregion Today in History API

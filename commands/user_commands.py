@@ -9,9 +9,13 @@ from meshtastic.mesh_interface import MeshInterface
 from common.chat_history import ChatHistory
 
 from common.constants import (
+    CMD_AFFIRM,
     CMD_JOKE,
     CMD_HELLO,
     CMD_RANGE,
+    CMD_TIH,
+    CMD_TIH_LINK,
+    _AFFIRM_CONSOLE_SENT,
     _CMD_SEND_DELAY,
     _HELLO_CONSOLE_RESPONSE,
     _JOKE_CONSOLE_SENT,
@@ -28,6 +32,9 @@ from common.constants import (
     _RANGE_TEST_MSG_TEMPLATE,
     _RANGE_TEST_CONSOLE_SENT,
     _RANGE_TEST_SECONDS_PER_MINUTE,
+    _RANGE_TEST_WEB_RESPONSE,
+    _TIH_CONSOLE_SENT,
+    _TIH_LINK_CONSOLE_SENT,
 )
 
 
@@ -152,7 +159,106 @@ class UserCommands:
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
         return result
-    
+
+    def _cmd_affirm(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
+        """Responds to the 'affirm' command with an affirmation fetched from affirmations.dev or the local cache.
+
+        Fetches a fresh affirmation from the affirmations.dev API and saves it to the local
+        cache. Falls back to a randomly selected cached affirmation if the API is unavailable.
+        Sends an error reply when neither source has an affirmation available. When the packet
+        originates from a web user the response is written into the packet rather than
+        transmitted over the mesh.
+
+        Args:
+            sender: The node ID string of the message sender.
+            params: Any text that followed the command name (unused).
+            packet: The full raw Meshtastic packet dictionary.
+        """
+        message: str = self._helper.compute_affirmation()
+        result: mesh_pb2.MeshPacket | None = None
+        if MeshtasticHelper.is_web_user_packet(packet):
+            packet[_PACKET_KEY_DECODED][_PACKET_KEY_WEB_RESPONSES] = [message]
+            result = None
+        else:
+            result = MeshtasticHelper.send_text_message(
+                iface=self._iface,
+                channelIndex=self._channel.index,
+                packet=packet,
+                message=message,
+                consoleMsg=_AFFIRM_CONSOLE_SENT.format(sender=sender) if self._verbose else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
+                chat_history=self._chat_history,
+                chat_sender=_CHAT_HISTORY_BOT_SENDER,
+            )
+        return result
+
+    def _cmd_tih(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
+        """Responds to the 'tih' command with a random Today in History event.
+
+        Picks one event at random from the daily cache and formats it as
+        ``YEAR: text``, truncating to fit within the Meshtastic message limit.
+        When the packet originates from a web user the response is written into
+        the packet rather than transmitted over the mesh.
+
+        Args:
+            sender: The node ID string of the message sender.
+            params: Any text that followed the command name (unused).
+            packet: The full raw Meshtastic packet dictionary.
+        """
+        message: str
+        event: dict
+        message, event = self._helper.compute_tih()
+        result: mesh_pb2.MeshPacket | None = None
+        if MeshtasticHelper.is_web_user_packet(packet):
+            packet[_PACKET_KEY_DECODED][_PACKET_KEY_WEB_RESPONSES] = [message]
+            result = None
+        else:
+            result = MeshtasticHelper.send_text_message(
+                iface=self._iface,
+                channelIndex=self._channel.index,
+                packet=packet,
+                message=message,
+                consoleMsg=_TIH_CONSOLE_SENT.format(sender=sender) if self._verbose else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
+                chat_history=self._chat_history,
+                chat_sender=_CHAT_HISTORY_BOT_SENDER,
+            )
+            if result is not None and result.id:
+                self._helper.register_tih_sent(result.id, event)
+        return result
+
+    def _cmd_tih_link(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
+        """Responds to the 'tih_link' command with the Wikipedia URL for a replied-to TIH event.
+
+        Must be sent as a reply to a bot TIH message. The bot resolves the
+        ``replyId`` from the packet to the original event and returns its
+        Wikipedia URL. When the packet originates from a web user the response
+        is written into the packet rather than transmitted over the mesh.
+
+        Args:
+            sender: The node ID string of the message sender.
+            params: Any text that followed the command name (unused).
+            packet: The full raw Meshtastic packet dictionary.
+        """
+        reply_id: int | None = MeshtasticHelper.get_reply_id(packet)
+        message: str = self._helper.compute_tih_link(reply_id)
+        result: mesh_pb2.MeshPacket | None = None
+        if MeshtasticHelper.is_web_user_packet(packet):
+            packet[_PACKET_KEY_DECODED][_PACKET_KEY_WEB_RESPONSES] = [message]
+            result = None
+        else:
+            result = MeshtasticHelper.send_text_message(
+                iface=self._iface,
+                channelIndex=self._channel.index,
+                packet=packet,
+                message=message,
+                consoleMsg=_TIH_LINK_CONSOLE_SENT.format(sender=sender) if self._verbose else None,
+                destinationId=MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id),
+                chat_history=self._chat_history,
+                chat_sender=_CHAT_HISTORY_BOT_SENDER,
+            )
+        return result
+
     def _cmd_range_test(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
         """Sends a series of range-test messages with a configurable count and interval.
 
@@ -176,23 +282,28 @@ class UserCommands:
             delay_minutes = int(parts[1])
         num_requests = max(_RANGE_TEST_MIN_REQUESTS, min(_RANGE_TEST_MAX_REQUESTS, num_requests))
         delay_minutes = max(_RANGE_TEST_MIN_DELAY_MINUTES, min(_RANGE_TEST_MAX_DELAY_MINUTES, delay_minutes))
-        for i in range(1, num_requests + 1):
-            timer_delay: float = _CMD_SEND_DELAY + (i - 1) * delay_minutes * _RANGE_TEST_SECONDS_PER_MINUTE
-            message: str = _RANGE_TEST_MSG_TEMPLATE.format(i=i, total=num_requests)
-            threading.Timer(
-                timer_delay,
-                MeshtasticHelper.send_text_message,
-                kwargs=dict(
-                    iface=self._iface,
-                    channelIndex=self._channel.index,
-                    packet=packet,
-                    message=message,
-                    consoleMsg=_RANGE_TEST_CONSOLE_SENT.format(i=i, total=num_requests, sender=sender) if self._verbose else None,
-                    destinationId=sender,
-                    chat_history=self._chat_history,
-                    chat_sender=_CHAT_HISTORY_BOT_SENDER,
-                ),
-            ).start()
+        if MeshtasticHelper.is_web_user_packet(packet):
+            packet[_PACKET_KEY_DECODED][_PACKET_KEY_WEB_RESPONSES] = [
+                _RANGE_TEST_WEB_RESPONSE.format(num_requests=num_requests, delay_minutes=delay_minutes)
+            ]
+        else:
+            for i in range(1, num_requests + 1):
+                timer_delay: float = _CMD_SEND_DELAY + (i - 1) * delay_minutes * _RANGE_TEST_SECONDS_PER_MINUTE
+                message: str = _RANGE_TEST_MSG_TEMPLATE.format(i=i, total=num_requests)
+                threading.Timer(
+                    timer_delay,
+                    MeshtasticHelper.send_text_message,
+                    kwargs=dict(
+                        iface=self._iface,
+                        channelIndex=self._channel.index,
+                        packet=packet,
+                        message=message,
+                        consoleMsg=_RANGE_TEST_CONSOLE_SENT.format(i=i, total=num_requests, sender=sender) if self._verbose else None,
+                        destinationId=sender,
+                        chat_history=self._chat_history,
+                        chat_sender=_CHAT_HISTORY_BOT_SENDER,
+                    ),
+                ).start()
     # endregion Protected Functions
 
     # region Public Functions
@@ -206,6 +317,9 @@ class UserCommands:
             # CMD_HELLO: self._cmd_hello,
             f"{CMD_HELLO}2": self._cmd_hello,
             CMD_JOKE: self._cmd_joke,
+            CMD_AFFIRM: self._cmd_affirm,
             CMD_RANGE: self._cmd_range_test,
+            CMD_TIH: self._cmd_tih,
+            CMD_TIH_LINK: self._cmd_tih_link,
         }
     # endregion Public Functions

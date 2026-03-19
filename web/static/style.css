@@ -2553,3 +2553,525 @@ body.map-page main.map-main {
     font-size: 10px;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   Dashboard page — 3-panel layout
+   ══════════════════════════════════════════════════════════════════ */
+
+body.dashboard-page main {
+  display: grid;
+  grid-template-columns: 40fr 60fr;
+  grid-template-rows: 1fr;
+  gap: 12px;
+  padding: 12px;
+  max-width: none;
+  overflow: hidden;
+}
+
+/* Left column: chat panel, full height */
+.dash-left {
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dash-left .scroll-box.messages {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Override the general scroll-box max-height cap for the full-height dashboard panels */
+.dashboard-page #chat-messages.scroll-box,
+.dashboard-page .dash-history-body.scroll-box {
+  max-height: none;
+}
+
+/* Right column: joy + map stacked */
+.dash-right {
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+/* ── Joy panel ───────────────────────────────────────────────────── */
+
+.dash-joy {
+  flex-shrink: 0;
+}
+
+.dash-joy-body {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.joy-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.joy-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.joy-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+/* ── Map / bot-info panel ────────────────────────────────────────── */
+
+.dash-bottom-row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+}
+
+/* ── Today in History panel ─────────────────────────────────────── */
+
+.dash-history {
+  flex: 0 0 38%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dash-history-body {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tih-event {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.tih-event:last-child {
+  border-bottom: none;
+}
+
+.tih-year {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+.tih-text {
+  color: var(--text);
+}
+
+.tih-wiki {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 11px;
+}
+
+.tih-wiki:hover {
+  color: var(--accent);
+}
+
+/* ── Map / bot-info panel ────────────────────────────────────────── */
+
+.dash-map-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dash-map-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dash-map-link {
+  margin-left: auto;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 0 8px;
+  opacity: 0.7;
+}
+
+.dash-map-link:hover {
+  opacity: 1;
+}
+
+.dash-map-anchor {
+  flex: 1;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
+}
+
+#dash-map {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Bot info fallback ───────────────────────────────────────────── */
+
+.dash-bot-info {
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.dbi-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
+.dbi-sub {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--mono);
+  margin-bottom: 14px;
+}
+
+.dbi-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dbi-row {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.dbi-key {
+  color: var(--muted);
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+.dbi-val {
+  color: var(--text);
+}
+
+/* ── Responsive: single column on narrow screens ─────────────────── */
+
+@media (max-width: 768px) {
+  body.dashboard-page main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .dash-left,
+  .dash-right {
+    min-height: 0;
+  }
+
+  .dash-left {
+    height: 60vh;
+  }
+
+  .dash-bottom-row {
+    flex-direction: column;
+  }
+
+  .dash-history {
+    flex: 0 0 auto;
+    height: 35vh;
+  }
+
+  .dash-map-wrap {
+    height: 40vh;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Today in History page
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.tih-page {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+body.tih-page main {
+  flex: 1;
+  overflow: visible;
+}
+
+/* ── Two-column layout ───────────────────────────────────────────────────── */
+.tih-layout {
+  display: flex;
+  gap: 24px;
+  padding: 16px;
+  min-height: 520px;
+}
+
+.tih-calendar-col {
+  flex: 0 0 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tih-events-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Month navigation ────────────────────────────────────────────────────── */
+.tih-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tih-month-label {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  flex: 1;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.tih-nav-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+
+.tih-nav-btn:hover {
+  background: var(--accent-dim);
+}
+
+/* ── Calendar grid ───────────────────────────────────────────────────────── */
+.tih-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.tih-day-header {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tih-day-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  cursor: default;
+  transition:
+    background 0.1s,
+    border-color 0.1s;
+  gap: 2px;
+  padding: 2px 0 4px;
+}
+
+.tih-day-cell.tih-day-empty {
+  pointer-events: none;
+}
+
+.tih-day-num {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1;
+}
+
+.tih-day-cell.has-data .tih-day-num {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Green dot indicator */
+.tih-day-dot {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+.tih-day-cell.has-data {
+  cursor: pointer;
+  border-color: transparent;
+}
+
+.tih-day-cell.has-data:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.tih-day-cell.selected {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.tih-day-cell.selected .tih-day-num {
+  color: var(--accent);
+}
+
+/* Days without data: dimmed, not clickable */
+.tih-day-cell:not(.has-data):not(.tih-day-empty) {
+  opacity: 0.35;
+  cursor: pointer;
+}
+
+.tih-day-cell:not(.has-data):not(.tih-day-empty):hover {
+  opacity: 0.55;
+  background: var(--surface2);
+}
+
+/* ── Events panel ────────────────────────────────────────────────────────── */
+.tih-events-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tih-events-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.tih-events-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.tih-loading {
+  font-style: italic;
+}
+
+.tih-error {
+  color: var(--error);
+}
+
+/* ── Event card ─────────────────────────────────────────────────────────── */
+.tih-event-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+  flex-shrink: 0;
+}
+
+.tih-event-card.has-link {
+  cursor: pointer;
+}
+
+.tih-event-card.has-link:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.tih-event-year {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.tih-event-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.tih-event-link-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  letter-spacing: 0.3px;
+  transition: color 0.12s;
+}
+
+.tih-event-card.has-link:hover .tih-event-link-hint {
+  color: var(--accent);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .tih-layout {
+    flex-direction: column;
+  }
+
+  .tih-calendar-col {
+    flex: none;
+    width: 100%;
+  }
+}

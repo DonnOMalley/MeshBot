@@ -19,6 +19,7 @@ from common.constants import (
     _ARG_VERBOSE,
     _ARG_WEB_PORT,
     _ARG_WEB_URL,
+    _ARG_ZEN_QUOTES_POLL_INTERVAL,
     _APP_DESCRIPTION,
     _APP_EPILOG,
     _CONFIG_SECTION,
@@ -38,11 +39,13 @@ from common.constants import (
     _HELP_VERBOSE,
     _HELP_WEB_PORT,
     _HELP_WEB_URL,
+    _HELP_ZEN_QUOTES_POLL_INTERVAL,
     _NODE_DB_DEFAULT_RETENTION_DAYS,
     _RANGE_TEST_DEFAULT_DELAY_MINUTES,
     _RANGE_TEST_DEFAULT_REQUESTS,
     _WEB_SERVER_DISPLAY_HOST,
     _WEB_SERVER_PORT,
+    _ZEN_QUOTES_DEFAULT_POLL_INTERVAL_MINUTES,
 )
 
 
@@ -82,6 +85,7 @@ class AppArguments:
     _web_url: str
     _range_test_requests: int
     _range_test_delay_minutes: int
+    _zen_quotes_poll_interval_minutes: int
     # endregion Protected Variables
 
     # region Public Properties
@@ -149,6 +153,11 @@ class AppArguments:
     def range_test_delay_minutes(self) -> int:
         """Delay in minutes between each !range test message."""
         return self._range_test_delay_minutes
+
+    @property
+    def zen_quotes_poll_interval_minutes(self) -> int:
+        """Interval in minutes between automatic ZenQuotes API polls."""
+        return self._zen_quotes_poll_interval_minutes
     # endregion Public Properties
 
     # region Constructor
@@ -166,6 +175,7 @@ class AppArguments:
         self._web_url = _WEB_SERVER_DISPLAY_HOST
         self._range_test_requests = _RANGE_TEST_DEFAULT_REQUESTS
         self._range_test_delay_minutes = _RANGE_TEST_DEFAULT_DELAY_MINUTES
+        self._zen_quotes_poll_interval_minutes = _ZEN_QUOTES_DEFAULT_POLL_INTERVAL_MINUTES
     # endregion Constructor
 
     # region Public Functions
@@ -199,6 +209,7 @@ class AppArguments:
         parser.add_argument(_ARG_WEB_URL, type=str, default=None, metavar="HOST", help=_HELP_WEB_URL)
         parser.add_argument(_ARG_RANGE_TEST_REQUESTS, type=int, default=None, metavar="COUNT", help=_HELP_RANGE_TEST_REQUESTS)
         parser.add_argument(_ARG_RANGE_TEST_DELAY, type=int, default=None, metavar="MINUTES", help=_HELP_RANGE_TEST_DELAY)
+        parser.add_argument(_ARG_ZEN_QUOTES_POLL_INTERVAL, type=int, default=None, metavar="MINUTES", help=_HELP_ZEN_QUOTES_POLL_INTERVAL)
 
         # Locate the config file before the full parse so its values can be applied
         # as defaults (command-line arguments will still override them).
@@ -243,6 +254,7 @@ class AppArguments:
         self._web_url = args.WebUrl if args.WebUrl is not None else _WEB_SERVER_DISPLAY_HOST
         self._range_test_requests = args.RangeTestRequests if args.RangeTestRequests is not None else _RANGE_TEST_DEFAULT_REQUESTS
         self._range_test_delay_minutes = args.RangeTestDelay if args.RangeTestDelay is not None else _RANGE_TEST_DEFAULT_DELAY_MINUTES
+        self._zen_quotes_poll_interval_minutes = args.ZenQuotesPollInterval if args.ZenQuotesPollInterval is not None else _ZEN_QUOTES_DEFAULT_POLL_INTERVAL_MINUTES
     # endregion Public Functions
 
 
@@ -291,4 +303,6 @@ def _load_config_file(path: str) -> dict:
             defaults["RangeTestRequests"] = section.getint("RangeTestRequests")
         if "RangeTestDelay" in section:
             defaults["RangeTestDelay"] = section.getint("RangeTestDelay")
+        if "ZenQuotesPollInterval" in section:
+            defaults["ZenQuotesPollInterval"] = section.getint("ZenQuotesPollInterval")
     return defaults

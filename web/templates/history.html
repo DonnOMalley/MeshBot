@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; Today in History</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="tih-page">
+    {% set active_page = 'history' %} {% include "partials/_header.html" %}
+
+    <main>
+      <section class="panel tih-calendar-panel">
+        <div class="panel-header">
+          <span class="panel-header-text">&#128197; Today in History</span>
+        </div>
+        <div class="panel-body tih-layout">
+          <!-- Calendar column -->
+          <div class="tih-calendar-col">
+            <div class="tih-month-nav">
+              <button id="tih-prev-btn" class="tih-nav-btn" title="Previous month">&#8249;</button>
+              <span id="tih-month-label" class="tih-month-label">Loading&hellip;</span>
+              <button id="tih-next-btn" class="tih-nav-btn" title="Next month">&#8250;</button>
+            </div>
+            <div class="tih-calendar-grid">
+              <div class="tih-day-header">Sun</div>
+              <div class="tih-day-header">Mon</div>
+              <div class="tih-day-header">Tue</div>
+              <div class="tih-day-header">Wed</div>
+              <div class="tih-day-header">Thu</div>
+              <div class="tih-day-header">Fri</div>
+              <div class="tih-day-header">Sat</div>
+              <!-- Day cells injected by JS -->
+            </div>
+          </div>
+
+          <!-- Events column -->
+          <div class="tih-events-col">
+            <div id="tih-events-header" class="tih-events-header">Select a date to see events</div>
+            <div id="tih-events-list" class="tih-events-list">
+              <p class="tih-events-empty">&#128197; Pick a day on the calendar to explore historical events.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/history.js"></script>
+  </body>
+</html>
