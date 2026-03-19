@@ -99,9 +99,9 @@ function renderUser(user) {
   const body = document.getElementById("settings-user-body");
   if (!body) return;
   const rows = [
-    ["Node ID", user.node_id || "\u2014"],
+    // ["Node ID", user.node_id || "\u2014"],
     ["Long Name", user.long_name || "\u2014"],
-    ["Short Name", user.short_name || "\u2014"],
+    ["Short Name", (user.short_name || "\u2014") + " (" + (user.node_id || "\u2014") + ")"],
     ["Hardware Model", formatEnumName(user.hw_model)],
     ["Licensed HAM", user.is_licensed ? "Yes" : "No"]
   ];

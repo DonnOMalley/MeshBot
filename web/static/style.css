@@ -1540,10 +1540,11 @@ main > section:last-child #chat-messages {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  padding: 10px 12px;
   align-items: start;
   max-width: 1400px;
   width: 100%;
-}
+  margin: 0 auto;
 
 /* ── Mobile / Responsive ──────────────────────────────────────────── */
 @media (max-width: 640px) {
