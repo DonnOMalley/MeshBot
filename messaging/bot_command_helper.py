@@ -6,6 +6,7 @@ from meshtastic.mesh_interface import MeshInterface
 from common.chat_history import ChatHistory
 from common.meshtastic_helper import MeshtasticHelper
 from common.constants import (
+    _CHAT_HISTORY_LINE_FORMAT,
     _CMD_LAST_MAX_MESSAGES,
     _HELLO_RESPONSE_NO_PARAMS,
     _HELLO_RESPONSE_WITH_PARAMS,
@@ -199,12 +200,18 @@ class BotCommandHelper:
             channel_name: str = parts[1]
             was_capped: bool = original_count > _CMD_LAST_MAX_MESSAGES
             count: int = _CMD_LAST_MAX_MESSAGES if was_capped else original_count
-            messages: list[str] = ChatHistory.read_last(channel_name, count, self._data_dir, self._passphrase)
+            messages: list[dict] = ChatHistory.read_last(channel_name, count, self._data_dir, self._passphrase)
             if not messages:
                 result = LastCommandResult(error_message=_MSG_LAST_NOT_FOUND.format(channel=channel_name))
             else:
+                formatted: list[str] = [
+                    _CHAT_HISTORY_LINE_FORMAT.format(
+                        timestamp=m["timestamp"], sender=m["sender"], text=m["text"]
+                    ).rstrip("\n")
+                    for m in reversed(messages)
+                ]
                 result = LastCommandResult(
-                    messages=list(reversed(messages)),
+                    messages=formatted,
                     was_capped=was_capped,
                     original_count=original_count,
                     channel_name=channel_name,

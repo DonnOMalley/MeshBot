@@ -418,6 +418,35 @@ td.empty {
   border-bottom: none;
 }
 
+/* ── Reply preview inside a threaded message ─────────────────────────── */
+.msg-reply-preview {
+  font-size: 11px;
+  color: var(--muted);
+  border-left: 2px solid var(--accent);
+  padding: 2px 6px;
+  margin-bottom: 2px;
+  border-radius: 0 2px 2px 0;
+  background: rgba(88, 166, 255, 0.06);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.msg-reply-sender {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.msg-reply-text {
+  color: var(--muted);
+}
+
+.message-reply {
+  padding-top: 5px;
+}
+
 /* ── Messages ────────────────────────────────────────────────────────── */
 .panel-header.collapsible {
   cursor: pointer;

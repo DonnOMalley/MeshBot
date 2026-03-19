@@ -110,6 +110,16 @@
                     <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
                   </td>
                 </tr>
+                <tr>
+                  <td class="cmd-name">!range</td>
+                  <td class="cmd-syntax">!range</td>
+                  <td class="cmd-desc">
+                    Sends a series of range-test messages with a configured delay between each. Useful for testing
+                    link reliability across the mesh. The number of messages and delay are set via
+                    <code>RangeTestRequests</code> and <code>RangeTestDelay</code>.
+                    <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -139,6 +149,11 @@
                   <td class="cmd-desc">Full-page node table with filter, sort, favourites, CSV export, GPS links, and live traceroute.</td>
                 </tr>
                 <tr>
+                  <td class="cmd-name"><a href="/map" style="color: var(--accent); text-decoration: none">Map</a></td>
+                  <td class="cmd-syntax">/map</td>
+                  <td class="cmd-desc">Interactive map showing all positioned nodes. Sidebar filter, marker selection, and a bot-locate button when the bot is reporting its GPS position.</td>
+                </tr>
+                <tr>
                   <td class="cmd-name"><a href="/chat" style="color: var(--accent); text-decoration: none">Chat</a></td>
                   <td class="cmd-syntax">/chat</td>
                   <td class="cmd-desc">Per-channel chat history with a collapsible send form. Messages are attributed to a persistent browser identity.</td>
@@ -162,6 +177,124 @@
                   <td class="cmd-name"><a href="/about" style="color: var(--accent); text-decoration: none">About</a></td>
                   <td class="cmd-syntax">/about</td>
                   <td class="cmd-desc">This page &mdash; bot info, command reference, dashboard guide, and release notes.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Usage Notes -->
+        <section class="about-section">
+          <div class="about-section-header">Configuration Reference</div>
+          <div class="about-section-body" style="padding: 0">
+            <table class="cmd-table">
+              <thead>
+                <tr>
+                  <th>Key&thinsp;/&thinsp;Flag</th>
+                  <th>Config file</th>
+                  <th>CLI flag</th>
+                  <th>Default</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cmd-name">bot_name</td>
+                  <td class="cmd-syntax">bot_name</td>
+                  <td class="cmd-syntax">positional</td>
+                  <td class="cmd-syntax"><em>required</em></td>
+                  <td class="cmd-desc">Display name of the bot. Used as the command prefix (<code>@BotName</code>) and in lifecycle messages.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">BotDescription</td>
+                  <td class="cmd-syntax">bot_description</td>
+                  <td class="cmd-syntax">--BotDescription</td>
+                  <td class="cmd-syntax">Damn Are Mesh Nerds</td>
+                  <td class="cmd-desc">Short description shown beneath the bot name in the web dashboard header.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">Channel</td>
+                  <td class="cmd-syntax">Channel</td>
+                  <td class="cmd-syntax">--Channel</td>
+                  <td class="cmd-syntax"><em>prompted</em></td>
+                  <td class="cmd-desc">Channel name to join on startup. Use <code>primary</code> for the primary channel. Omit to be prompted at launch.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">CaseSensitive</td>
+                  <td class="cmd-syntax">CaseSensitive</td>
+                  <td class="cmd-syntax">--CaseSensitive</td>
+                  <td class="cmd-syntax">false</td>
+                  <td class="cmd-desc">When true, the bot prefix and command names must match exact capitalisation. By default all matching is case-insensitive.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">ExcludeOOTB</td>
+                  <td class="cmd-syntax">ExcludeOOTB</td>
+                  <td class="cmd-syntax">--ExcludeOOTB</td>
+                  <td class="cmd-syntax">false</td>
+                  <td class="cmd-desc">When true, suppresses the built-in <code>ping</code> and <code>test</code> commands. Only <code>hello</code> and <code>cmdList</code> are always registered.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">NoNodeInit</td>
+                  <td class="cmd-syntax">NoNodeInit</td>
+                  <td class="cmd-syntax">--NoNodeInit</td>
+                  <td class="cmd-syntax">false</td>
+                  <td class="cmd-desc">When true, skips all node configuration changes on startup and shutdown. The device is left exactly as-is.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">NodeRetentionDays</td>
+                  <td class="cmd-syntax">NodeRetentionDays</td>
+                  <td class="cmd-syntax">--NodeRetentionDays</td>
+                  <td class="cmd-syntax">30</td>
+                  <td class="cmd-desc">Days of inactivity before a node is removed from the local database.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">EncryptionKey</td>
+                  <td class="cmd-syntax">EncryptionKey</td>
+                  <td class="cmd-syntax">--EncryptionKey</td>
+                  <td class="cmd-syntax"><em>none</em></td>
+                  <td class="cmd-desc">Passphrase used to encrypt the node database and chat history files. All instances sharing the same files must use the same key. Prefer setting via config file to avoid shell history exposure.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">Verbose</td>
+                  <td class="cmd-syntax">Verbose</td>
+                  <td class="cmd-syntax">--Verbose</td>
+                  <td class="cmd-syntax">false</td>
+                  <td class="cmd-desc">When true, prints received messages, dispatched commands, and sent notifications to the console.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">WebUrl</td>
+                  <td class="cmd-syntax">WebUrl</td>
+                  <td class="cmd-syntax">--WebUrl</td>
+                  <td class="cmd-syntax">localhost</td>
+                  <td class="cmd-desc">Hostname or address shown in the console and bot messages when the web portal starts. Does not change the bind address.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">WebPort</td>
+                  <td class="cmd-syntax">WebPort</td>
+                  <td class="cmd-syntax">--WebPort</td>
+                  <td class="cmd-syntax">7331</td>
+                  <td class="cmd-desc">Port number the web dashboard listens on.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">RangeTestRequests</td>
+                  <td class="cmd-syntax">RangeTestRequests</td>
+                  <td class="cmd-syntax">--RangeTestRequests</td>
+                  <td class="cmd-syntax">5</td>
+                  <td class="cmd-desc">Number of messages sent by the <code>!range</code> command. Clamped to 1&ndash;10.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">RangeTestDelay</td>
+                  <td class="cmd-syntax">RangeTestDelay</td>
+                  <td class="cmd-syntax">--RangeTestDelay</td>
+                  <td class="cmd-syntax">1</td>
+                  <td class="cmd-desc">Delay in minutes between each <code>!range</code> test message. Clamped to 1&ndash;10.</td>
+                </tr>
+                <tr>
+                  <td class="cmd-name">Config</td>
+                  <td class="cmd-syntax"><em>n/a</em></td>
+                  <td class="cmd-syntax">--Config</td>
+                  <td class="cmd-syntax">meshbot.config</td>
+                  <td class="cmd-desc">Path to an INI config file. If omitted, <code>meshbot.config</code> in the current directory is used automatically when it exists.</td>
                 </tr>
               </tbody>
             </table>

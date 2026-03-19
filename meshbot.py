@@ -38,12 +38,13 @@ from common.node_database import NodeDatabase
 from common.node_initializer import NodeInitializer
 from common.chat_history import ChatHistory
 from configuration.node_configuration import NodeConfiguration
-from messaging.bot_lifecycle_messenger import BotLifecycleMessenger
+from messaging.bot_broadcaster import BotBroadcaster
 from messaging.monitors.channel_monitor import ChannelMonitor
 from messaging.monitors.connection_monitor import ConnectionMonitor
 from messaging.monitors.dm_monitor import DMMonitor
 from messaging.monitors.node_monitor import NodeMonitor
 from commands.user_commands import UserCommands
+from web.tile_cache import TileCache
 from web.web_server import WebServer
 import meshtastic.serial_interface
 from meshtastic import channel_pb2
@@ -107,7 +108,7 @@ def _build_channel_monitor(
         channel=channel,
         case_sensitive=args.case_sensitive,
         exclude_ootb=args.exclude_ootb,
-        user_defined_commands=UserCommands(iface, config, channel, chat_history=chat_history, verbose=args.verbose).get_commands(),
+        user_defined_commands=UserCommands(iface, config, channel, chat_history=chat_history, verbose=args.verbose, range_test_requests=args.range_test_requests, range_test_delay_minutes=args.range_test_delay_minutes).get_commands(),
         verbose=args.verbose,
         chat_history=chat_history,
         passphrase=args.encryption_key,
@@ -140,7 +141,7 @@ def _build_dm_monitor(
         channel=channel,
         case_sensitive=args.case_sensitive,
         exclude_ootb=args.exclude_ootb,
-        user_defined_commands=UserCommands(iface, config, channel, verbose=args.verbose).get_commands(),
+        user_defined_commands=UserCommands(iface, config, channel, verbose=args.verbose, range_test_requests=args.range_test_requests, range_test_delay_minutes=args.range_test_delay_minutes).get_commands(),
         verbose=args.verbose,
         passphrase=args.encryption_key,
         web_url=web_url,
@@ -223,7 +224,7 @@ def main() -> None:
     console_logger: ConsoleLogger
     dm_monitor: DMMonitor
     node_monitor: NodeMonitor
-    bot_lifecycle_messenger: BotLifecycleMessenger
+    bot_broadcaster: BotBroadcaster
     web_server: WebServer
     chat_history: ChatHistory
     iface: meshtastic.serial_interface.SerialInterface | None
@@ -253,6 +254,8 @@ def main() -> None:
             verbose=args.verbose,
             web_url=args.web_url,
             web_port=args.web_port,
+            range_test_requests=args.range_test_requests,
+            range_test_delay=args.range_test_delay_minutes,
         ))
         print(_STARTUP_MESSAGE)
 
@@ -315,7 +318,7 @@ def main() -> None:
             
             if(secondary_channel is not None and secondary_channel_name is not None):
                     chat_history = ChatHistory(channel_name=secondary_channel_name, passphrase=args.encryption_key)
-                    bot_lifecycle_messenger = BotLifecycleMessenger(
+                    bot_broadcaster = BotBroadcaster(
                         iface,
                         config,
                         bot_name=args.bot_name,
@@ -323,7 +326,7 @@ def main() -> None:
                         web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port),
                         chat_history=chat_history,
                     )
-                    bot_lifecycle_messenger.send_welcome_message(secondary_channel)
+                    bot_broadcaster.send_welcome_message(secondary_channel)
 
                     current_channel_monitor = _build_channel_monitor(iface, config, secondary_channel, args, chat_history, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port))
                     dm_monitor = _build_dm_monitor(iface, config, secondary_channel, args, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port))
@@ -337,12 +340,14 @@ def main() -> None:
                     connection_monitor = ConnectionMonitor(verbose=args.verbose)
                     connection_monitor.start()
 
+                    tile_cache: TileCache = TileCache()
                     web_server = WebServer(
                         node_db=node_db,
                         iface=iface,
                         channel=secondary_channel,
                         config=config,
                         bot_name=args.bot_name,
+                        tile_cache=tile_cache,
                         bot_description=args.bot_description,
                         case_sensitive=args.case_sensitive,
                         host=args.web_url,
@@ -352,6 +357,7 @@ def main() -> None:
                         console_logger=console_logger,
                     )
                     web_server.start()
+                    tile_cache.start()
 
                     print(_MSG_BOT_STARTED.format(bot_name=args.bot_name, channel_name=secondary_channel_name))
                     print(_MSG_STOP_APPLICATION)
@@ -369,7 +375,7 @@ def main() -> None:
                                 else:
                                     current_time = time.time()
                                     if secondary_channel is not None and current_time - last_checkin_time >= _CHECKIN_INTERVAL:
-                                        bot_lifecycle_messenger.send_checkin_message(secondary_channel)
+                                        bot_broadcaster.send_checkin_message(secondary_channel)
                                         last_checkin_time = current_time
                         except KeyboardInterrupt:
                             keyboard_interrupted = True
@@ -383,7 +389,7 @@ def main() -> None:
                         node_monitor.stop()
 
                         if keyboard_interrupted and secondary_channel is not None:
-                            bot_lifecycle_messenger.send_signoff_message(secondary_channel)
+                            bot_broadcaster.send_signoff_message(secondary_channel)
                             if not args.no_node_init:
                                 node_initializer.restore()
                         else:
@@ -411,7 +417,7 @@ def main() -> None:
                                 node_db.load_from_interface(iface)
                                 secondary_channel = MeshtasticHelper.get_channel_by_name(config.channels, secondary_channel_name)
                                 if secondary_channel is not None:
-                                    bot_lifecycle_messenger = BotLifecycleMessenger(
+                                    bot_broadcaster = BotBroadcaster(
                                         iface,
                                         config,
                                         bot_name=args.bot_name,

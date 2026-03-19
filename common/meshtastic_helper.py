@@ -10,6 +10,7 @@ from common.constants import (
     _PACKET_KEY_DECODED,
     _PACKET_KEY_PORTNUM,
     _PACKET_KEY_PAYLOAD,
+    _PACKET_KEY_REPLY_ID,
     _PACKET_KEY_TEXT,
     _PACKET_KEY_HOP_START,
     _PACKET_KEY_HOP_LIMIT,
@@ -317,6 +318,19 @@ class MeshtasticHelper:
         return packet.get(_PACKET_KEY_ID)
 
     @staticmethod
+    def get_reply_id(packet: dict) -> int | None:
+        """Extracts the reply-to message ID from a received Meshtastic packet.
+
+        Args:
+            packet: The raw Meshtastic packet dict from a received message.
+
+        Returns:
+            The integer ID of the message being replied to, or None if the
+            packet is not a reply.
+        """
+        return packet.get(_PACKET_KEY_DECODED, {}).get(_PACKET_KEY_REPLY_ID)
+
+    @staticmethod
     def get_hop_count(packet: dict) -> int:
         """Calculates the hop count from a received Meshtastic packet.
 
@@ -419,7 +433,7 @@ class MeshtasticHelper:
         return sender #Forces a DM for all responses, even those sent to channels. Hack for now. Want to update to better allow each command to define if it supports broadcast, DM, or both in the responses.
 
     @staticmethod
-    def send_text_message(iface: MeshInterface, channelIndex: int, message: str, packet: dict, destinationId: str | None = None, consoleMsg: str | None = None, chat_history: Optional[ChatHistory] = None, chat_sender: str = "") -> mesh_pb2.MeshPacket | None:
+    def send_text_message(iface: MeshInterface, channelIndex: int, message: str, packet: dict, destinationId: str | None = None, consoleMsg: str | None = None, chat_history: ChatHistory | None = None, chat_sender: str = "") -> mesh_pb2.MeshPacket | None:
         """Sends a text message reply on the specified channel, or as a DM.
 
         Prints consoleMsg to the console if provided, then sends the message text.
@@ -455,7 +469,7 @@ class MeshtasticHelper:
         else:
             result = iface.sendText(message, channelIndex=channelIndex)
         if destinationId is None and chat_history is not None:
-            chat_history.append(chat_sender, message)
+            chat_history.append(chat_sender, message, reply_to_id=message_id)
             
         return result
 

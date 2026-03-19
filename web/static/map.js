@@ -2,6 +2,9 @@
 
 // Page init for /map
 document.addEventListener("DOMContentLoaded", () => {
+  const _urlParams = new URLSearchParams(window.location.search);
+  const _nodeParam = _urlParams.get("node");
+  if (_nodeParam) _selectedNodeId = _nodeParam;
   fetchMapNodes();
   setInterval(fetchMapNodes, REFRESH_INTERVAL_MS);
   const filterInput = document.getElementById("map-filter");
@@ -71,7 +74,12 @@ function renderMap(data) {
   }
 
   if (!_userMovedMap) {
-    _fitBounds(latLngs);
+    const _selNode = _selectedNodeId ? _allNodes.find((n) => n.node_id === _selectedNodeId) : null;
+    if (_selNode) {
+      _programmaticSetView([_selNode.latitude, _selNode.longitude], 13);
+    } else {
+      _fitBounds(latLngs);
+    }
   }
 
   _renderNodeList();
@@ -190,6 +198,7 @@ function _updateMarkerIcon(nodeId, selected) {
 function _updateBotControl() {
   if (!_botControlEl) return;
   const botNode = _allNodes.find((n) => n.node_id === _botNodeId);
+  _botControlEl.style.display = botNode ? "" : "none";
   const label = _botControlEl.querySelector(".map-bot-btn-label");
   if (label) label.textContent = botNode ? botNode.short_name || "BOT" : "BOT";
 }
@@ -244,7 +253,7 @@ function _ensureMap() {
   _map.on("zoomstart", () => {
     if (!_programmaticMove) _userMovedMap = true;
   });
-  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+  L.tileLayer("/tiles/{z}/{x}/{y}.png", {
     maxZoom: 17,
     attribution:
       'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +

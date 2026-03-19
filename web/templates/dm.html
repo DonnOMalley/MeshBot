@@ -89,6 +89,13 @@
                 <span class="dm-cmd-desc">Hop Count</span>
               </button>
 
+              <button class="dm-cmd-btn dm-cmd-btn--params" data-cmd="range" title="Send a series of range-test messages — tap to set parameters">
+                <span class="dm-cmd-icon">&#128311;</span>
+                <span class="dm-cmd-label">Range</span>
+                <span class="dm-cmd-desc">Range Test</span>
+                <span class="dm-cmd-params-hint">&#9881;&nbsp;needs params</span>
+              </button>
+
               <button class="dm-cmd-btn dm-cmd-btn--params" data-cmd="last" title="Retrieve recent channel messages — tap to set parameters">
                 <span class="dm-cmd-icon">&#128196;</span>
                 <span class="dm-cmd-label">Last</span>
@@ -114,6 +121,17 @@
                 <span class="dm-cmd-label">Joke</span>
                 <span class="dm-cmd-desc">Tell a Joke</span>
               </button>
+            </div>
+
+            <!-- !range inline parameter builder (hidden until button clicked) -->
+            <div id="dm-range-params" class="dm-last-params" style="display: none">
+              <span class="dm-last-params-label">!range:</span>
+              <input id="dm-range-requests" type="number" min="1" max="10" value="5" class="dm-last-input dm-last-count-input" title="Number of range test messages to send" />
+              <span class="dm-last-sep">msg(s), every</span>
+              <input id="dm-range-delay" type="number" min="1" max="10" value="1" class="dm-last-input dm-last-count-input" title="Minutes between each range test message" />
+              <span class="dm-last-sep">min</span>
+              <button id="dm-range-send" type="button" class="dm-last-send-btn">Send</button>
+              <button id="dm-range-cancel" type="button" class="dm-last-cancel-btn">Cancel</button>
             </div>
 
             <!-- !last inline parameter builder (hidden until button clicked) -->

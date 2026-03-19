@@ -14,6 +14,8 @@ from common.constants import (
     _ARG_EXCLUDE_OOTB,
     _ARG_NO_NODE_INIT,
     _ARG_NODE_RETENTION_DAYS,
+    _ARG_RANGE_TEST_DELAY,
+    _ARG_RANGE_TEST_REQUESTS,
     _ARG_VERBOSE,
     _ARG_WEB_PORT,
     _ARG_WEB_URL,
@@ -31,10 +33,14 @@ from common.constants import (
     _HELP_EXCLUDE_OOTB,
     _HELP_NO_NODE_INIT,
     _HELP_NODE_RETENTION_DAYS,
+    _HELP_RANGE_TEST_DELAY,
+    _HELP_RANGE_TEST_REQUESTS,
     _HELP_VERBOSE,
     _HELP_WEB_PORT,
     _HELP_WEB_URL,
     _NODE_DB_DEFAULT_RETENTION_DAYS,
+    _RANGE_TEST_DEFAULT_DELAY_MINUTES,
+    _RANGE_TEST_DEFAULT_REQUESTS,
     _WEB_SERVER_DISPLAY_HOST,
     _WEB_SERVER_PORT,
 )
@@ -74,6 +80,8 @@ class AppArguments:
     _verbose: bool
     _web_port: int
     _web_url: str
+    _range_test_requests: int
+    _range_test_delay_minutes: int
     # endregion Protected Variables
 
     # region Public Properties
@@ -131,6 +139,16 @@ class AppArguments:
     def web_url(self) -> str:
         """The hostname shown in the console when the web portal starts."""
         return self._web_url
+
+    @property
+    def range_test_requests(self) -> int:
+        """Number of messages sent by the !range command."""
+        return self._range_test_requests
+
+    @property
+    def range_test_delay_minutes(self) -> int:
+        """Delay in minutes between each !range test message."""
+        return self._range_test_delay_minutes
     # endregion Public Properties
 
     # region Constructor
@@ -146,6 +164,8 @@ class AppArguments:
         self._verbose = False
         self._web_port = _WEB_SERVER_PORT
         self._web_url = _WEB_SERVER_DISPLAY_HOST
+        self._range_test_requests = _RANGE_TEST_DEFAULT_REQUESTS
+        self._range_test_delay_minutes = _RANGE_TEST_DEFAULT_DELAY_MINUTES
     # endregion Constructor
 
     # region Public Functions
@@ -177,6 +197,8 @@ class AppArguments:
         parser.add_argument(_ARG_VERBOSE, action="store_true", help=_HELP_VERBOSE)
         parser.add_argument(_ARG_WEB_PORT, type=int, default=None, metavar="PORT", help=_HELP_WEB_PORT)
         parser.add_argument(_ARG_WEB_URL, type=str, default=None, metavar="HOST", help=_HELP_WEB_URL)
+        parser.add_argument(_ARG_RANGE_TEST_REQUESTS, type=int, default=None, metavar="COUNT", help=_HELP_RANGE_TEST_REQUESTS)
+        parser.add_argument(_ARG_RANGE_TEST_DELAY, type=int, default=None, metavar="MINUTES", help=_HELP_RANGE_TEST_DELAY)
 
         # Locate the config file before the full parse so its values can be applied
         # as defaults (command-line arguments will still override them).
@@ -219,6 +241,8 @@ class AppArguments:
         self._verbose = args.Verbose
         self._web_port = args.WebPort if args.WebPort is not None else _WEB_SERVER_PORT
         self._web_url = args.WebUrl if args.WebUrl is not None else _WEB_SERVER_DISPLAY_HOST
+        self._range_test_requests = args.RangeTestRequests if args.RangeTestRequests is not None else _RANGE_TEST_DEFAULT_REQUESTS
+        self._range_test_delay_minutes = args.RangeTestDelay if args.RangeTestDelay is not None else _RANGE_TEST_DEFAULT_DELAY_MINUTES
     # endregion Public Functions
 
 
@@ -263,4 +287,8 @@ def _load_config_file(path: str) -> dict:
             defaults["WebPort"] = section.getint("WebPort")
         if "WebUrl" in section:
             defaults["WebUrl"] = section["WebUrl"]
+        if "RangeTestRequests" in section:
+            defaults["RangeTestRequests"] = section.getint("RangeTestRequests")
+        if "RangeTestDelay" in section:
+            defaults["RangeTestDelay"] = section.getint("RangeTestDelay")
     return defaults

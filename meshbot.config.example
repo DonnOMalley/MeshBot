@@ -39,3 +39,9 @@ EncryptionKey    =
 
 ; Print extra diagnostic output to the console.
 Verbose          = false
+
+; Number of messages sent by the !range command. Min 1, max 10.
+RangeTestRequests = 5
+
+; Delay in minutes between each !range test message. Min 1, max 10.
+RangeTestDelay    = 1

@@ -14,7 +14,7 @@ from common.constants import (
     _MSG_BOT_COMMAND_LIST_DM_SENT,
     _CMD_SEND_DELAY,
     _CMD_LIST_HEADER,
-    _CMD_LIST_ITEM_FORMAT,
+    _CMD_PARAM_HINTS,
 )
 
 
@@ -104,7 +104,11 @@ class CommandRegister:
             packet: The full raw Meshtastic packet dictionary.
         """
         result: mesh_pb2.MeshPacket | None = None
-        items: list[str] = [_CMD_LIST_ITEM_FORMAT.format(cmd=cmd) for cmd in sorted(self._commands.keys())]
+        items: list[str] = []
+        for cmd in sorted(self._commands.keys()):
+            hint: str = _CMD_PARAM_HINTS.get(cmd, "")
+            suffix: str = f" {hint}" if hint else ""
+            items.append(f"!{cmd}{suffix}")
 
         # Send the DM immediately. Schedule the channel notification on a background
         # thread after a delay so the receive thread is not blocked — both messages
@@ -125,7 +129,7 @@ class CommandRegister:
                 channelIndex=self._channel.index,
                 packet=packet,
                 message=_MSG_BOT_COMMAND_LIST_DM_SENT,
-                destinationId=None,
+                destinationId=sender,
                 chat_history=self._chat_history,
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             ),

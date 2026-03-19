@@ -10,6 +10,8 @@ from common.constants import (
     _MSG_IGNORED,
     _MSG_CHANNEL_COMMAND_RECEIVED,
     _PACKET_KEY_CHANNEL,
+    _PACKET_KEY_DECODED,
+    _PACKET_KEY_REPLY_ID,
     _PACKET_KEY_TO_ID,
     _BROADCAST_ID,
     _PACKET_TYPE_CHANNEL,
@@ -202,7 +204,9 @@ class BaseMonitor(ABC):
 
         text: str = MeshtasticHelper.get_sender_text(packet)
         if self._chat_history is not None:
-            self._chat_history.append(sender_display_name, text)
+            msg_id: int | None = MeshtasticHelper.get_message_id(packet)
+            reply_to_id: int | None = MeshtasticHelper.get_reply_id(packet)
+            self._chat_history.append(sender_display_name, text, msg_id=msg_id, reply_to_id=reply_to_id)
         if self._verbose:
             print(msg_format.format(sender=sender_display_name, text=text))
 

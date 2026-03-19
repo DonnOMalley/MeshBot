@@ -12,6 +12,8 @@ _ARG_ENCRYPTION_KEY: str = "--EncryptionKey"
 _ARG_EXCLUDE_OOTB: str = "--ExcludeOOTB"
 _ARG_NO_NODE_INIT: str = "--NoNodeInit"
 _ARG_NODE_RETENTION_DAYS: str = "--NodeRetentionDays"
+_ARG_RANGE_TEST_DELAY: str = "--RangeTestDelay"
+_ARG_RANGE_TEST_REQUESTS: str = "--RangeTestRequests"
 _ARG_VERBOSE: str = "--Verbose"
 _ARG_WEB_PORT: str = "--WebPort"
 _ARG_WEB_URL: str = "--WebUrl"
@@ -46,6 +48,8 @@ _APP_EPILOG: str = (
     "  Verbose           = false\n"
     "  WebUrl            = localhost\n"
     "  WebPort           = 7331\n"
+    "  RangeTestRequests = 5\n"
+    "  RangeTestDelay    = 1\n"
 )
 _HELP_BOT_NAME: str = (
     "The display name for the bot. Used as the command prefix (@BotName) and in "
@@ -98,6 +102,12 @@ _HELP_WEB_URL: str = (
     "Hostname or address shown in the console when the web portal starts. "
     "Defaults to 'localhost'."
 )
+_HELP_RANGE_TEST_REQUESTS: str = (
+    "Number of messages sent by the !range command. Min 1, max 10. Defaults to 5."
+)
+_HELP_RANGE_TEST_DELAY: str = (
+    "Delay in minutes between each !range test message. Min 1, max 10. Defaults to 1."
+)
 # endregion CLI Arguments
 
 # region Bot Command Names
@@ -122,7 +132,8 @@ _VERBOSE_ARGS_MESSAGE: str = (
     "[ARGS] bot_name={bot_name} | bot_description={bot_description} | channel={channel} | "
     "CaseSensitive={case_sensitive} | ExcludeOOTB={exclude_ootb} | NoNodeInit={no_node_init} | "
     "NodeRetentionDays={node_retention_days} | Encrypted={encrypted} | Verbose={verbose} | "
-    "WebUrl={web_url} | WebPort={web_port}"
+    "WebUrl={web_url} | WebPort={web_port} | "
+    "RangeTestRequests={range_test_requests} | RangeTestDelay={range_test_delay}"
 )
 # endregion Application Messages (Startup)
 
@@ -179,6 +190,7 @@ _PACKET_KEY_TRACE_ROUTE_BACK: str = "routeBack"
 _PACKET_KEY_TRACE_SNR_TOWARDS: str = "snrTowards"
 _PACKET_KEY_TRACE_SNR_BACK: str = "snrBack"
 _PACKET_KEY_WEB_RESPONSES: str = "webResponses"
+_PACKET_KEY_REPLY_ID: str = "replyId"
 # endregion Packet Keys
 
 # region Packet Types
@@ -283,10 +295,26 @@ _JOKE_CONSOLE_SENT: str = "[BOT] Joke sent to {sender}."
 _JOKE_API_FAILED_CONSOLE: str = "[BOT] JokeAPI unavailable. Using cached joke."
 _JOKE_NO_JOKES_CONSOLE: str = "[BOT] No jokes available (API failed, cache empty)."
 # endregion Bot Command: Joke
+# region Bot Command: Range
+_RANGE_TEST_DEFAULT_REQUESTS: int = 5
+_RANGE_TEST_DEFAULT_DELAY_MINUTES: int = 1
+_RANGE_TEST_MIN_REQUESTS: int = 1
+_RANGE_TEST_MAX_REQUESTS: int = 10
+_RANGE_TEST_MIN_DELAY_MINUTES: int = 1
+_RANGE_TEST_MAX_DELAY_MINUTES: int = 10
+_RANGE_TEST_SECONDS_PER_MINUTE: int = 60
+_RANGE_TEST_MSG_TEMPLATE: str = "Range test message {i} of {total}"
+_RANGE_TEST_CONSOLE_SENT: str = "[BOT] Range test {i}/{total} sent to {sender}."
+# endregion Bot Command: Range
 # region Command Send Delays
 _CMD_SEND_DELAY: float = 2.0
-_CMD_LIST_HEADER: str = "Available commands:"
-_CMD_LIST_ITEM_FORMAT: str = "- !{cmd}"
+_CMD_LIST_HEADER: str = "Commands:"
+_CMD_LIST_ITEM_FORMAT: str = "!{cmd}"
+_CMD_PARAM_HINTS: dict[str, str] = {
+    CMD_HELLO: "[msg]",
+    CMD_LAST: "<N> <C>",
+    CMD_RANGE: "<N> <M>",
+}
 _CMD_LAST_MAX_MESSAGES: int = 5
 _DM_RESPONSE_WAIT_SECS: float = 0.15
 # endregion Command Send Delays
@@ -313,6 +341,8 @@ _CHAT_HISTORY_FILE_FORMAT: str = "{channel_name}.txt"
 _CHAT_HISTORY_LINE_FORMAT: str = "[{timestamp}] {sender}: {text}\n"
 _CHAT_HISTORY_TIMESTAMP_FORMAT: str = "%Y-%m-%d %H:%M:%S UTC"
 _CHAT_HISTORY_BOT_SENDER: str = "[BOT]"
+_CHAT_HISTORY_MSG_ID_TOKEN: str = "[msg:{msg_id}] "
+_CHAT_HISTORY_REPLY_TOKEN: str = "[reply:{reply_to}] "
 # endregion Chat History
 
 # region Web Dashboard
@@ -377,15 +407,8 @@ _BOT_SIGNOFF_MESSAGE_SENT: str = "Signoff message sent on channel '{index}: {nam
 
 # region Node Initialization
 # Required settings applied on startup and restored on clean shutdown.
-_NODE_INIT_HOP_LIMIT: int = 7
+_NODE_INIT_HOP_LIMIT: int = 5
 _NODE_INIT_NODE_INFO_BROADCAST_SECS: int = 86400  # 24 hours in seconds
-#_NODE_INIT_ROLE: int = 0  # Config.DeviceConfig.Role.CLIENT (base client role)
-#_NODE_INIT_ROLE: int = 8  # Config.DeviceConfig.Role.CLIENT_HIDDEN (STEALTH MODE - LOOK INTO THIS MORE)
-#_NODE_INIT_REBROADCAST_MODE: int = 0  # Config.DeviceConfig.RebroadcastMode.ALL
-
-# ### DEFAULT SETTINGS.
-# _NODE_INIT_HOP_LIMIT: int = 5
-# _NODE_INIT_NODE_INFO_BROADCAST_SECS: int = 259200  # 72 hours in seconds
 _NODE_INIT_ROLE: int = 1  # Config.DeviceConfig.Role.CLIENT_MUTE (base client_mute role)
 _NODE_INIT_REBROADCAST_MODE: int = 4  # Config.DeviceConfig.RebroadcastMode.NONE
 
@@ -413,3 +436,20 @@ _MSG_NODE_INIT_NO_CHANGE: str = "[NODE INIT]   {field} already {value} — no ch
 _MSG_NODE_INIT_VERIFY_OK: str = "[NODE INIT]   {field}: OK ({value})"
 _MSG_NODE_INIT_VERIFY_WARN: str = "[NODE INIT]   WARNING — {field}: expected {expected}, got {actual}"
 # endregion Node Initialization
+
+# region Tile Cache
+_TILE_CACHE_DIR: str = "data/tiles"
+_TILE_BASE_URL: str = "https://{sub}.tile.opentopomap.org/{z}/{x}/{y}.png"
+_TILE_CONNECTIVITY_URL: str = "https://tile.opentopomap.org/0/0/0.png"
+_TILE_SUBDOMAINS: tuple[str, ...] = ("a", "b", "c")
+_TILE_TTL_SECONDS: float = 86400.0
+_TILE_FETCH_TIMEOUT: float = 10.0
+_TILE_CONNECT_TIMEOUT: float = 5.0
+_TILE_USER_AGENT: str = "MeshBot/1.0 tile cache (+https://github.com/DonnOMalley/MeshBot)"
+_TILE_REFRESH_INTERVAL_SECONDS: float = 86400.0
+_TILE_MAX_ZOOM: int = 17
+_TILE_REFRESH_DONE: str = "[TILES] Tile refresh complete: {count} tile(s) updated."
+_TILE_REFRESH_FAILED: str = "[TILES] Failed to refresh tile {z}/{x}/{y}: {error}"
+_TILE_INTERNET_AVAILABLE: str = "[TILES] Internet available — map tiles will be cached locally."
+_TILE_INTERNET_UNAVAILABLE: str = "[TILES] No internet access — serving cached map tiles (if available)."
+# endregion Tile Cache

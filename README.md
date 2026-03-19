@@ -15,7 +15,7 @@ A configurable Meshtastic channel bot with a multi-page web dashboard. Monitors 
 - Welcome message includes the web dashboard URL
 - Optional bot description displayed in the web header
 - Traceroute command with SNR readings and elapsed time in the response
-- Multi-page web dashboard (Flask) with dashboard, nodes, chat, console, and about pages
+- Multi-page web dashboard (Flask) with dashboard, nodes, map, chat, console, and about pages
 - Node table: live hop count shown alongside last-seen time
 - Node table: GPS position column with Google Maps link
 - Node table: web-initiated traceroute with live spinner and always-visible left-anchored result popup
@@ -56,11 +56,14 @@ bot_description   = A Meshtastic bot
 Channel           = MyChannel
 CaseSensitive     = false
 ExcludeOOTB       = false
+NoNodeInit        = false
 NodeRetentionDays = 30
 EncryptionKey     =
 Verbose           = false
 WebUrl            = localhost
 WebPort           = 7331
+RangeTestRequests = 5
+RangeTestDelay    = 1
 ```
 
 | Key                 | Description                                                                                            |
@@ -70,11 +73,14 @@ WebPort           = 7331
 | `Channel`           | Channel name to join on startup. Omit to be prompted at launch.                                        |
 | `CaseSensitive`     | When `true`, command prefix and names must match exact case.                                           |
 | `ExcludeOOTB`       | When `true`, built-in commands (`ping`, `test`, `hello`, `last`) are not registered.                   |
+| `NoNodeInit`        | When `true`, skips node configuration on startup and shutdown. Default: `false`.                       |
 | `NodeRetentionDays` | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
 | `EncryptionKey`     | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
 | `Verbose`           | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
 | `WebUrl`            | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
 | `WebPort`           | Port the web dashboard listens on. Default: `7331`.                                                    |
+| `RangeTestRequests` | Number of messages sent by `!range`. Clamped 1–10. Default: `5`.                                      |
+| `RangeTestDelay`    | Delay in minutes between `!range` messages. Clamped 1–10. Default: `1`.                               |
 
 > **Security note:** Prefer setting `EncryptionKey` in the config file rather than on the command line to avoid it appearing in shell history.
 
@@ -97,6 +103,8 @@ python meshbot.py MyBot --BotDescription "A Meshtastic bot"
 python meshbot.py MyBot --NodeRetentionDays 60
 python meshbot.py MyBot --EncryptionKey mysecret
 python meshbot.py MyBot --WebUrl 192.168.1.100 --WebPort 8080
+python meshbot.py MyBot --NoNodeInit
+python meshbot.py MyBot --RangeTestRequests 3 --RangeTestDelay 2
 python meshbot.py --Config path/to/my.config
 ```
 
@@ -115,6 +123,7 @@ Commands are sent in the monitored channel or via DM, prefixed with `!`:
 | `!test`           | Bot replies with the hop count (`Hops: N 🐇`), or confirms a direct connection.        |
 | `!last N CHANNEL` | Returns the last N messages from the specified channel as DMs (max 5).                 |
 | `!trace`          | Sends a traceroute to the requester and reports the route, SNR readings, and duration. |
+| `!range`          | Sends a series of range-test messages. Count and delay are configured via `RangeTestRequests` and `RangeTestDelay`. |
 | `!web`            | Replies with the web dashboard URL so any mesh node can find the portal.               |
 | `!cmdList`        | Lists all registered commands.                                                         |
 
@@ -156,6 +165,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------- |
 | Dashboard | `/`         | Node panel (collapsible) and channel chat history.                                                      |
 | Nodes     | `/nodes`    | Full-page node table.                                                                                   |
+| Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
 | Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                             |
 | Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                            |
 | Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window. |

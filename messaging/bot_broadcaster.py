@@ -19,7 +19,7 @@ from configuration.node_configuration import NodeConfiguration
 from common.chat_history import ChatHistory
 from common.meshtastic_helper import MeshtasticHelper
 
-class BotLifecycleMessenger:
+class BotBroadcaster:
     """Sends pre-defined bot lifecycle messages over the Meshtastic network."""
 
     # region Protected Variables

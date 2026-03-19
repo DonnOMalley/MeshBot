@@ -55,12 +55,13 @@ function renderNodes(nodes) {
       const star = isFav ? "\u2605" : "\u2606";
       const name = n.long_name ? (n.short_name ? `${esc(n.long_name)} (${esc(n.short_name)})` : esc(n.long_name)) : n.short_name ? esc(n.short_name) : "\u2014";
       const hasPos = n.latitude != null && n.longitude != null;
+      const mapHref = hasPos ? `/map?node=${encodeURIComponent(n.node_id)}` : null;
       const posLink = hasPos
-        ? `<a href="https://maps.google.com/?q=${n.latitude},${n.longitude}" target="_blank" rel="noopener noreferrer" title="${n.latitude.toFixed(5)}, ${n.longitude.toFixed(5)}" style="font-size:16px;text-decoration:none;">&#128205;</a>`
+        ? `<a href="${mapHref}" title="${n.latitude.toFixed(5)}, ${n.longitude.toFixed(5)}" style="font-size:16px;text-decoration:none;">&#128205;</a>`
         : "\u2014";
       const posCell = posLink;
       const nameCellContent = hasPos
-        ? `${name}&nbsp;<a class="pos-pin-mobile" href="https://maps.google.com/?q=${n.latitude},${n.longitude}" target="_blank" rel="noopener noreferrer" title="${n.latitude.toFixed(5)}, ${n.longitude.toFixed(5)}" style="font-size:15px;text-decoration:none;">&#128205;</a>`
+        ? `${name}&nbsp;<a class="pos-pin-mobile" href="${mapHref}" title="${n.latitude.toFixed(5)}, ${n.longitude.toFixed(5)}" style="font-size:15px;text-decoration:none;">&#128205;</a>`
         : name;
       return `
         <tr title="${esc(n.node_id)}">
@@ -258,40 +259,35 @@ function renderMessages(messages) {
   }
 
   // messages arrive oldest-first from the API — iterate as-is so newest renders at the bottom
-  // _CHAT_HISTORY_LINE_FORMAT: "[YYYY-MM-DD HH:MM:SS UTC] sender: text"
-  const lineRe = /^\[(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) UTC\] (.*)$/;
-  const senderRe = /^(.+?): (.*)$/;
+  // Each entry is a dict: { timestamp, sender, text, reply_to }
+  // timestamp format: "YYYY-MM-DD HH:MM:SS UTC"
 
   let html = "";
   let lastDate = "";
 
-  for (const raw of messages) {
-    const m = lineRe.exec(raw);
-    if (m) {
-      const [, datePart, timePart, rest] = m;
-      // Convert UTC time to local
-      const localDate = new Date(`${datePart}T${timePart}Z`);
-      const localDateStr = localDate.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-      const localTimeStr = localDate.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  for (const entry of messages) {
+    const { timestamp, sender, text, reply_to } = entry;
+    // Parse "YYYY-MM-DD HH:MM:SS UTC" → ISO 8601 for Date constructor
+    const localDate = new Date(timestamp.replace(" UTC", "Z").replace(" ", "T"));
+    const localDateStr = localDate.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+    const localTimeStr = localDate.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-      if (localDateStr !== lastDate) {
-        html += `<div class="msg-date-sep">${esc(localDateStr)}</div>`;
-        lastDate = localDateStr;
-      }
-
-      const sm = senderRe.exec(rest);
-      if (sm) {
-        const [, sender, text] = sm;
-        const isBot = sender === "[BOT]";
-        const senderSpan = isBot ? `<span class="msg-sender msg-sender-bot">BOT</span>` : `<span class="msg-sender">${esc(sender)}</span>`;
-        html += `<div class="message"><span class="msg-time">${esc(localTimeStr)}</span> ${senderSpan}: ${esc(text)}</div>`;
-      } else {
-        html += `<div class="message"><span class="msg-time">${esc(localTimeStr)}</span> ${esc(rest)}</div>`;
-      }
-    } else if (raw.trim()) {
-      // continuation line from a multiline message (e.g. trace result, welcome message)
-      html += `<div class="message msg-cont">${esc(raw)}</div>`;
+    if (localDateStr !== lastDate) {
+      html += `<div class="msg-date-sep">${esc(localDateStr)}</div>`;
+      lastDate = localDateStr;
     }
+
+    const isBot = sender === "[BOT]";
+    const senderSpan = isBot ? `<span class="msg-sender msg-sender-bot">BOT</span>` : `<span class="msg-sender">${esc(sender)}</span>`;
+    const textHtml = esc(text).replace(/\n/g, "<br>");
+
+    let replyHtml = "";
+    if (reply_to) {
+      const replyTextShort = reply_to.text.length > 60 ? reply_to.text.slice(0, 60) + "\u2026" : reply_to.text;
+      replyHtml = `<div class="msg-reply-preview">\u21A9 <span class="msg-reply-sender">${esc(reply_to.sender)}</span>: <span class="msg-reply-text">${esc(replyTextShort)}</span></div>`;
+    }
+
+    html += `<div class="message${reply_to ? " message-reply" : ""}">${replyHtml}<div class="msg-body"><span class="msg-time">${esc(localTimeStr)}</span> ${senderSpan}: ${textHtml}</div></div>`;
   }
 
   box.innerHTML = html;

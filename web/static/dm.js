@@ -47,6 +47,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("dm-last-send").addEventListener("click", _sendLastCommand);
   document.getElementById("dm-last-cancel").addEventListener("click", _hideLast);
 
+  // !range params wiring
+  document.getElementById("dm-range-send").addEventListener("click", _sendRangeCommand);
+  document.getElementById("dm-range-cancel").addEventListener("click", _hideRange);
+
   // !trace params wiring
   document.getElementById("dm-trace-send").addEventListener("click", _sendTraceCommand);
   document.getElementById("dm-trace-cancel").addEventListener("click", _hideTrace);
@@ -220,6 +224,10 @@ function _handleCommandBtn(cmd) {
     _toggleLastParams();
     return;
   }
+  if (cmd === "range") {
+    _toggleRangeParams();
+    return;
+  }
   if (cmd === "trace") {
     _toggleTraceParams();
     return;
@@ -248,7 +256,34 @@ function _hideLast() {
   params.style.display = "none";
   if (btn) btn.classList.remove("dm-cmd-btn--active");
 }
+function _toggleRangeParams() {
+  const params = document.getElementById("dm-range-params");
+  const btn = document.querySelector('.dm-cmd-btn[data-cmd="range"]');
+  const visible = params.style.display !== "none";
+  _hideLast();
+  params.style.display = visible ? "none" : "";
+  if (btn) btn.classList.toggle("dm-cmd-btn--active", !visible);
+  if (!visible) {
+    document.getElementById("dm-range-requests").focus();
+  }
+}
 
+function _hideRange() {
+  const params = document.getElementById("dm-range-params");
+  const btn = document.querySelector('.dm-cmd-btn[data-cmd="range"]');
+  params.style.display = "none";
+  if (btn) btn.classList.remove("dm-cmd-btn--active");
+}
+
+function _sendRangeCommand() {
+  const reqVal = parseInt(document.getElementById("dm-range-requests").value, 10);
+  const delayVal = parseInt(document.getElementById("dm-range-delay").value, 10);
+  const requests = Number.isFinite(reqVal) && reqVal >= 1 && reqVal <= 10 ? reqVal : 5;
+  const delay = Number.isFinite(delayVal) && delayVal >= 1 && delayVal <= 10 ? delayVal : 1;
+  _hideRange();
+  const cmdText = `!range ${requests} ${delay}`;
+  _sendDmText(cmdText, `Range Test (!range ${requests} msg, ${delay} min apart)`);
+}
 function _sendLastCommand() {
   const countVal = parseInt(document.getElementById("dm-last-count").value, 10);
   const count = Number.isFinite(countVal) && countVal > 0 ? countVal : 5;

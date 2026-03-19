@@ -19,6 +19,15 @@ from common.constants import (
     _CHAT_HISTORY_BOT_SENDER,
     _PACKET_KEY_DECODED,
     _PACKET_KEY_WEB_RESPONSES,
+    _RANGE_TEST_DEFAULT_DELAY_MINUTES,
+    _RANGE_TEST_DEFAULT_REQUESTS,
+    _RANGE_TEST_MAX_DELAY_MINUTES,
+    _RANGE_TEST_MAX_REQUESTS,
+    _RANGE_TEST_MIN_DELAY_MINUTES,
+    _RANGE_TEST_MIN_REQUESTS,
+    _RANGE_TEST_MSG_TEMPLATE,
+    _RANGE_TEST_CONSOLE_SENT,
+    _RANGE_TEST_SECONDS_PER_MINUTE,
 )
 
 
@@ -37,6 +46,8 @@ class UserCommands:
     _chat_history: ChatHistory | None
     _verbose: bool
     _helper: UserCommandHelper
+    _range_test_requests: int
+    _range_test_delay_minutes: int
     # endregion Protected Variables
 
     # region Constructor
@@ -48,6 +59,8 @@ class UserCommands:
         chat_history: ChatHistory | None = None,
         verbose: bool = False,
         data_dir: str = _NODE_DB_DIR,
+        range_test_requests: int = _RANGE_TEST_DEFAULT_REQUESTS,
+        range_test_delay_minutes: int = _RANGE_TEST_DEFAULT_DELAY_MINUTES,
     ) -> None:
         """Initialises the user commands with an active interface and target channel.
 
@@ -55,9 +68,14 @@ class UserCommands:
             iface: The active MeshInterface connection used to send reply messages.
             config: The NodeConfiguration object containing local node information.
             channel: The channel on which replies will be broadcast.
+            chat_history: Optional chat history to which bot replies are appended.
             verbose: When True, prints a console confirmation for each command handled.
             data_dir: Directory used to persist the joke cache file. Defaults to the
                       shared ``data`` directory.
+            range_test_requests: Number of messages the !range command sends. Clamped
+                                  to [1, 10]. Defaults to 5.
+            range_test_delay_minutes: Minutes between each !range message. Clamped
+                                       to [1, 10]. Defaults to 1.
         """
         self._iface = iface
         self._config = config
@@ -65,6 +83,8 @@ class UserCommands:
         self._verbose = verbose
         self._chat_history = chat_history
         self._helper = UserCommandHelper(data_dir=data_dir)
+        self._range_test_requests = range_test_requests
+        self._range_test_delay_minutes = range_test_delay_minutes
     # endregion Constructor
 
     # region Protected Functions
@@ -134,25 +154,45 @@ class UserCommands:
         return result
     
     def _cmd_range_test(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
-        range_test_limit: int = 5
-        for i in range(1, range_test_limit):
-            delay: float = (_CMD_SEND_DELAY * 5) * (i) # Incremental delay for each message
-            message: str = f"Range test message {i} of {range_test_limit} after {delay} seconds"
+        """Sends a series of range-test messages with a configurable count and interval.
+
+        The number of messages and the delay between them can be overridden at
+        call time by supplying them as space-separated integers in ``params``
+        (e.g. ``3 2`` for 3 messages, 2 minutes apart). Values outside the
+        allowed [1, 10] bounds are clamped silently. Configured defaults are
+        used for any parameter that is absent or non-numeric.
+
+        Args:
+            sender: The node ID string of the message sender.
+            params: Optional override values: ``"<requests> <delay_minutes>"``.
+            packet: The full raw Meshtastic packet dictionary.
+        """
+        parts: list[str] = params.split()
+        num_requests: int = self._range_test_requests
+        delay_minutes: int = self._range_test_delay_minutes
+        if len(parts) >= 1 and parts[0].isdigit():
+            num_requests = int(parts[0])
+        if len(parts) >= 2 and parts[1].isdigit():
+            delay_minutes = int(parts[1])
+        num_requests = max(_RANGE_TEST_MIN_REQUESTS, min(_RANGE_TEST_MAX_REQUESTS, num_requests))
+        delay_minutes = max(_RANGE_TEST_MIN_DELAY_MINUTES, min(_RANGE_TEST_MAX_DELAY_MINUTES, delay_minutes))
+        for i in range(1, num_requests + 1):
+            timer_delay: float = _CMD_SEND_DELAY + (i - 1) * delay_minutes * _RANGE_TEST_SECONDS_PER_MINUTE
+            message: str = _RANGE_TEST_MSG_TEMPLATE.format(i=i, total=num_requests)
             threading.Timer(
-                delay,
+                timer_delay,
                 MeshtasticHelper.send_text_message,
                 kwargs=dict(
                     iface=self._iface,
                     channelIndex=self._channel.index,
                     packet=packet,
                     message=message,
-                    consoleMsg=f"Sent range test message {i} of {range_test_limit} to {sender}" if self._verbose else None,
+                    consoleMsg=_RANGE_TEST_CONSOLE_SENT.format(i=i, total=num_requests, sender=sender) if self._verbose else None,
                     destinationId=sender,
                     chat_history=self._chat_history,
                     chat_sender=_CHAT_HISTORY_BOT_SENDER,
                 ),
             ).start()
-        return None
     # endregion Protected Functions
 
     # region Public Functions

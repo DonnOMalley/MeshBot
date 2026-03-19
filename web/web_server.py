@@ -59,11 +59,15 @@ from common.constants import (
     _WEB_USER_ERR_LONG_NAME,
     _WEB_USER_ERR_SHORT_NAME,
 )
+from common.constants import (
+    _TILE_MAX_ZOOM,
+)
 from common.encryption_helper import EncryptionHelper
 from common.meshtastic_helper import MeshtasticHelper
 from common.node_database import NodeDatabase
 from configuration.node_configuration import NodeConfiguration
 from messaging.command_register import CommandRegister
+from web.tile_cache import TileCache
 
 _dm_response_tl: threading.local = threading.local()
 
@@ -216,6 +220,7 @@ class WebServer:
     _favorites: set[str]
     _pending_web_traces: dict[str, tuple[dict, float]]
     _port: int
+    _tile_cache: TileCache
     _web_dir: str
     _web_users: dict[str, WebUser]
     _chat_history: ChatHistory | None
@@ -232,6 +237,7 @@ class WebServer:
         channel: channel_pb2.Channel,
         config: NodeConfiguration,
         bot_name: str,
+        tile_cache: TileCache,
         bot_description: str = _DEFAULT_BOT_DESCRIPTION,
         case_sensitive: bool = False,
         data_dir: str = _NODE_DB_DIR,
@@ -251,6 +257,7 @@ class WebServer:
             config: The local node configuration used to build the DM command
                     register and identify the bot when constructing synthetic packets.
             bot_name: The runtime name of the bot, shown in the dashboard.
+            tile_cache: The tile cache used to serve and refresh map tiles.
             bot_description: Short description shown alongside the bot name in the header.
             case_sensitive: When True the bot requires exact capitalisation for command names.
             data_dir: Directory containing chat history files. Defaults to the
@@ -273,6 +280,7 @@ class WebServer:
         self._node_db = node_db
         self._iface = iface
         self._channel = channel
+        self._tile_cache = tile_cache
         self._channel_name = channel.settings.name or CHANNEL_NAME_PRIMARY
         self._data_dir = data_dir
         self._display_host = host
@@ -536,6 +544,17 @@ class WebServer:
                 github_url=_GITHUB_REPO_URL,
                 case_sensitive=self._case_sensitive,
             )
+
+        @self._app.route("/tiles/<int:z>/<int:x>/<int:y>.png")
+        def serve_tile(z: int, x: int, y: int):
+            tile_data: bytes | None = None
+            if z < 0 or z > _TILE_MAX_ZOOM or x < 0 or y < 0:
+                abort(400)
+            else:
+                tile_data = self._tile_cache.get_tile(z, x, y)
+                if tile_data is None:
+                    abort(404)
+            return Response(tile_data, mimetype="image/png")
 
         @self._app.route("/images/<path:filename>")
         def serve_image(filename: str):
