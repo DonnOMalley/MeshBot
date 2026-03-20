@@ -1545,6 +1545,7 @@ main > section:last-child #chat-messages {
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
+}
 
 /* ── Mobile / Responsive ──────────────────────────────────────────── */
 @media (max-width: 640px) {
