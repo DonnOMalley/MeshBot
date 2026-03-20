@@ -645,10 +645,18 @@ class WebServer:
         @self._app.route("/api/today-in-history")
         def api_today_in_history():
             now: datetime = datetime.now(timezone.utc)
+            try:
+                req_month: int = int(request.args.get("month", 0))
+                req_day: int = int(request.args.get("day", 0))
+                local_month: int = req_month if 1 <= req_month <= 12 else now.month
+                local_day: int = req_day if 1 <= req_day <= 31 else now.day
+            except (ValueError, TypeError):
+                local_month = now.month
+                local_day = now.day
             path: str = os.path.join(
                 self._data_dir,
                 _TODAY_IN_HISTORY_SUBDIR,
-                _TODAY_IN_HISTORY_FILE_FORMAT.format(month=now.month, day=now.day),
+                _TODAY_IN_HISTORY_FILE_FORMAT.format(month=local_month, day=local_day),
             )
             events: list[dict] = []
             if os.path.isfile(path):
@@ -667,7 +675,7 @@ class WebServer:
                         ]
                 except Exception:
                     pass
-            return jsonify({"events": events, "month": now.month, "day": now.day})
+            return jsonify({"events": events, "month": local_month, "day": local_day})
 
         @self._app.route("/api/joy")
         def api_joy():

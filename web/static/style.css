@@ -2901,7 +2901,7 @@ body.dashboard-page main {
   }
 
   .dash-map-wrap {
-    height: 40vh;
+    display: none;
   }
 }
 

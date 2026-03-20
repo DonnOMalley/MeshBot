@@ -160,7 +160,10 @@ function _renderMapNodes(data) {
 
 async function _fetchTodayInHistory() {
   try {
-    const res = await fetch("/api/today-in-history");
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const res = await fetch(`/api/today-in-history?month=${month}&day=${day}`);
     if (!res.ok) return;
     const data = await res.json();
     _renderTodayInHistory(data);
