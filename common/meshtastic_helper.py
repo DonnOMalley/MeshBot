@@ -271,7 +271,7 @@ class MeshtasticHelper:
         return next((ch for ch in channels if ch.index == channel_index), None)
 
     @staticmethod
-    def get_channel_by_name(channels: list[channel_pb2.Channel], channel_name: str) -> Optional[channel_pb2.Channel]:
+    def get_channel_by_name(channels: list[channel_pb2.Channel], channel_name: str | None) -> Optional[channel_pb2.Channel]:
         """Looks up a channel by its display name.
 
         Any variation of 'primary' or '(primary)' (case-insensitive) is treated as an
@@ -285,11 +285,11 @@ class MeshtasticHelper:
             The matching Channel object, or None if no match is found.
         """
         result: Optional[channel_pb2.Channel] = None
-        normalized: str = channel_name.strip().lower().strip("()")
+        normalized: str = (channel_name or CHANNEL_NAME_PRIMARY).strip().lower().strip("()")
         if normalized == CHANNEL_NAME_PRIMARY:
             result = next((ch for ch in channels if ch.index == 0), None)
         else:
-            result = next((ch for ch in channels if ch.settings.name.lower() == channel_name.lower()),None)
+            result = next((ch for ch in channels if ch.settings.name.lower() == (channel_name or CHANNEL_NAME_PRIMARY).lower()),None)
         
         return result
       
