@@ -88,7 +88,7 @@ def _build_channel_monitor(
     config: NodeConfiguration,
     channel: channel_pb2.Channel,
     args: AppArguments,
-    chat_history: ChatHistory,
+    chat_history: ChatHistory | None = None,
     web_url: str = "",
 ) -> ChannelMonitor:
     """Constructs a ChannelMonitor bound to the given interface and channel.
@@ -221,14 +221,14 @@ def main() -> None:
     secondary_channel: channel_pb2.Channel | None = None
     secondary_channel_name: str | None = None
     primary_channel_monitor: ChannelMonitor
-    current_channel_monitor: ChannelMonitor
+    secondary_channel_monitor: ChannelMonitor | None = None
     connection_monitor: ConnectionMonitor
     console_logger: ConsoleLogger
-    dm_monitor: DMMonitor
+    dm_monitor: DMMonitor | None = None
     node_monitor: NodeMonitor
-    bot_broadcaster: BotBroadcaster
+    bot_broadcaster: BotBroadcaster | None = None
     web_server: WebServer
-    chat_history: ChatHistory
+    chat_history: ChatHistory | None = None
     iface: meshtastic.serial_interface.SerialInterface | None
     node_initializer: NodeInitializer
     zen_quotes_api: ZenQuotesApi
@@ -258,6 +258,7 @@ def main() -> None:
             verbose=args.verbose,
             web_url=args.web_url,
             web_port=args.web_port,
+            hide_secondary_channels=args.hide_secondary_channels,
             range_test_requests=args.range_test_requests,
             range_test_delay=args.range_test_delay_minutes,
             zen_quotes_poll_interval=args.zen_quotes_poll_interval_minutes,
@@ -283,16 +284,13 @@ def main() -> None:
         if not args.no_node_init:
             print(_MSG_NODE_INIT_APPLYING)
             settings_changed = node_initializer.apply()
-            # reboot_triggered = node_initializer._apply_lora_settings()
-            # settings_changed = node_initializer._apply_device_settings() or settings_changed
             print(_MSG_NODE_INIT_APPLIED)
             
         if(settings_changed == True):
             print("Device configuration changed but reboot not triggered — waiting briefly before continuing...")
             reboot_triggered = True
             iface.localNode.reboot()
-            time.sleep(_NODE_INIT_REBOOT_INITIAL_WAIT)
-        
+            time.sleep(_NODE_INIT_REBOOT_INITIAL_WAIT)        
 
         if reboot_triggered:
             iface = reconnect_device(iface, args, node_initializer)
@@ -320,15 +318,26 @@ def main() -> None:
         if(primary_channel is None):
             print(_MSG_CHANNEL_NOT_FOUND_NAME.format(name=CHANNEL_NAME_PRIMARY))
         else:
-            if(args.channel is not None and CHANNEL_NAME_PRIMARY != args.channel):
-                secondary_channel = _resolve_channel(args.channel, config)
-                secondary_channel_name = None if secondary_channel is None else secondary_channel.settings.name
-                
-            if(primary_channel is not None):
-                primary_channel_monitor = _build_primary_channel_monitor(iface, config, primary_channel, args, ChatHistory(channel_name=CHANNEL_NAME_PRIMARY, passphrase=args.encryption_key))            
+            connection_monitor = ConnectionMonitor(verbose=args.verbose)
+            connection_monitor.start()
+
+            node_monitor = NodeMonitor(iface=iface, db=node_db, verbose=args.verbose)
+            node_monitor.start()
+            primary_channel_monitor = _build_primary_channel_monitor(iface, config, primary_channel, args, ChatHistory(channel_name=CHANNEL_NAME_PRIMARY, passphrase=args.encryption_key))            
+            primary_channel_monitor.start()
+
+            if(args.hide_secondary_channels == False and args.channel is not None and CHANNEL_NAME_PRIMARY != args.channel):
+                secondary_channel_name = args.channel
+                secondary_channel = _resolve_channel(secondary_channel_name, config)             
             
-            if(secondary_channel is not None and secondary_channel_name is not None):
+                if(secondary_channel is not None):
                     chat_history = ChatHistory(channel_name=secondary_channel_name, passphrase=args.encryption_key)
+                    secondary_channel_monitor = _build_channel_monitor(iface, config, secondary_channel, args, chat_history, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port))
+                    dm_monitor = _build_dm_monitor(iface, config, secondary_channel, args, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port))
+
+                    secondary_channel_monitor.start()
+                    dm_monitor.start()
+
                     bot_broadcaster = BotBroadcaster(
                         iface,
                         config,
@@ -338,128 +347,122 @@ def main() -> None:
                         chat_history=chat_history,
                     )
                     bot_broadcaster.send_welcome_message(secondary_channel)
+                    
 
-                    current_channel_monitor = _build_channel_monitor(iface, config, secondary_channel, args, chat_history, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port))
-                    dm_monitor = _build_dm_monitor(iface, config, secondary_channel, args, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port))
-                    node_monitor = NodeMonitor(iface=iface, db=node_db, verbose=args.verbose)
+            tile_cache: TileCache = TileCache()
+            tile_cache.start()
+            web_server = WebServer(
+                node_db=node_db,
+                iface=iface,
+                channel=secondary_channel if secondary_channel is not None else primary_channel,
+                config=config,
+                bot_name=args.bot_name,
+                tile_cache=tile_cache,
+                bot_description=args.bot_description,
+                case_sensitive=args.case_sensitive,
+                host=args.web_url,
+                passphrase=args.encryption_key,
+                port=args.web_port,
+                chat_history=chat_history if chat_history is not None else None,
+                console_logger=console_logger,
+                hide_secondary_channels=args.hide_secondary_channels,
+            )
+            web_server.start()
 
-                    primary_channel_monitor.start()
-                    current_channel_monitor.start()
-                    dm_monitor.start()
-                    node_monitor.start()
+            print(_MSG_BOT_STARTED.format(bot_name=args.bot_name, channel_name=secondary_channel_name))
+            print(_MSG_STOP_APPLICATION)
 
-                    connection_monitor = ConnectionMonitor(verbose=args.verbose)
-                    connection_monitor.start()
+            keyboard_interrupted = False
+            while not keyboard_interrupted:
+                last_checkin_time = time.time()
+                disconnected = False
 
-                    tile_cache: TileCache = TileCache()
-                    web_server = WebServer(
-                        node_db=node_db,
-                        iface=iface,
-                        channel=secondary_channel,
-                        config=config,
-                        bot_name=args.bot_name,
-                        tile_cache=tile_cache,
-                        bot_description=args.bot_description,
-                        case_sensitive=args.case_sensitive,
-                        host=args.web_url,
-                        passphrase=args.encryption_key,
-                        port=args.web_port,
-                        chat_history=chat_history,
-                        console_logger=console_logger,
-                    )
-                    web_server.start()
-                    tile_cache.start()
-
-                    print(_MSG_BOT_STARTED.format(bot_name=args.bot_name, channel_name=secondary_channel_name))
-                    print(_MSG_STOP_APPLICATION)
-
-                    keyboard_interrupted = False
-                    while not keyboard_interrupted:
-                        last_checkin_time = time.time()
-                        disconnected = False
-
-                        try:
-                            while not disconnected:
-                                if connection_monitor.wait(timeout=_MONITOR_POLL_INTERVAL):
-                                    connection_monitor.acknowledge()
-                                    disconnected = True
-                                else:
-                                    current_time = time.time()
-                                    if secondary_channel is not None and current_time - last_checkin_time >= _CHECKIN_INTERVAL:
-                                        bot_broadcaster.send_checkin_message(secondary_channel)
-                                        last_checkin_time = current_time
-                        except KeyboardInterrupt:
-                            keyboard_interrupted = True
-
-                        print(_MSG_CHANNEL_MONITOR_STOPPING)
-                        primary_channel_monitor.stop()
-                        current_channel_monitor.stop()
-                        print(_MSG_DM_MONITOR_STOPPING)
-                        dm_monitor.stop()
-                        print(_MSG_NODE_MONITOR_STOPPING)
-                        node_monitor.stop()
-
-                        if keyboard_interrupted and secondary_channel is not None:
-                            bot_broadcaster.send_signoff_message(secondary_channel)
-                            if not args.no_node_init:
-                                node_initializer.restore()
+                try:
+                    while not disconnected:
+                        if connection_monitor.wait(timeout=_MONITOR_POLL_INTERVAL):
+                            connection_monitor.acknowledge()
+                            disconnected = True
                         else:
-                            try:
-                                iface.close()
-                            except Exception:
-                                pass
+                            current_time = time.time()
+                            if secondary_channel is not None and current_time - last_checkin_time >= _CHECKIN_INTERVAL:
+                                if(bot_broadcaster is not None):
+                                    bot_broadcaster.send_checkin_message(secondary_channel)
+                                last_checkin_time = current_time
+                except KeyboardInterrupt:
+                    keyboard_interrupted = True
 
-                            reconnected = False
-                            while not reconnected and not keyboard_interrupted:
-                                if args.verbose:
-                                    print(_MSG_RECONNECT_ATTEMPT.format(delay=_RECONNECT_DELAY_SECONDS))
-                                try:
-                                    time.sleep(_RECONNECT_DELAY_SECONDS)
-                                    iface = meshtastic.serial_interface.SerialInterface()
-                                    reconnected = iface is not None and iface.devPath is not None
-                                except KeyboardInterrupt:
-                                    keyboard_interrupted = True
-                                except Exception as reconnect_err:
-                                    if args.verbose:
-                                        print(_MSG_RECONNECT_FAILED.format(error=reconnect_err, delay=_RECONNECT_DELAY_SECONDS))
+                print(_MSG_CHANNEL_MONITOR_STOPPING)
+                primary_channel_monitor.stop()
+                if(secondary_channel_monitor is not None):
+                    secondary_channel_monitor.stop()
+                    print(_MSG_DM_MONITOR_STOPPING)
+                if(dm_monitor is not None):
+                    dm_monitor.stop()
+                    print(_MSG_NODE_MONITOR_STOPPING)
+                node_monitor.stop()
 
-                            if reconnected:
-                                config = NodeConfiguration(iface)
-                                node_db.load_from_interface(iface)
-                                secondary_channel = MeshtasticHelper.get_channel_by_name(config.channels, secondary_channel_name)
-                                if secondary_channel is not None:
-                                    bot_broadcaster = BotBroadcaster(
-                                        iface,
-                                        config,
-                                        bot_name=args.bot_name,
-                                        verbose=args.verbose,
-                                        web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port),
-                                        chat_history=chat_history,
-                                    )
-                                    current_channel_monitor = _build_channel_monitor(iface, config, secondary_channel, args, chat_history)
-                                    dm_monitor = _build_dm_monitor(iface, config, secondary_channel, args)
-                                    node_monitor = NodeMonitor(iface=iface, db=node_db, verbose=args.verbose)
-
-                                    current_channel_monitor.start()
-                                    dm_monitor.start()
-                                    node_monitor.start()
-
-                                    web_server.update_iface(iface, secondary_channel)
-
-                                    if args.verbose:
-                                        print(_MSG_RECONNECT_SUCCESS)
-                                else:
-                                    keyboard_interrupted = True
-
-                    print(_MSG_CONNECTION_MONITOR_STOPPING)
-                    zen_quotes_api.stop_polling()
-                    today_in_history_api.stop_polling()
-                    connection_monitor.stop()
-
+                if keyboard_interrupted and secondary_channel is not None:
+                    if(bot_broadcaster is not None):
+                        bot_broadcaster.send_signoff_message(secondary_channel)
+                    if not args.no_node_init:
+                        node_initializer.restore()
+                else:
                     try:
                         iface.close()
                     except Exception:
                         pass
+
+                    reconnected = False
+                    while not reconnected and not keyboard_interrupted:
+                        if args.verbose:
+                            print(_MSG_RECONNECT_ATTEMPT.format(delay=_RECONNECT_DELAY_SECONDS))
+                        try:
+                            time.sleep(_RECONNECT_DELAY_SECONDS)
+                            iface = meshtastic.serial_interface.SerialInterface()
+                            reconnected = iface is not None and iface.devPath is not None
+                        except KeyboardInterrupt:
+                            keyboard_interrupted = True
+                        except Exception as reconnect_err:
+                            if args.verbose:
+                                print(_MSG_RECONNECT_FAILED.format(error=reconnect_err, delay=_RECONNECT_DELAY_SECONDS))
+
+                    if reconnected:
+                        config = NodeConfiguration(iface)
+                        node_db.load_from_interface(iface)
+                        secondary_channel = MeshtasticHelper.get_channel_by_name(config.channels, secondary_channel_name)
+                        if secondary_channel is not None:
+                            bot_broadcaster = BotBroadcaster(
+                                iface,
+                                config,
+                                bot_name=args.bot_name,
+                                verbose=args.verbose,
+                                web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port),
+                                chat_history=chat_history,
+                            )
+                            secondary_channel_monitor = _build_channel_monitor(iface, config, secondary_channel, args, chat_history, web_url=_WEB_DASHBOARD_URL.format(host=args.web_url, port=args.web_port) )
+                            dm_monitor = _build_dm_monitor(iface, config, secondary_channel, args)
+                            node_monitor = NodeMonitor(iface=iface, db=node_db, verbose=args.verbose)
+
+                            secondary_channel_monitor.start()
+                            dm_monitor.start()
+                            node_monitor.start()
+
+                            web_server.update_iface(iface, secondary_channel)
+
+                            if args.verbose:
+                                print(_MSG_RECONNECT_SUCCESS)
+                        else:
+                            keyboard_interrupted = True
+
+            print(_MSG_CONNECTION_MONITOR_STOPPING)
+            zen_quotes_api.stop_polling()
+            today_in_history_api.stop_polling()
+            connection_monitor.stop()
+
+            try:
+                iface.close()
+            except Exception:
+                pass
 
     print(_MSG_DISCONNECTED)
 

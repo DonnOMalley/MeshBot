@@ -36,6 +36,14 @@
             <p style="color: var(--muted); font-size: 12px; font-family: var(--mono)">{{ bot_description }}</p>
             {% endif %}
             <p>
+              <strong>New in v0.7.1:</strong>
+              The bot now supports a
+              <span style="font-family: var(--mono); color: var(--accent)">--HideSecondaryChannels</span>
+              option (or
+              <span style="font-family: var(--mono); color: var(--accent)">HideSecondaryChannels = true</span>
+              in the config file). When enabled, only the primary channel is shown in the Chat, Dashboard, and Settings pages of the web dashboard. Secondary channels are hidden from all web UI.
+            </p>
+            <p>
               Source code and documentation:
               <a href="{{ github_url }}" target="_blank" rel="noopener noreferrer">{{ github_url }}</a>
             </p>
@@ -114,9 +122,11 @@
                   <td class="cmd-name">!range</td>
                   <td class="cmd-syntax">!range</td>
                   <td class="cmd-desc">
-                    Sends a series of range-test messages with a configured delay between each. Useful for testing
-                    link reliability across the mesh. The number of messages and delay are set via
-                    <code>RangeTestRequests</code> and <code>RangeTestDelay</code>.
+                    Sends a series of range-test messages with a configured delay between each. Useful for testing link reliability across the mesh. The number of messages and delay are set via
+                    <code>RangeTestRequests</code>
+                    and
+                    <code>RangeTestDelay</code>
+                    .
                     <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
                   </td>
                 </tr>
@@ -203,7 +213,11 @@
                   <td class="cmd-syntax">bot_name</td>
                   <td class="cmd-syntax">positional</td>
                   <td class="cmd-syntax"><em>required</em></td>
-                  <td class="cmd-desc">Display name of the bot. Used as the command prefix (<code>@BotName</code>) and in lifecycle messages.</td>
+                  <td class="cmd-desc">
+                    Display name of the bot. Used as the command prefix (
+                    <code>@BotName</code>
+                    ) and in lifecycle messages.
+                  </td>
                 </tr>
                 <tr>
                   <td class="cmd-name">BotDescription</td>
@@ -217,7 +231,11 @@
                   <td class="cmd-syntax">Channel</td>
                   <td class="cmd-syntax">--Channel</td>
                   <td class="cmd-syntax"><em>prompted</em></td>
-                  <td class="cmd-desc">Channel name to join on startup. Use <code>primary</code> for the primary channel. Omit to be prompted at launch.</td>
+                  <td class="cmd-desc">
+                    Channel name to join on startup. Use
+                    <code>primary</code>
+                    for the primary channel. Omit to be prompted at launch.
+                  </td>
                 </tr>
                 <tr>
                   <td class="cmd-name">CaseSensitive</td>
@@ -231,7 +249,17 @@
                   <td class="cmd-syntax">ExcludeOOTB</td>
                   <td class="cmd-syntax">--ExcludeOOTB</td>
                   <td class="cmd-syntax">false</td>
-                  <td class="cmd-desc">When true, suppresses the built-in <code>ping</code> and <code>test</code> commands. Only <code>hello</code> and <code>cmdList</code> are always registered.</td>
+                  <td class="cmd-desc">
+                    When true, suppresses the built-in
+                    <code>ping</code>
+                    and
+                    <code>test</code>
+                    commands. Only
+                    <code>hello</code>
+                    and
+                    <code>cmdList</code>
+                    are always registered.
+                  </td>
                 </tr>
                 <tr>
                   <td class="cmd-name">NoNodeInit</td>
@@ -280,21 +308,33 @@
                   <td class="cmd-syntax">RangeTestRequests</td>
                   <td class="cmd-syntax">--RangeTestRequests</td>
                   <td class="cmd-syntax">5</td>
-                  <td class="cmd-desc">Number of messages sent by the <code>!range</code> command. Clamped to 1&ndash;10.</td>
+                  <td class="cmd-desc">
+                    Number of messages sent by the
+                    <code>!range</code>
+                    command. Clamped to 1&ndash;10.
+                  </td>
                 </tr>
                 <tr>
                   <td class="cmd-name">RangeTestDelay</td>
                   <td class="cmd-syntax">RangeTestDelay</td>
                   <td class="cmd-syntax">--RangeTestDelay</td>
                   <td class="cmd-syntax">1</td>
-                  <td class="cmd-desc">Delay in minutes between each <code>!range</code> test message. Clamped to 1&ndash;10.</td>
+                  <td class="cmd-desc">
+                    Delay in minutes between each
+                    <code>!range</code>
+                    test message. Clamped to 1&ndash;10.
+                  </td>
                 </tr>
                 <tr>
                   <td class="cmd-name">Config</td>
                   <td class="cmd-syntax"><em>n/a</em></td>
                   <td class="cmd-syntax">--Config</td>
                   <td class="cmd-syntax">meshbot.config</td>
-                  <td class="cmd-desc">Path to an INI config file. If omitted, <code>meshbot.config</code> in the current directory is used automatically when it exists.</td>
+                  <td class="cmd-desc">
+                    Path to an INI config file. If omitted,
+                    <code>meshbot.config</code>
+                    in the current directory is used automatically when it exists.
+                  </td>
                 </tr>
               </tbody>
             </table>

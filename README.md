@@ -60,27 +60,29 @@ NoNodeInit        = false
 NodeRetentionDays = 30
 EncryptionKey     =
 Verbose           = false
+HideSecondaryChannels = false
 WebUrl            = localhost
 WebPort           = 7331
 RangeTestRequests = 5
 RangeTestDelay    = 1
 ```
 
-| Key                 | Description                                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------------------------ |
-| `bot_name`          | Display name of the bot. Used in messages and as the command prefix (`@BotName`).                      |
-| `bot_description`   | Optional description shown in the web header beneath the bot name.                                     |
-| `Channel`           | Channel name to join on startup. Omit to be prompted at launch.                                        |
-| `CaseSensitive`     | When `true`, command prefix and names must match exact case.                                           |
-| `ExcludeOOTB`       | When `true`, built-in commands (`ping`, `test`, `hello`, `last`) are not registered.                   |
-| `NoNodeInit`        | When `true`, skips node configuration on startup and shutdown. Default: `false`.                       |
-| `NodeRetentionDays` | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
-| `EncryptionKey`     | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
-| `Verbose`           | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
-| `WebUrl`            | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
-| `WebPort`           | Port the web dashboard listens on. Default: `7331`.                                                    |
-| `RangeTestRequests` | Number of messages sent by `!range`. Clamped 1–10. Default: `5`.                                      |
-| `RangeTestDelay`    | Delay in minutes between `!range` messages. Clamped 1–10. Default: `1`.                               |
+| Key                     | Description                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `bot_name`              | Display name of the bot. Used in messages and as the command prefix (`@BotName`).                      |
+| `bot_description`       | Optional description shown in the web header beneath the bot name.                                     |
+| `Channel`               | Channel name to join on startup. Omit to be prompted at launch.                                        |
+| `CaseSensitive`         | When `true`, command prefix and names must match exact case.                                           |
+| `ExcludeOOTB`           | When `true`, built-in commands (`ping`, `test`, `hello`, `last`) are not registered.                   |
+| `NoNodeInit`            | When `true`, skips node configuration on startup and shutdown. Default: `false`.                       |
+| `NodeRetentionDays`     | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
+| `EncryptionKey`         | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
+| `Verbose`               | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
+| `HideSecondaryChannels` | When `true`, secondary channels are hidden from the web dashboard (chat, dashboard, settings pages).   |
+| `WebUrl`                | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
+| `WebPort`               | Port the web dashboard listens on. Default: `7331`.                                                    |
+| `RangeTestRequests`     | Number of messages sent by `!range`. Clamped 1–10. Default: `5`.                                       |
+| `RangeTestDelay`        | Delay in minutes between `!range` messages. Clamped 1–10. Default: `1`.                                |
 
 > **Security note:** Prefer setting `EncryptionKey` in the config file rather than on the command line to avoid it appearing in shell history.
 
@@ -108,6 +110,10 @@ python meshbot.py MyBot --RangeTestRequests 3 --RangeTestDelay 2
 python meshbot.py --Config path/to/my.config
 ```
 
+### Hiding Secondary Channels
+
+Set `HideSecondaryChannels = true` in your config file (or pass `--HideSecondaryChannels` on the command line) to hide all secondary channels from the web dashboard. When enabled, only the primary channel is shown in the Chat, Dashboard, and Settings pages. This is useful for deployments where you want to restrict web access to the main channel only.
+
 Press **Ctrl+C** to stop.
 
 ---
@@ -116,16 +122,16 @@ Press **Ctrl+C** to stop.
 
 Commands are sent in the monitored channel or via DM, prefixed with `!`:
 
-| Command           | Description                                                                            |
-| ----------------- | -------------------------------------------------------------------------------------- |
-| `!hello`          | Bot greets the sender.                                                                 |
-| `!ping`           | Bot replies with `Pong! 🏓`.                                                           |
-| `!test`           | Bot replies with the hop count (`Hops: N 🐇`), or confirms a direct connection.        |
-| `!last N CHANNEL` | Returns the last N messages from the specified channel as DMs (max 5).                 |
-| `!trace`          | Sends a traceroute to the requester and reports the route, SNR readings, and duration. |
+| Command           | Description                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `!hello`          | Bot greets the sender.                                                                                              |
+| `!ping`           | Bot replies with `Pong! 🏓`.                                                                                        |
+| `!test`           | Bot replies with the hop count (`Hops: N 🐇`), or confirms a direct connection.                                     |
+| `!last N CHANNEL` | Returns the last N messages from the specified channel as DMs (max 5).                                              |
+| `!trace`          | Sends a traceroute to the requester and reports the route, SNR readings, and duration.                              |
 | `!range`          | Sends a series of range-test messages. Count and delay are configured via `RangeTestRequests` and `RangeTestDelay`. |
-| `!web`            | Replies with the web dashboard URL so any mesh node can find the portal.               |
-| `!cmdList`        | Lists all registered commands.                                                         |
+| `!web`            | Replies with the web dashboard URL so any mesh node can find the portal.                                            |
+| `!cmdList`        | Lists all registered commands.                                                                                      |
 
 ### Traceroute response format
 
@@ -161,16 +167,16 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 ### Pages
 
-| Page      | Path        | Description                                                                                             |
-| --------- | ----------- | ------------------------------------------------------------------------------------------------------- |
-| Dashboard | `/`         | Node panel (collapsible) and channel chat history.                                                      |
-| Nodes     | `/nodes`    | Full-page node table.                                                                                   |
+| Page      | Path        | Description                                                                                                                                |
+| --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dashboard | `/`         | Node panel (collapsible) and channel chat history.                                                                                         |
+| Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
-| Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                             |
-| Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                            |
-| Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window. |
-| Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                |
-| About     | `/about`    | Bot information: name, description, version, and links.                                                 |
+| Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                                                                |
+| Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                                                               |
+| Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window.                                    |
+| Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                                                   |
+| About     | `/about`    | Bot information: name, description, version, and links.                                                                                    |
 
 ### Node table
 
@@ -323,6 +329,10 @@ When an `EncryptionKey` is provided, all three files are encrypted using AES via
 ---
 
 ## Release Notes
+
+### v0.7.1 — 2026-03-20
+
+- Added `--HideSecondaryChannels` CLI/config option. When enabled, only the primary channel is shown in the Chat, Dashboard, and Settings pages of the web dashboard. Secondary channels are hidden from all web UI.
 
 ### v0.7.0 — 2026-03-16
 

@@ -22,7 +22,7 @@ async function loadSettings() {
     renderLora(data.lora || {});
     renderDevice(data.device || {});
     renderUser(data.user || {});
-    renderChannels(data.channels || [], data.monitored_channel || "");
+    renderChannels(data.channels || [], data.monitored_channel || "", !!data.hide_secondary_channels);
   } catch (e) {
     showSettingsError(e.message || "Failed to load settings.");
   }
@@ -108,7 +108,7 @@ function renderUser(user) {
   body.innerHTML = rows.map(([k, v]) => settingsRow(k, v)).join("");
 }
 
-function renderChannels(channels, monitoredChannel) {
+function renderChannels(channels, monitoredChannel, hideSecondaryChannels) {
   const body = document.getElementById("settings-channels-body");
   if (!body) return;
   if (!channels.length) {
@@ -118,6 +118,7 @@ function renderChannels(channels, monitoredChannel) {
   const monLower = (monitoredChannel || "").toLowerCase();
   const rows = channels
     .map((ch) => {
+      let resultHtml = "";
       const roleLower = (ch.role || "").toLowerCase();
       const isPrimary = ch.index === 0;
       const isMonitored = monLower && (ch.name || "").toLowerCase() === monLower;
@@ -125,21 +126,25 @@ function renderChannels(channels, monitoredChannel) {
       if (visible) {
         const up = ch.uplink_enabled ? '<span class="badge badge-yes">On</span>' : '<span class="badge badge-no">Off</span>';
         const down = ch.downlink_enabled ? '<span class="badge badge-yes">On</span>' : '<span class="badge badge-no">Off</span>';
-        return `<tr>
+        resultHtml = `<tr>
                 <td>${ch.index}</td>
                 <td>${esc(ch.name || "\u2014")}</td>
                 <td><span class="role-badge role-${roleLower}">${esc(ch.role)}</span></td>
                 <td style="text-align:center">${up}</td>
                 <td style="text-align:center">${down}</td>
             </tr>`;
+      } else if (hideSecondaryChannels === false) {
+        resultHtml = `<tr class="channel-masked">
+              <td>${ch.index}</td>
+              <td style="color:var(--muted);font-style:italic;letter-spacing:2px">&bull;&bull;&bull;&bull;&bull;</td>
+              <td><span class="role-badge role-${roleLower}">${esc(ch.role)}</span></td>
+              <td style="text-align:center;color:var(--muted)">&mdash;</td>
+              <td style="text-align:center;color:var(--muted)">&mdash;</td>
+          </tr>`;
+      } else {
+        resultHtml = "";
       }
-      return `<tr class="channel-masked">
-            <td>${ch.index}</td>
-            <td style="color:var(--muted);font-style:italic;letter-spacing:2px">&bull;&bull;&bull;&bull;&bull;</td>
-            <td><span class="role-badge role-${roleLower}">${esc(ch.role)}</span></td>
-            <td style="text-align:center;color:var(--muted)">&mdash;</td>
-            <td style="text-align:center;color:var(--muted)">&mdash;</td>
-        </tr>`;
+      return resultHtml;
     })
     .join("");
   body.innerHTML = `<table class="settings-channel-table">

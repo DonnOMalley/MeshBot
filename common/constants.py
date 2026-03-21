@@ -14,6 +14,7 @@ _ARG_NO_NODE_INIT: str = "--NoNodeInit"
 _ARG_NODE_RETENTION_DAYS: str = "--NodeRetentionDays"
 _ARG_RANGE_TEST_DELAY: str = "--RangeTestDelay"
 _ARG_RANGE_TEST_REQUESTS: str = "--RangeTestRequests"
+_ARG_HIDE_SECONDARY_CHANNELS: str = "--HideSecondaryChannels"
 _ARG_VERBOSE: str = "--Verbose"
 _ARG_WEB_PORT: str = "--WebPort"
 _ARG_WEB_URL: str = "--WebUrl"
@@ -41,6 +42,7 @@ _APP_EPILOG: str = (
     "  bot_name          = DAMNbot\n"
     "  bot_description   = Damn Are Mesh Nerds\n"
     "  Channel           = MyMesh\n"
+    "  HideSecondaryChannels = false\n"
     "  CaseSensitive     = false\n"
     "  ExcludeOOTB       = false\n"
     "  NoNodeInit        = false\n"
@@ -100,6 +102,10 @@ _HELP_ENCRYPTION_KEY: str = (
 _HELP_WEB_PORT: str = (
     "Port number the web portal listens on. Defaults to 7331."
 )
+_HELP_HIDE_SECONDARY_CHANNELS: str = (
+    "When set, secondary channels are hidden from the chat, dashboard, and settings pages "
+    "of the web portal. Only the primary channel is shown."
+)
 _HELP_WEB_URL: str = (
     "Hostname or address shown in the console when the web portal starts. "
     "Defaults to 'localhost'."
@@ -140,7 +146,7 @@ _VERBOSE_ARGS_MESSAGE: str = (
     "[ARGS] bot_name={bot_name} | bot_description={bot_description} | channel={channel} | "
     "CaseSensitive={case_sensitive} | ExcludeOOTB={exclude_ootb} | NoNodeInit={no_node_init} | "
     "NodeRetentionDays={node_retention_days} | Encrypted={encrypted} | Verbose={verbose} | "
-    "WebUrl={web_url} | WebPort={web_port} | "
+    "WebUrl={web_url} | WebPort={web_port} | HideSecondaryChannels={hide_secondary_channels} | "
     "RangeTestRequests={range_test_requests} | RangeTestDelay={range_test_delay} | "
     "ZenQuotesPollInterval={zen_quotes_poll_interval}"
 )

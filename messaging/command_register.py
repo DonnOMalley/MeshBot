@@ -110,29 +110,14 @@ class CommandRegister:
             suffix: str = f" {hint}" if hint else ""
             items.append(f"!{cmd}{suffix}")
 
-        # Send the DM immediately. Schedule the channel notification on a background
-        # thread after a delay so the receive thread is not blocked — both messages
-        # must have distinct replyIds to prevent the radio from deduplicating them.
         result = MeshtasticHelper.send_text_message(
             iface=self._iface,
             channelIndex=self._channel.index,
-            packet={},
+            packet=packet,
             message=_CMD_LIST_HEADER + "\n" + "\n".join(items),
             destinationId=sender,
+            chat_history=self._chat_history,
+            chat_sender=_CHAT_HISTORY_BOT_SENDER,
         )
-
-        threading.Timer(
-            _CMD_SEND_DELAY,
-            MeshtasticHelper.send_text_message,
-            kwargs=dict(
-                iface=self._iface,
-                channelIndex=self._channel.index,
-                packet=packet,
-                message=_MSG_BOT_COMMAND_LIST_DM_SENT,
-                destinationId=sender,
-                chat_history=self._chat_history,
-                chat_sender=_CHAT_HISTORY_BOT_SENDER,
-            ),
-        ).start()
         return result
     # endregion Protected Functions

@@ -221,6 +221,7 @@ class WebServer:
     _case_sensitive: bool
     _config: NodeConfiguration
     _verbose: bool = False
+    _hide_secondary_channels: bool
     _display_host: str
     _node_db: NodeDatabase
     _iface: MeshInterface
@@ -258,6 +259,7 @@ class WebServer:
         port: int = _WEB_SERVER_PORT,
         chat_history: ChatHistory | None = None,
         console_logger: ConsoleLogger | None = None,
+        hide_secondary_channels: bool = False,
         verbose: bool = False,
     ) -> None:
         """Initialises the web server.
@@ -285,6 +287,8 @@ class WebServer:
                           appended to the log under the ``[BOT]`` sender label.
             console_logger: When provided, the ``/console`` page and ``/api/console``
                             endpoint serve live bot console output.
+            hide_secondary_channels: When True, secondary channels are hidden from
+                                     the chat, dashboard, and settings pages.
         """
         self._bot_name = bot_name
         self._bot_description = bot_description
@@ -307,6 +311,7 @@ class WebServer:
         self._pending_web_traces = {}
         self._chat_history = chat_history
         self._console_logger = console_logger
+        self._hide_secondary_channels = hide_secondary_channels
         pub.subscribe(self._on_web_traceroute_response, _EVENT_TRACEROUTE)
 
         self._capturing_iface = _CapturingIface(iface)
@@ -722,7 +727,7 @@ class WebServer:
         @self._app.route("/api/chat-channels")
         def api_chat_channels():
             result: list[dict] = [{"key": CHANNEL_NAME_PRIMARY, "label": "Primary", "can_send": False}]
-            if self._channel_name != CHANNEL_NAME_PRIMARY:
+            if not self._hide_secondary_channels and self._channel_name != CHANNEL_NAME_PRIMARY:
                 result.append({"key": self._channel_name, "label": self._channel_name, "can_send": True})
             return jsonify(result)
 
@@ -875,6 +880,7 @@ class WebServer:
                     },
                     "channels": channels,
                     "monitored_channel": self._channel_name,
+                    "hide_secondary_channels": self._hide_secondary_channels,
                 })
             except Exception as exc:
                 return jsonify({"error": str(exc)}), 503

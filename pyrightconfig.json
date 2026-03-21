@@ -1,3 +1,4 @@
 {
-  "pythonPath": "C:/Users/donno/AppData/Local/Programs/Python/Python314/python.exe"
+  "venvPath": ".",
+  "venv": ".venv"
 }

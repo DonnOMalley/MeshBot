@@ -49,3 +49,6 @@ EncryptionKey    =
 
 ; Print extra diagnostic output to the console.
 Verbose          = false
+
+; Hide secondary channels from the chat, dashboard, and settings pages of the web portal.
+HideSecondaryChannels = false

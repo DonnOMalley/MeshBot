@@ -12,6 +12,7 @@ from common.constants import (
     _ARG_CONFIG,
     _ARG_ENCRYPTION_KEY,
     _ARG_EXCLUDE_OOTB,
+    _ARG_HIDE_SECONDARY_CHANNELS,
     _ARG_NO_NODE_INIT,
     _ARG_NODE_RETENTION_DAYS,
     _ARG_RANGE_TEST_DELAY,
@@ -32,6 +33,7 @@ from common.constants import (
     _HELP_CONFIG,
     _HELP_ENCRYPTION_KEY,
     _HELP_EXCLUDE_OOTB,
+    _HELP_HIDE_SECONDARY_CHANNELS,
     _HELP_NO_NODE_INIT,
     _HELP_NODE_RETENTION_DAYS,
     _HELP_RANGE_TEST_DELAY,
@@ -78,6 +80,7 @@ class AppArguments:
     _channel: Optional[str]
     _encryption_key: Optional[str]
     _exclude_ootb: bool
+    _hide_secondary_channels: bool
     _no_node_init: bool
     _node_retention_days: int
     _verbose: bool
@@ -118,6 +121,11 @@ class AppArguments:
     def exclude_ootb(self) -> bool:
         """Whether out-of-the-box default commands (ping, test) are suppressed."""
         return self._exclude_ootb
+
+    @property
+    def hide_secondary_channels(self) -> bool:
+        """Whether secondary channels are hidden from the web portal."""
+        return self._hide_secondary_channels
 
     @property
     def no_node_init(self) -> bool:
@@ -168,6 +176,7 @@ class AppArguments:
         self._channel = None
         self._encryption_key = None
         self._exclude_ootb = False
+        self._hide_secondary_channels = False
         self._no_node_init = False
         self._node_retention_days = _NODE_DB_DEFAULT_RETENTION_DAYS
         self._verbose = False
@@ -202,6 +211,7 @@ class AppArguments:
         parser.add_argument(_ARG_CHANNEL, type=str, default=None, help=_HELP_CHANNEL)
         parser.add_argument(_ARG_ENCRYPTION_KEY, type=str, default=None, metavar="PASSPHRASE", help=_HELP_ENCRYPTION_KEY)
         parser.add_argument(_ARG_EXCLUDE_OOTB, action="store_true", help=_HELP_EXCLUDE_OOTB)
+        parser.add_argument(_ARG_HIDE_SECONDARY_CHANNELS, action="store_true", help=_HELP_HIDE_SECONDARY_CHANNELS)
         parser.add_argument(_ARG_NO_NODE_INIT, action="store_true", help=_HELP_NO_NODE_INIT)
         parser.add_argument(_ARG_NODE_RETENTION_DAYS, type=int, default=None, metavar="DAYS", help=_HELP_NODE_RETENTION_DAYS)
         parser.add_argument(_ARG_VERBOSE, action="store_true", help=_HELP_VERBOSE)
@@ -247,6 +257,7 @@ class AppArguments:
         self._channel = args.Channel
         self._encryption_key = args.EncryptionKey
         self._exclude_ootb = args.ExcludeOOTB
+        self._hide_secondary_channels = args.HideSecondaryChannels
         self._no_node_init = args.NoNodeInit
         self._node_retention_days = args.NodeRetentionDays if args.NodeRetentionDays is not None else _NODE_DB_DEFAULT_RETENTION_DAYS
         self._verbose = args.Verbose
@@ -289,6 +300,8 @@ def _load_config_file(path: str) -> dict:
             defaults["EncryptionKey"] = section["EncryptionKey"]
         if "ExcludeOOTB" in section:
             defaults["ExcludeOOTB"] = section.getboolean("ExcludeOOTB")
+        if "HideSecondaryChannels" in section:
+            defaults["HideSecondaryChannels"] = section.getboolean("HideSecondaryChannels")
         if "NoNodeInit" in section:
             defaults["NoNodeInit"] = section.getboolean("NoNodeInit")
         if "NodeRetentionDays" in section:
