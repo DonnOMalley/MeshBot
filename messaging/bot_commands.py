@@ -281,7 +281,10 @@ class BotCommands:
                 chat_sender=_CHAT_HISTORY_BOT_SENDER,
             )
         self._pending_traces[sender] = (MeshtasticHelper.is_direct_message(packet, self._config.node_id), time.time())
-        self._iface.sendTraceRoute(dest=sender, hopLimit=_TRACE_HOP_LIMIT)#, channelIndex=self._channel.index)
+        try:
+            self._iface.sendTraceRoute(dest=sender, hopLimit=_TRACE_HOP_LIMIT)  # , channelIndex=self._channel.index)
+        except Exception as e:
+            print(f"Error in sendTraceRoute: {e}")
 
     def _cmd_web(self, sender: str, params: str, packet: dict) -> None:
         """Responds to the 'web' command with the URL of the web dashboard.
