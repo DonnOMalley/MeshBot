@@ -369,7 +369,7 @@ def main() -> None:
             )
             web_server.start()
 
-            print(_MSG_BOT_STARTED.format(bot_name=args.bot_name, channel_name=secondary_channel_name))
+            print(_MSG_BOT_STARTED.format(bot_name=args.bot_name, channel_name=args.channel))
             print(_MSG_STOP_APPLICATION)
 
             keyboard_interrupted = False

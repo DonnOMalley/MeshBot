@@ -51,6 +51,91 @@ from common.constants import (
 )
 
 
+def _build_long_option_aliases(option: str) -> tuple[str, ...]:
+    """Returns supported long-option spellings for a CLI flag.
+
+    Keeps the existing canonical option intact and adds a lowercase alias so
+    normal argparse usage like ``--channel`` works alongside ``--Channel``.
+
+    Args:
+        option: The canonical long option string.
+
+    Returns:
+        A tuple containing the canonical option and any derived aliases.
+    """
+    lowercase_option: str = option.lower()
+    aliases: tuple[str, ...] = (option,)
+
+    if lowercase_option != option:
+        aliases = (option, lowercase_option)
+
+    return aliases
+
+
+def _add_argument_with_aliases(
+    parser: argparse.ArgumentParser,
+    option: str,
+    **kwargs: object,
+) -> None:
+    """Adds an argparse option with supported alias spellings.
+
+    Args:
+        parser: Parser to which the option should be added.
+        option: Canonical long option string.
+        **kwargs: Keyword arguments forwarded to ``add_argument``.
+    """
+    parser.add_argument(*_build_long_option_aliases(option), **kwargs)
+
+
+def _get_config_value(section: configparser.SectionProxy, key: str) -> str | None:
+    """Looks up a config value using a case-insensitive key match.
+
+    Args:
+        section: The meshbot config section.
+        key: The requested config key.
+
+    Returns:
+        The configured string value, or None if the key is absent.
+    """
+    result: str | None = None
+    target_key: str = key.casefold()
+
+    for existing_key in section:
+        if existing_key.casefold() == target_key:
+            result = section[existing_key]
+            break
+
+    return result
+
+
+def _get_config_bool(section: configparser.SectionProxy, key: str) -> bool | None:
+    """Looks up a boolean config value using a case-insensitive key match."""
+    result: bool | None = None
+    value: str | None = _get_config_value(section, key)
+
+    if value is not None:
+        result = section.getboolean(key, fallback=None)
+        if result is None:
+            normalized_value: str = value.strip().casefold()
+            if normalized_value in {"1", "yes", "true", "on"}:
+                result = True
+            elif normalized_value in {"0", "no", "false", "off"}:
+                result = False
+
+    return result
+
+
+def _get_config_int(section: configparser.SectionProxy, key: str) -> int | None:
+    """Looks up an integer config value using a case-insensitive key match."""
+    result: int | None = None
+    value: str | None = _get_config_value(section, key)
+
+    if value is not None:
+        result = int(value)
+
+    return result
+
+
 class _HelpOnErrorParser(argparse.ArgumentParser):
     """ArgumentParser subclass that prints full help text on any argument error."""
 
@@ -204,29 +289,29 @@ class AppArguments:
             epilog=_APP_EPILOG,
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
-        parser.add_argument(_ARG_CONFIG, type=str, default=None, metavar="FILE", help=_HELP_CONFIG)
+        _add_argument_with_aliases(parser, _ARG_CONFIG, type=str, default=None, metavar="FILE", help=_HELP_CONFIG)
         parser.add_argument(_ARG_BOT_NAME, nargs="?", default=None, type=str, help=_HELP_BOT_NAME)
-        parser.add_argument(_ARG_BOT_DESCRIPTION, type=str, default=None, metavar="TEXT", help=_HELP_BOT_DESCRIPTION)
-        parser.add_argument(_ARG_CASE_SENSITIVE, action="store_true", help=_HELP_CASE_SENSITIVE)
-        parser.add_argument(_ARG_CHANNEL, type=str, default=None, help=_HELP_CHANNEL)
-        parser.add_argument(_ARG_ENCRYPTION_KEY, type=str, default=None, metavar="PASSPHRASE", help=_HELP_ENCRYPTION_KEY)
-        parser.add_argument(_ARG_EXCLUDE_OOTB, action="store_true", help=_HELP_EXCLUDE_OOTB)
-        parser.add_argument(_ARG_HIDE_SECONDARY_CHANNELS, action="store_true", help=_HELP_HIDE_SECONDARY_CHANNELS)
-        parser.add_argument(_ARG_NO_NODE_INIT, action="store_true", help=_HELP_NO_NODE_INIT)
-        parser.add_argument(_ARG_NODE_RETENTION_DAYS, type=int, default=None, metavar="DAYS", help=_HELP_NODE_RETENTION_DAYS)
-        parser.add_argument(_ARG_VERBOSE, action="store_true", help=_HELP_VERBOSE)
-        parser.add_argument(_ARG_WEB_PORT, type=int, default=None, metavar="PORT", help=_HELP_WEB_PORT)
-        parser.add_argument(_ARG_WEB_URL, type=str, default=None, metavar="HOST", help=_HELP_WEB_URL)
-        parser.add_argument(_ARG_RANGE_TEST_REQUESTS, type=int, default=None, metavar="COUNT", help=_HELP_RANGE_TEST_REQUESTS)
-        parser.add_argument(_ARG_RANGE_TEST_DELAY, type=int, default=None, metavar="MINUTES", help=_HELP_RANGE_TEST_DELAY)
-        parser.add_argument(_ARG_ZEN_QUOTES_POLL_INTERVAL, type=int, default=None, metavar="MINUTES", help=_HELP_ZEN_QUOTES_POLL_INTERVAL)
+        _add_argument_with_aliases(parser, _ARG_BOT_DESCRIPTION, type=str, default=None, metavar="TEXT", help=_HELP_BOT_DESCRIPTION)
+        _add_argument_with_aliases(parser, _ARG_CASE_SENSITIVE, action="store_true", help=_HELP_CASE_SENSITIVE)
+        _add_argument_with_aliases(parser, _ARG_CHANNEL, type=str, default=None, help=_HELP_CHANNEL)
+        _add_argument_with_aliases(parser, _ARG_ENCRYPTION_KEY, type=str, default=None, metavar="PASSPHRASE", help=_HELP_ENCRYPTION_KEY)
+        _add_argument_with_aliases(parser, _ARG_EXCLUDE_OOTB, action="store_true", help=_HELP_EXCLUDE_OOTB)
+        _add_argument_with_aliases(parser, _ARG_HIDE_SECONDARY_CHANNELS, action="store_true", help=_HELP_HIDE_SECONDARY_CHANNELS)
+        _add_argument_with_aliases(parser, _ARG_NO_NODE_INIT, action="store_true", help=_HELP_NO_NODE_INIT)
+        _add_argument_with_aliases(parser, _ARG_NODE_RETENTION_DAYS, type=int, default=None, metavar="DAYS", help=_HELP_NODE_RETENTION_DAYS)
+        _add_argument_with_aliases(parser, _ARG_VERBOSE, action="store_true", help=_HELP_VERBOSE)
+        _add_argument_with_aliases(parser, _ARG_WEB_PORT, type=int, default=None, metavar="PORT", help=_HELP_WEB_PORT)
+        _add_argument_with_aliases(parser, _ARG_WEB_URL, type=str, default=None, metavar="HOST", help=_HELP_WEB_URL)
+        _add_argument_with_aliases(parser, _ARG_RANGE_TEST_REQUESTS, type=int, default=None, metavar="COUNT", help=_HELP_RANGE_TEST_REQUESTS)
+        _add_argument_with_aliases(parser, _ARG_RANGE_TEST_DELAY, type=int, default=None, metavar="MINUTES", help=_HELP_RANGE_TEST_DELAY)
+        _add_argument_with_aliases(parser, _ARG_ZEN_QUOTES_POLL_INTERVAL, type=int, default=None, metavar="MINUTES", help=_HELP_ZEN_QUOTES_POLL_INTERVAL)
 
         # Locate the config file before the full parse so its values can be applied
         # as defaults (command-line arguments will still override them).
         explicit_config: Optional[str] = None
         argv: list[str] = sys.argv[1:]
         for i, arg in enumerate(argv):
-            if arg == _ARG_CONFIG and i + 1 < len(argv):
+            if arg in _build_long_option_aliases(_ARG_CONFIG) and i + 1 < len(argv):
                 explicit_config = argv[i + 1]
                 break
 
@@ -283,39 +368,54 @@ def _load_config_file(path: str) -> dict:
         A dict mapping argparse dest names to their configured values.
     """
     cp: configparser.ConfigParser = configparser.ConfigParser()
-    cp.optionxform = lambda optionstr: optionstr  # preserve key capitalisation (e.g. CaseSensitive)
     cp.read(path)
     defaults: dict = {}
     if _CONFIG_SECTION in cp:
-        section = cp[_CONFIG_SECTION]
-        if "bot_name" in section:
-            defaults["bot_name"] = section["bot_name"]
-        if "bot_description" in section:
-            defaults["BotDescription"] = section["bot_description"]
-        if "Channel" in section:
-            defaults["Channel"] = section["Channel"]
-        if "CaseSensitive" in section:
-            defaults["CaseSensitive"] = section.getboolean("CaseSensitive")
-        if "EncryptionKey" in section:
-            defaults["EncryptionKey"] = section["EncryptionKey"]
-        if "ExcludeOOTB" in section:
-            defaults["ExcludeOOTB"] = section.getboolean("ExcludeOOTB")
-        if "HideSecondaryChannels" in section:
-            defaults["HideSecondaryChannels"] = section.getboolean("HideSecondaryChannels")
-        if "NoNodeInit" in section:
-            defaults["NoNodeInit"] = section.getboolean("NoNodeInit")
-        if "NodeRetentionDays" in section:
-            defaults["NodeRetentionDays"] = section.getint("NodeRetentionDays")
-        if "Verbose" in section:
-            defaults["Verbose"] = section.getboolean("Verbose")
-        if "WebPort" in section:
-            defaults["WebPort"] = section.getint("WebPort")
-        if "WebUrl" in section:
-            defaults["WebUrl"] = section["WebUrl"]
-        if "RangeTestRequests" in section:
-            defaults["RangeTestRequests"] = section.getint("RangeTestRequests")
-        if "RangeTestDelay" in section:
-            defaults["RangeTestDelay"] = section.getint("RangeTestDelay")
-        if "ZenQuotesPollInterval" in section:
-            defaults["ZenQuotesPollInterval"] = section.getint("ZenQuotesPollInterval")
+        section: configparser.SectionProxy = cp[_CONFIG_SECTION]
+        bot_name: str | None = _get_config_value(section, "bot_name")
+        bot_description: str | None = _get_config_value(section, "bot_description")
+        channel: str | None = _get_config_value(section, "Channel")
+        case_sensitive: bool | None = _get_config_bool(section, "CaseSensitive")
+        encryption_key: str | None = _get_config_value(section, "EncryptionKey")
+        exclude_ootb: bool | None = _get_config_bool(section, "ExcludeOOTB")
+        hide_secondary_channels: bool | None = _get_config_bool(section, "HideSecondaryChannels")
+        no_node_init: bool | None = _get_config_bool(section, "NoNodeInit")
+        node_retention_days: int | None = _get_config_int(section, "NodeRetentionDays")
+        verbose: bool | None = _get_config_bool(section, "Verbose")
+        web_port: int | None = _get_config_int(section, "WebPort")
+        web_url: str | None = _get_config_value(section, "WebUrl")
+        range_test_requests: int | None = _get_config_int(section, "RangeTestRequests")
+        range_test_delay: int | None = _get_config_int(section, "RangeTestDelay")
+        zen_quotes_poll_interval: int | None = _get_config_int(section, "ZenQuotesPollInterval")
+
+        if bot_name is not None:
+            defaults["bot_name"] = bot_name
+        if bot_description is not None:
+            defaults["BotDescription"] = bot_description
+        if channel is not None:
+            defaults["Channel"] = channel
+        if case_sensitive is not None:
+            defaults["CaseSensitive"] = case_sensitive
+        if encryption_key is not None:
+            defaults["EncryptionKey"] = encryption_key
+        if exclude_ootb is not None:
+            defaults["ExcludeOOTB"] = exclude_ootb
+        if hide_secondary_channels is not None:
+            defaults["HideSecondaryChannels"] = hide_secondary_channels
+        if no_node_init is not None:
+            defaults["NoNodeInit"] = no_node_init
+        if node_retention_days is not None:
+            defaults["NodeRetentionDays"] = node_retention_days
+        if verbose is not None:
+            defaults["Verbose"] = verbose
+        if web_port is not None:
+            defaults["WebPort"] = web_port
+        if web_url is not None:
+            defaults["WebUrl"] = web_url
+        if range_test_requests is not None:
+            defaults["RangeTestRequests"] = range_test_requests
+        if range_test_delay is not None:
+            defaults["RangeTestDelay"] = range_test_delay
+        if zen_quotes_poll_interval is not None:
+            defaults["ZenQuotesPollInterval"] = zen_quotes_poll_interval
     return defaults

@@ -154,7 +154,7 @@ _VERBOSE_ARGS_MESSAGE: str = (
 
 # region Application Settings
 _MONITOR_POLL_INTERVAL: float = 0.1
-_CHECKIN_INTERVAL: float = 21600.0
+_CHECKIN_INTERVAL: float = 604800.0
 _RECONNECT_DELAY_SECONDS: float = 5.0
 _MESH_MAX_MESSAGE_CHARS: int = 228
 # endregion Application Settings
