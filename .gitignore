@@ -52,3 +52,6 @@ meshbot.config
 # Environment variable files
 .env
 .env.*
+
+# Local backups of config files (may contain real credentials)
+*.bak-*
