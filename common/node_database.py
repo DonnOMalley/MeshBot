@@ -1,13 +1,29 @@
 from __future__ import annotations
 import json
 import os
-from datetime import datetime, timezone
+import threading
+import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from common.constants import (
     _NODE_DB_DIR,
     _NODE_DB_FILE,
     _NODE_DB_SALT_FILE,
     _NODE_DB_DEFAULT_RETENTION_DAYS,
+    _NODE_DB_SAVE_INTERVAL_SECONDS,
+    _NODE_DB_PRUNE_INTERVAL_SECONDS,
+    _NODE_DB_MAX_CLOCK_SKEW_SECONDS,
+    _NODE_KEY_LAST_HEARD,
+    _NODE_KEY_HOPS_AWAY,
+    _PACKET_KEY_POSITION,
+    _PACKET_KEY_LATITUDE_I,
+    _PACKET_KEY_LONGITUDE_I,
+    _PACKET_KEY_USER,
+    _USER_KEY_ID,
+    _USER_KEY_LONG_NAME,
+    _USER_KEY_SHORT_NAME,
+    _USER_KEY_ROLE,
+    _USER_KEY_HW_MODEL,
     _NODE_DB_LOADED,
     _NODE_DB_PRUNED,
     _NODE_DB_ADDED,
@@ -132,9 +148,16 @@ class NodeRecord:
 class NodeDatabase:
     """Maintains a persistent local registry of observed Meshtastic network nodes.
 
-    On construction the database is loaded from disk (or a new empty database is
-    created). Changes are persisted immediately after every upsert or prune
-    operation so the file always reflects current state.
+    A node stays in the database for as long as it keeps being heard: every
+    packet received from it (text, position, telemetry, node info, ...) moves its
+    ``last_seen`` forward. Nodes not heard for longer than the retention window
+    are removed by :meth:`prune`.
+
+    Changes are held in memory and written to disk by :meth:`maintain` at most
+    once per save interval (and by :meth:`flush` on shutdown), so a busy mesh does
+    not cause a full file rewrite for every packet. All public methods are
+    thread-safe: packets arrive on the radio thread while the web server reads
+    the node list from its own threads.
 
     When a passphrase is supplied the JSON file is encrypted using Fernet
     (AES-128-CBC + HMAC-SHA256). A per-installation salt is stored in a separate
@@ -148,8 +171,12 @@ class NodeDatabase:
     _retention_days: int
     _nodes: dict[str, NodeRecord]
     _verbose: bool
-    _key: Optional[bytes]
+    _key: bytes | None
     _plain_text_upgrade: bool
+    _lock: threading.RLock
+    _dirty: bool
+    _last_save_monotonic: float
+    _last_prune_monotonic: float
     # endregion Protected Variables
 
     # region Constructor
@@ -157,7 +184,7 @@ class NodeDatabase:
         self,
         data_dir: str = _NODE_DB_DIR,
         retention_days: int = _NODE_DB_DEFAULT_RETENTION_DAYS,
-        passphrase: Optional[str] = None,
+        passphrase: str | None = None,
         verbose: bool = False,
     ) -> None:
         """Initialises the node database, loading any existing records from disk.
@@ -182,6 +209,10 @@ class NodeDatabase:
         self._verbose = verbose
         self._nodes = {}
         self._plain_text_upgrade = False
+        self._lock = threading.RLock()
+        self._dirty = False
+        self._last_save_monotonic = time.monotonic()
+        self._last_prune_monotonic = time.monotonic()
         os.makedirs(self._data_dir, exist_ok=True)
         self._key = EncryptionHelper.resolve_key(passphrase, self._salt_path)
         self._load()
@@ -206,7 +237,7 @@ class NodeDatabase:
                 content: str = f.read()
             load_ok: bool = True
             if self._key is not None:
-                decrypted: Optional[str] = EncryptionHelper.decrypt(content, self._key)
+                decrypted: str | None = EncryptionHelper.decrypt(content, self._key)
                 if decrypted is None:
                     # Decryption failed — the file may be plain-text from a previous
                     # unencrypted run. Attempt to parse it as JSON; if that succeeds,
@@ -234,158 +265,258 @@ class NodeDatabase:
                         pass
 
     def _save(self) -> None:
-        """Writes the current in-memory database to disk, encrypting if a key is set."""
-        os.makedirs(self._data_dir, exist_ok=True)
-        records: list[dict] = [r.to_dict() for r in self._nodes.values()]
-        content: str = json.dumps(records, indent=2, ensure_ascii=False)
-        if self._key is not None:
-            content = EncryptionHelper.encrypt(content, self._key)
-        with open(self._file_path, "w", encoding="utf-8") as f:
-            f.write(content)
+        """Writes the current in-memory database to disk, encrypting if a key is set.
+
+        Writes to a temporary file first and renames it into place so a crash
+        mid-write never leaves a truncated database behind.
+        """
+        with self._lock:
+            os.makedirs(self._data_dir, exist_ok=True)
+            records: list[dict] = [r.to_dict() for r in self._nodes.values()]
+            content: str = json.dumps(records, indent=2, ensure_ascii=False)
+            if self._key is not None:
+                content = EncryptionHelper.encrypt(content, self._key)
+            temp_path: str = self._file_path + ".tmp"
+            with open(temp_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.replace(temp_path, self._file_path)
+            self._dirty = False
+            self._last_save_monotonic = time.monotonic()
+
+    def _is_stale(self, last_seen: datetime, now: datetime) -> bool:
+        """Returns True when ``last_seen`` is outside the retention window."""
+        return now - last_seen > timedelta(days=self._retention_days)
+
+    @staticmethod
+    def _sanitize_heard_at(heard_at: datetime | None, now: datetime) -> datetime:
+        """Returns a trustworthy "heard at" time, falling back to ``now``.
+
+        Radio timestamps are used when present, but a radio without a valid
+        clock can report times far in the past or future. Anything in the future
+        is clamped to ``now``.
+        """
+        result: datetime = now
+        if heard_at is not None and heard_at <= now:
+            result = heard_at
+        return result
     # endregion Protected Functions
 
     # region Public Properties
     @property
     def nodes(self) -> list[NodeRecord]:
-        """Returns all node records as a list."""
-        return list(self._nodes.values())
+        """Returns a snapshot list of all node records."""
+        with self._lock:
+            return list(self._nodes.values())
     # endregion Public Properties
 
     # region Public Functions
+    @staticmethod
+    def epoch_to_datetime(epoch_seconds: int | float | None, now: datetime | None = None) -> datetime | None:
+        """Converts a radio epoch timestamp to a UTC datetime, rejecting bad clocks.
+
+        Args:
+            epoch_seconds: Seconds since the Unix epoch as reported by the radio
+                           (``rxTime`` or ``lastHeard``). 0 or None means unknown.
+            now: Reference "current time"; defaults to the system clock.
+
+        Returns:
+            The timestamp as a UTC datetime, or None when it is missing or more
+            than the allowed clock skew in the future.
+        """
+        result: datetime | None = None
+        reference: datetime = now if now is not None else datetime.now(tz=timezone.utc)
+        if epoch_seconds:
+            candidate: datetime = datetime.fromtimestamp(float(epoch_seconds), tz=timezone.utc)
+            if (candidate - reference).total_seconds() <= _NODE_DB_MAX_CLOCK_SKEW_SECONDS:
+                result = candidate
+        return result
+
     def load_from_interface(self, iface: MeshInterface) -> None:
         """Syncs the database with the node table currently held by the interface.
 
-        Iterates all nodes known to the connected device and upserts each one.
-        Prints a summary of how many nodes are now in the database.
+        Uses the radio's own ``lastHeard`` time for each node rather than "now",
+        so restarting or reconnecting does not make long-silent nodes look active.
+        Nodes the radio has never heard (no ``lastHeard``) or has not heard within
+        the retention window are not added, so pruned nodes do not come back.
 
         Args:
             iface: The active MeshInterface connection whose node table is read.
         """
+        now: datetime = datetime.now(tz=timezone.utc)
         if iface.nodes:
-            nodeValues = iface.nodes.values()
-            for node_data in nodeValues:
-                user: dict = node_data.get("user", {})
-                node_id: str = user.get("id", "")
-                long_name: str = user.get("longName", "")
-                short_name: str = user.get("shortName", "")
-                role: str = user.get("role", "") or ""
-                hardware_model: str = user.get("hwModel", "") or ""
-                position: dict = node_data.get("position", {})
-                lat_i: Optional[int] = position.get("latitudeI")
-                lon_i: Optional[int] = position.get("longitudeI")
-                latitude: Optional[float] = lat_i * _LATITUDE_SCALE if lat_i is not None else None
-                longitude: Optional[float] = lon_i * _LONGITUDE_SCALE if lon_i is not None else None
-                hops_away: Optional[int] = node_data.get("hopsAway")
-                if node_id:
-                    self.upsert(node_id, long_name, short_name, role, hardware_model, latitude, longitude, hops_away=hops_away)
+            for node_data in list(iface.nodes.values()):
+                user: dict = node_data.get(_PACKET_KEY_USER, {})
+                node_id: str = user.get(_USER_KEY_ID, "")
+                heard_at: datetime | None = NodeDatabase.epoch_to_datetime(node_data.get(_NODE_KEY_LAST_HEARD), now)
+                position: dict = node_data.get(_PACKET_KEY_POSITION, {})
+                lat_i: int | None = position.get(_PACKET_KEY_LATITUDE_I)
+                lon_i: int | None = position.get(_PACKET_KEY_LONGITUDE_I)
+                latitude: float | None = lat_i * _LATITUDE_SCALE if lat_i is not None else None
+                longitude: float | None = lon_i * _LONGITUDE_SCALE if lon_i is not None else None
+                hops_away: int | None = node_data.get(_NODE_KEY_HOPS_AWAY)
+                known: bool = node_id in self._nodes
+                recently_heard: bool = heard_at is not None and not self._is_stale(heard_at, now)
+                if node_id and (known or recently_heard):
+                    self.upsert(
+                        node_id,
+                        user.get(_USER_KEY_LONG_NAME, ""),
+                        user.get(_USER_KEY_SHORT_NAME, ""),
+                        user.get(_USER_KEY_ROLE, "") or "",
+                        user.get(_USER_KEY_HW_MODEL, "") or "",
+                        latitude,
+                        longitude,
+                        hops_away=hops_away,
+                        heard_at=heard_at,
+                        refresh_last_seen=heard_at is not None,
+                    )
         bot_id: str = f"!{iface.myInfo.my_node_num:08x}" if iface.myInfo else ""
-        if bot_id and bot_id not in self._nodes:
-            bot_long_name: str = iface.getLongName() or ""
-            bot_short_name: str = iface.getShortName() or ""
+        if bot_id:
+            # The bot's own radio is, by definition, alive right now.
             bot_node_info: dict = iface.getMyNodeInfo() or {}
-            bot_user: dict = bot_node_info.get("user", {})
-            bot_role: str = bot_user.get("role", "") or ""
-            bot_hw: str = bot_user.get("hwModel", "") or ""
-            bot_pos: dict = bot_node_info.get("position", {})
-            bot_lat_i: Optional[int] = bot_pos.get("latitudeI")
-            bot_lon_i: Optional[int] = bot_pos.get("longitudeI")
-            bot_lat: Optional[float] = bot_lat_i * _LATITUDE_SCALE if bot_lat_i is not None else None
-            bot_lon: Optional[float] = bot_lon_i * _LONGITUDE_SCALE if bot_lon_i is not None else None
-            self.upsert(bot_id, bot_long_name, bot_short_name, bot_role, bot_hw, bot_lat, bot_lon)
+            bot_user: dict = bot_node_info.get(_PACKET_KEY_USER, {})
+            bot_pos: dict = bot_node_info.get(_PACKET_KEY_POSITION, {})
+            bot_lat_i: int | None = bot_pos.get(_PACKET_KEY_LATITUDE_I)
+            bot_lon_i: int | None = bot_pos.get(_PACKET_KEY_LONGITUDE_I)
+            self.upsert(
+                bot_id,
+                iface.getLongName() or "",
+                iface.getShortName() or "",
+                bot_user.get(_USER_KEY_ROLE, "") or "",
+                bot_user.get(_USER_KEY_HW_MODEL, "") or "",
+                bot_lat_i * _LATITUDE_SCALE if bot_lat_i is not None else None,
+                bot_lon_i * _LONGITUDE_SCALE if bot_lon_i is not None else None,
+            )
+        self.flush()
         print(_NODE_DB_LOADED.format(count=len(self._nodes)))
 
-    def upsert(self, node_id: str, long_name: str, short_name: str, role: str = "", hardware_model: str = "", latitude: Optional[float] = None, longitude: Optional[float] = None, hops_away: Optional[int] = None) -> None:
-        """Adds a new node record or updates an existing one with fresh identity data.
+    def upsert(
+        self,
+        node_id: str,
+        long_name: str = "",
+        short_name: str = "",
+        role: str = "",
+        hardware_model: str = "",
+        latitude: float | None = None,
+        longitude: float | None = None,
+        hops_away: int | None = None,
+        heard_at: datetime | None = None,
+        refresh_last_seen: bool = True,
+    ) -> None:
+        """Adds a new node or updates an existing one, marking it as heard.
 
-        GPS coordinates and hop count are updated whenever non-None values are provided.
-        The database file is saved after every call that produces a change.
+        Empty identity fields and None position/hop values never overwrite data
+        that is already stored, so packets that carry only part of a node's
+        details (e.g. a position or a text message) are safe to pass in.
+        ``last_seen`` only ever moves forward. Changes are saved to disk by
+        :meth:`maintain` / :meth:`flush`, not immediately.
 
         Args:
             node_id: The unique node identifier string (e.g. ``'!deadbeef'``).
-            long_name: The human-readable long name of the node.
-            short_name: The abbreviated short name of the node.
-            role: The device role string (e.g. ``'CLIENT'``, ``'ROUTER'``). Defaults to empty string.
-            hardware_model: The hardware model string (e.g. ``'TBEAM'``). Defaults to empty string.
-            latitude: GPS latitude in decimal degrees, or None to leave existing value unchanged.
-            longitude: GPS longitude in decimal degrees, or None to leave existing value unchanged.
-            hops_away: Number of hops to reach this node, or None to leave existing value unchanged.
+            long_name: The human-readable long name, or empty if not in the packet.
+            short_name: The abbreviated short name, or empty if not in the packet.
+            role: The device role string (e.g. ``'CLIENT'``), or empty if unknown.
+            hardware_model: The hardware model string (e.g. ``'TBEAM'``), or empty if unknown.
+            latitude: GPS latitude in decimal degrees, or None to leave unchanged.
+            longitude: GPS longitude in decimal degrees, or None to leave unchanged.
+            hops_away: Number of hops to reach this node, or None to leave unchanged.
+            heard_at: When the node was heard (UTC). Defaults to now; future
+                      times are clamped to now.
+            refresh_last_seen: When False, identity/position are updated but
+                               ``last_seen`` is left alone (used when the radio
+                               cannot say when it last heard the node).
         """
         now: datetime = datetime.now(tz=timezone.utc)
-        existing: Optional[NodeRecord] = self._nodes.get(node_id)
-
-        if existing is None:
-            record = NodeRecord(
-                node_id=node_id,
-                long_name=long_name,
-                short_name=short_name,
-                last_seen=now,
-                role=role,
-                hardware_model=hardware_model,
-                latitude=latitude,
-                longitude=longitude,
-                hops_away=hops_away,
-            )
-            self._nodes[node_id] = record
-            self._save()
-            if self._verbose:
-                print(_NODE_DB_ADDED.format(node_id=node_id, long_name=long_name, short_name=short_name))
-        else:
-            identity_changed: bool = (
-                existing.long_name != long_name or existing.short_name != short_name
-                or existing.role != role or existing.hardware_model != hardware_model
-            )
-            position_changed: bool = (
-                (latitude is not None and latitude != existing.latitude)
-                or (longitude is not None and longitude != existing.longitude)
-            )
-            hops_away_changed: bool = hops_away is not None and hops_away != existing.hops_away
-            delta_seconds: float = (now - existing.last_seen).total_seconds()
-            if delta_seconds > 0 or identity_changed:
-                existing.long_name = long_name
-                existing.short_name = short_name
-                existing.role = role
-                existing.hardware_model = hardware_model
-                if latitude is not None:
-                    existing.latitude = latitude
-                if longitude is not None:
-                    existing.longitude = longitude
-                if hops_away is not None:
-                    existing.hops_away = hops_away
-                existing.last_seen = now
-                self._save()
+        seen: datetime = NodeDatabase._sanitize_heard_at(heard_at, now)
+        with self._lock:
+            existing: NodeRecord | None = self._nodes.get(node_id)
+            if existing is None:
+                self._nodes[node_id] = NodeRecord(
+                    node_id=node_id,
+                    long_name=long_name,
+                    short_name=short_name,
+                    last_seen=seen,
+                    role=role,
+                    hardware_model=hardware_model,
+                    latitude=latitude,
+                    longitude=longitude,
+                    hops_away=hops_away,
+                )
+                self._dirty = True
                 if self._verbose:
-                    print(_NODE_DB_UPDATED.format(
-                        node_id=node_id,
-                        long_name=long_name,
-                        short_name=short_name,
-                    ))
-            elif position_changed or hops_away_changed:
-                if latitude is not None:
-                    existing.latitude = latitude
-                if longitude is not None:
-                    existing.longitude = longitude
-                if hops_away is not None:
-                    existing.hops_away = hops_away
-                self._save()
+                    print(_NODE_DB_ADDED.format(node_id=node_id, long_name=long_name, short_name=short_name))
             else:
-                if self._verbose:
+                changed: bool = False
+                if long_name and long_name != existing.long_name:
+                    existing.long_name = long_name
+                    changed = True
+                if short_name and short_name != existing.short_name:
+                    existing.short_name = short_name
+                    changed = True
+                if role and role != existing.role:
+                    existing.role = role
+                    changed = True
+                if hardware_model and hardware_model != existing.hardware_model:
+                    existing.hardware_model = hardware_model
+                    changed = True
+                if latitude is not None and latitude != existing.latitude:
+                    existing.latitude = latitude
+                    changed = True
+                if longitude is not None and longitude != existing.longitude:
+                    existing.longitude = longitude
+                    changed = True
+                if hops_away is not None and hops_away != existing.hops_away:
+                    existing.hops_away = hops_away
+                    changed = True
+                if refresh_last_seen and seen > existing.last_seen:
+                    existing.last_seen = seen
+                    changed = True
+                if changed:
+                    self._dirty = True
+                    if self._verbose:
+                        print(_NODE_DB_UPDATED.format(
+                            node_id=node_id,
+                            long_name=existing.long_name,
+                            short_name=existing.short_name,
+                        ))
+                elif self._verbose:
                     print(_NODE_DB_NO_CHANGE.format(node_id=node_id))
 
     def prune(self) -> None:
-        """Removes nodes that have not been seen within the retention window.
+        """Removes nodes that have not been heard within the retention window.
 
-        Prints a summary of how many nodes were removed. The database file is
-        saved only when at least one node is removed.
+        Prints a summary of how many nodes were removed and saves immediately
+        when at least one node is removed.
         """
-        cutoff: datetime = datetime.now(tz=timezone.utc)
-        stale: list[str] = [
-            node_id
-            for node_id, record in self._nodes.items()
-            if (cutoff - record.last_seen).days >= self._retention_days
-        ]
-        if stale:
+        now: datetime = datetime.now(tz=timezone.utc)
+        with self._lock:
+            stale: list[str] = [
+                node_id
+                for node_id, record in self._nodes.items()
+                if self._is_stale(record.last_seen, now)
+            ]
             for node_id in stale:
                 del self._nodes[node_id]
-            self._save()
+            if stale:
+                self._save()
+            self._last_prune_monotonic = time.monotonic()
         print(_NODE_DB_PRUNED.format(count=len(stale), days=self._retention_days))
+
+    def flush(self) -> None:
+        """Writes pending changes to disk immediately (e.g. on shutdown)."""
+        with self._lock:
+            if self._dirty:
+                self._save()
+
+    def maintain(self) -> None:
+        """Periodic housekeeping; call regularly from the main loop.
+
+        Saves pending changes at most once per save interval and prunes stale
+        nodes once per prune interval. Cheap to call often.
+        """
+        now_monotonic: float = time.monotonic()
+        if now_monotonic - self._last_prune_monotonic >= _NODE_DB_PRUNE_INTERVAL_SECONDS:
+            self.prune()
+        with self._lock:
+            if self._dirty and now_monotonic - self._last_save_monotonic >= _NODE_DB_SAVE_INTERVAL_SECONDS:
+                self._save()
     # endregion Public Functions

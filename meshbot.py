@@ -383,6 +383,7 @@ def main() -> None:
                             connection_monitor.acknowledge()
                             disconnected = True
                         else:
+                            node_db.maintain()
                             current_time = time.time()
                             if secondary_channel is not None and current_time - last_checkin_time >= _CHECKIN_INTERVAL:
                                 if(bot_broadcaster is not None):
@@ -429,6 +430,7 @@ def main() -> None:
                     if reconnected:
                         config = NodeConfiguration(iface)
                         node_db.load_from_interface(iface)
+                        node_db.prune()
                         secondary_channel = MeshtasticHelper.get_channel_by_name(config.channels, secondary_channel_name)
                         if secondary_channel is not None:
                             bot_broadcaster = BotBroadcaster(
@@ -455,6 +457,7 @@ def main() -> None:
                             keyboard_interrupted = True
 
             print(_MSG_CONNECTION_MONITOR_STOPPING)
+            node_db.flush()
             zen_quotes_api.stop_polling()
             today_in_history_api.stop_polling()
             connection_monitor.stop()

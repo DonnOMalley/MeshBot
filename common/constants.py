@@ -207,6 +207,18 @@ _PACKET_KEY_TRACE_SNR_TOWARDS: str = "snrTowards"
 _PACKET_KEY_TRACE_SNR_BACK: str = "snrBack"
 _PACKET_KEY_WEB_RESPONSES: str = "webResponses"
 _PACKET_KEY_REPLY_ID: str = "replyId"
+_PACKET_KEY_RX_TIME: str = "rxTime"
+_PACKET_KEY_USER: str = "user"
+_PACKET_KEY_POSITION: str = "position"
+_PACKET_KEY_LATITUDE_I: str = "latitudeI"
+_PACKET_KEY_LONGITUDE_I: str = "longitudeI"
+_NODE_KEY_LAST_HEARD: str = "lastHeard"
+_NODE_KEY_HOPS_AWAY: str = "hopsAway"
+_USER_KEY_ID: str = "id"
+_USER_KEY_LONG_NAME: str = "longName"
+_USER_KEY_SHORT_NAME: str = "shortName"
+_USER_KEY_ROLE: str = "role"
+_USER_KEY_HW_MODEL: str = "hwModel"
 # endregion Packet Keys
 
 # region Packet Types
@@ -378,6 +390,9 @@ _NODE_DB_FILE: str = "nodes.json"
 _NODE_DB_SALT_FILE: str = "salt.bin"
 _FAVORITES_FILE: str = "favorites.json"
 _NODE_DB_DEFAULT_RETENTION_DAYS: int = 30
+_NODE_DB_SAVE_INTERVAL_SECONDS: float = 60.0
+_NODE_DB_PRUNE_INTERVAL_SECONDS: float = 3600.0
+_NODE_DB_MAX_CLOCK_SKEW_SECONDS: float = 86400.0
 _NODE_DB_LOADED: str = "Node database loaded: {count} node(s)."
 _NODE_DB_PRUNED: str = "Node database pruned: {count} stale node(s) removed (retention: {days} days)."
 _NODE_DB_ADDED: str = "[NODE DB] Added    {node_id} | {long_name} ({short_name})"
@@ -434,8 +449,10 @@ _CONSOLE_BUFFER_LINES: int = 500
 # endregion Console Log
 
 # region Node Monitor Messages
-_EVENT_NODE_INFO: str = "meshtastic.receive.user"
-_MSG_NODE_MONITOR_STARTED: str = "\nMonitoring node announcements."
+# Parent topic: PyPubSub also delivers every meshtastic.receive.* subtopic here,
+# so the node monitor sees text, position, telemetry, node info, etc.
+_EVENT_RECEIVE_ANY: str = "meshtastic.receive"
+_MSG_NODE_MONITOR_STARTED: str = "\nMonitoring node activity."
 _MSG_NODE_MONITOR_STOPPING: str = "\nStopping node monitor..."
 _MSG_NODE_MONITOR_STOPPED: str = "\nNode monitor stopped."
 _MSG_NODE_INFO_RECEIVED: str = "[NODE] Node info received from {sender}"
