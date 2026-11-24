@@ -59,6 +59,7 @@ ExcludeOOTB       = false
 NoNodeInit        = false
 NodeRetentionDays = 30
 EncryptionKey     =
+EventsPasscode    =
 Verbose           = false
 HideSecondaryChannels = false
 WebUrl            = localhost
@@ -77,6 +78,7 @@ RangeTestDelay    = 1
 | `NoNodeInit`            | When `true`, skips node configuration on startup and shutdown. Default: `false`.                       |
 | `NodeRetentionDays`     | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
 | `EncryptionKey`         | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
+| `EventsPasscode`        | Passcode organizers enter on the Events page to add, edit or delete events. Blank turns editing off.   |
 | `Verbose`               | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
 | `HideSecondaryChannels` | When `true`, secondary channels are hidden from the web dashboard (chat, dashboard, settings pages).   |
 | `WebUrl`                | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
@@ -232,7 +234,8 @@ The **Events** page (`/events`, next to History in the menu) lists community eve
 - **New Event** / **Edit event** open a form: name, description, start and end, in-person address or online link, website, a picture, and organizer contact (name, Signal handle, phone, and whether the phone accepts texts). Events without a picture use a default image.
 - While an event is happening (between its start and end), its details show **Take a photo** (opens the device camera) and **Upload photos** (pick files). Photos are resized in the browser to 1600 px with a 400 px thumbnail; this also strips location (EXIF) data.
 - Share a single event with `/events?id=<event id>` (the **Copy link** button).
-- Anyone who can reach the dashboard can add, edit or delete events and upload photos — there is no login, the same as the rest of the dashboard.
+- **Organizer passcode:** adding, editing and deleting events needs the passcode set as `EventsPasscode` in `meshbot.config`. Organizers click **Organizer sign-in** (or just **New Event** / **Edit event**) and enter it once; they stay signed in until the browser closes or they sign out. Five wrong tries from one address lock it out for 15 minutes. The passcode is read from the config file on each check, so changing it takes effect right away (and signs everyone out). With no passcode set, event editing is off. Viewing events and uploading photos during an event never need the passcode.
+- The dashboard is plain HTTP, so the passcode is sent unencrypted over the network; use HTTPS (e.g. a reverse proxy) if that matters.
 
 ### Network Access
 
