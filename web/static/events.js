@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("ev-today-btn").addEventListener("click", _evGoToday);
   document.getElementById("ev-view-calendar").addEventListener("click", () => _evSetView("calendar"));
   document.getElementById("ev-view-agenda").addEventListener("click", () => _evSetView("agenda"));
-  document.getElementById("ev-new-btn").addEventListener("click", () => _evRequireSignIn(() => _evOpenForm(null)));
+  document.getElementById("ev-new-btn").addEventListener("click", () => _evOpenForm(null));
   document.getElementById("ev-auth-btn").addEventListener("click", _evAuthButtonClick);
   document.getElementById("ev-auth-form").addEventListener("submit", _evSubmitSignIn);
   document.getElementById("ev-auth-dialog").addEventListener("close", () => {
@@ -103,8 +103,10 @@ function _evApplyAuth() {
   authBtn.hidden = !_evAuth.enabled;
   authBtn.textContent = _evAuth.editor ? "🔓 Organizer · Sign out" : "🔒 Organizer sign-in";
   authBtn.title = _evAuth.editor ? "Signed in as an organizer. Click to sign out." : "Sign in to add, edit or delete events.";
-  // Visitors can press "New Event" / "Edit" and are asked to sign in first.
-  document.getElementById("ev-new-btn").hidden = !_evAuth.enabled;
+  // Visitors submit events for review; "Edit" asks them to sign in first.
+  const newBtn = document.getElementById("ev-new-btn");
+  newBtn.hidden = !_evAuth.enabled;
+  newBtn.textContent = _evAuth.editor ? "＋ New Event" : "＋ Submit an Event";
   document.querySelectorAll("[data-editor-only]").forEach((el) => (el.hidden = !_evAuth.enabled));
 }
 
@@ -117,6 +119,10 @@ async function _evAuthButtonClick() {
       /* ignore */
     }
     _evApplyAuth();
+    const dlg = document.getElementById("ev-detail-dialog");
+    const openId = _evDetailId;
+    await _evLoad();
+    if (dlg.open && !_evFind(openId)) dlg.close();
   } else {
     _evRequireSignIn(null);
   }
@@ -157,6 +163,7 @@ async function _evSubmitSignIn(e) {
     _evApplyAuth();
     const action = _evAfterSignIn;
     document.getElementById("ev-auth-dialog").close();
+    await _evLoad();
     if (action) action();
   } catch (ex) {
     err.textContent = ex.message;
@@ -177,11 +184,42 @@ async function _evLoad() {
     if (!res.ok) throw new Error(data.error || "Could not load events.");
     _evEvents = (data.events || []).map((e) => Object.assign(e, { _start: new Date(e.start), _end: new Date(e.end) }));
     errorBox.hidden = true;
+    _evRenderReviewBar();
   } catch (err) {
     errorBox.textContent = "⚠ " + (err.message || "Could not load events.");
     errorBox.hidden = false;
   }
   _evRender();
+}
+
+// Organizers see a bar listing submissions that wait for review.
+function _evRenderReviewBar() {
+  const bar = document.getElementById("ev-review-bar");
+  const pending = _evEvents.filter((e) => !_evIsApproved(e)).sort((a, b) => a._start - b._start);
+  bar.innerHTML = "";
+  bar.hidden = !pending.length;
+  if (!pending.length) return;
+  bar.appendChild(_el("span", { class: "ev-review-bar-label" }, `⏳ ${pending.length} event${pending.length === 1 ? "" : "s"} waiting for review:`));
+  pending.forEach((ev) => {
+    const b = _el("button", { type: "button", class: "ev-review-chip" }, `${ev.name} · ${_evFmtDate(ev._start, false)}`);
+    b.addEventListener("click", () => {
+      _evJumpTo(ev._start);
+      _evOpenDetail(ev.id);
+    });
+    bar.appendChild(b);
+  });
+}
+
+function _evIsApproved(ev) {
+  return ev.approved !== false;
+}
+
+function _evShowNotice(message) {
+  const box = document.getElementById("ev-notice");
+  box.textContent = message;
+  box.hidden = false;
+  clearTimeout(_evShowNotice._timer);
+  _evShowNotice._timer = setTimeout(() => (box.hidden = true), 12_000);
 }
 
 function _evFind(id) {
@@ -309,6 +347,7 @@ function _evRenderCalendar() {
     const cell = _el("button", { type: "button", class: "tih-day-cell ev-day-cell" });
     if (dayEvents.length) cell.classList.add("has-data");
     if (dayEvents.some((e) => e.status === "active")) cell.classList.add("has-active");
+    if (dayEvents.some((e) => !_evIsApproved(e))) cell.classList.add("has-pending");
     if (key === todayKey) cell.classList.add("is-today");
     if (key === _evSelectedKey) cell.classList.add("selected");
     cell.appendChild(_el("span", { class: "tih-day-num" }, String(day)));
@@ -350,7 +389,7 @@ function _evRenderDay() {
     list.appendChild(_el("p", { class: "tih-events-empty" }, "No events on this day."));
     const add = _el("button", { type: "button", class: "ev-link-btn", "data-editor-only": "" }, "+ Add an event on this day");
     add.hidden = !_evAuth.enabled;
-    add.addEventListener("click", () => _evRequireSignIn(() => _evOpenForm(null, date)));
+    add.addEventListener("click", () => _evOpenForm(null, date));
     list.appendChild(add);
     return;
   }
@@ -400,11 +439,12 @@ function _evLocationText(ev) {
 }
 
 function _evStatusBadge(ev) {
+  if (!_evIsApproved(ev)) return _el("span", { class: "ev-status ev-status-pending" }, "Pending review");
   return _el("span", { class: "ev-status ev-status-" + ev.status }, _EV_STATUS_LABELS[ev.status] || ev.status);
 }
 
 function _evCard(ev) {
-  const card = _el("button", { type: "button", class: "ev-card ev-card-" + ev.status }, [
+  const card = _el("button", { type: "button", class: "ev-card ev-card-" + ev.status + (_evIsApproved(ev) ? "" : " ev-card-pending") }, [
     _el("img", { class: "ev-card-thumb", src: _evThumbUrl(ev), alt: "", loading: "lazy" }),
     _el("div", { class: "ev-card-body" }, [
       _el("div", { class: "ev-card-title-row" }, [_el("span", { class: "ev-card-title" }, ev.name), _evStatusBadge(ev)]),
@@ -439,6 +479,7 @@ function _evRenderDetail(ev) {
   body.appendChild(hero);
 
   body.appendChild(_el("div", { class: "ev-detail-title-row" }, [_el("h2", { class: "ev-detail-title" }, ev.name), _evStatusBadge(ev)]));
+  if (!_evIsApproved(ev)) body.appendChild(_evReviewPanel(ev));
 
   const rows = _el("dl", { class: "ev-detail-rows" });
   const addRow = (label, content) => {
@@ -483,7 +524,7 @@ function _evRenderDetail(ev) {
   // Photos
   const photos = ev.photos || [];
   const photoSection = _el("section", { class: "ev-photos" }, [_el("h3", {}, `Photos (${photos.length})`)]);
-  if (ev.status === "active") photoSection.appendChild(_evUploadBox(ev));
+  if (ev.status === "active" && _evIsApproved(ev)) photoSection.appendChild(_evUploadBox(ev));
   else if (ev.status === "upcoming") photoSection.appendChild(_el("p", { class: "ev-muted" }, "Participants can add photos here while the event is happening."));
   if (photos.length) {
     const gallery = _el("div", { class: "ev-gallery" });
@@ -524,6 +565,54 @@ function _evRenderDetail(ev) {
   actions.appendChild(_el("span", { class: "ev-spacer" }));
   actions.appendChild(edit);
   body.appendChild(actions);
+}
+
+function _evReviewPanel(ev) {
+  const error = _el("p", { class: "ev-error-text", hidden: "" });
+  const approve = _el("button", { type: "button", class: "ev-primary-btn" }, "✓ Approve & publish");
+  const reject = _el("button", { type: "button", class: "ev-danger-btn" }, "✕ Reject");
+  approve.addEventListener("click", async () => {
+    approve.disabled = true;
+    try {
+      const res = await fetch(`/api/events/${ev.id}/approve`, { method: "POST" });
+      const result = await res.json().catch(() => ({}));
+      if (res.status === 403 && result.auth_required) {
+        _evAuth.editor = false;
+        _evApplyAuth();
+        _evRequireSignIn(() => approve.click(), result.error);
+        return;
+      }
+      if (!res.ok) throw new Error(result.error || "Could not approve the event.");
+      await _evLoad();
+      const fresh = _evFind(ev.id);
+      if (fresh) _evRenderDetail(fresh);
+      _evShowNotice(`✓ “${ev.name}” is now published.`);
+    } catch (err) {
+      error.textContent = err.message;
+      error.hidden = false;
+    } finally {
+      approve.disabled = false;
+    }
+  });
+  reject.addEventListener("click", async () => {
+    if (!confirm(`Reject “${ev.name}”? The submission and its picture will be deleted.`)) return;
+    try {
+      const res = await fetch(`/api/events/${ev.id}`, { method: "DELETE" });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error || "Could not reject the event.");
+      document.getElementById("ev-detail-dialog").close();
+      await _evLoad();
+      _evShowNotice(`“${ev.name}” was rejected and deleted.`);
+    } catch (err) {
+      error.textContent = err.message;
+      error.hidden = false;
+    }
+  });
+  return _el("div", { class: "ev-review-panel" }, [
+    _el("p", {}, "⏳ Submitted for review — only organizers can see this event. Check the details (use Edit to fix anything), then approve it to publish it."),
+    _el("div", { class: "ev-upload-buttons" }, [approve, reject]),
+    error,
+  ]);
 }
 
 function _evUploadBox(ev) {
@@ -706,7 +795,10 @@ function _evOpenForm(ev, onDate) {
   _evEditing = ev;
   _evFormImage = null;
   _evFormRemoveImage = false;
-  document.getElementById("ev-form-title").textContent = ev ? "Edit Event" : "New Event";
+  const submitting = !ev && !_evAuth.editor;
+  document.getElementById("ev-form-title").textContent = ev ? "Edit Event" : submitting ? "Submit an Event" : "New Event";
+  document.getElementById("ev-form-review-note").hidden = !submitting;
+  document.getElementById("ev-form-save").textContent = submitting ? "Submit for review" : "Save";
   document.getElementById("ev-form-delete").hidden = !ev;
   document.getElementById("ev-form-save").disabled = false;
 
@@ -760,6 +852,7 @@ async function _evSubmitForm(e) {
   }
 
   const saveBtn = document.getElementById("ev-form-save");
+  const saveLabel = saveBtn.textContent;
   saveBtn.disabled = true;
   saveBtn.textContent = "Saving…";
   try {
@@ -778,6 +871,10 @@ async function _evSubmitForm(e) {
       throw new Error(result.error || "Could not save the event.");
     }
     document.getElementById("ev-form-dialog").close();
+    if (result.pending) {
+      _evShowNotice(`✓ Thanks! “${result.name}” was sent to the organizers. It will appear on the calendar once it's approved.`);
+      return;
+    }
     await _evLoad();
     const saved = _evFind(result.id);
     if (saved) {
@@ -791,7 +888,7 @@ async function _evSubmitForm(e) {
     box.scrollIntoView({ block: "nearest" });
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = "Save";
+    saveBtn.textContent = saveLabel;
   }
 }
 

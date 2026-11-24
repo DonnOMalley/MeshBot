@@ -205,7 +205,9 @@ class EventStoreTests(unittest.TestCase):
         self.assertIsNone(EventStore.detect_image_type(b"<svg onload=alert(1)>"))
 
 
-class EventsApiTests(unittest.TestCase):
+class _EventsServerCase(unittest.TestCase):
+    """Shared setup: a web server on a temp data dir, signed in as an organizer."""
+
     PASSCODE: str = "open sesame"
 
     def _write_config(self, passcode: str | None) -> None:
@@ -247,6 +249,11 @@ class EventsApiTests(unittest.TestCase):
             data[name] = [(io.BytesIO(c), f"{name}{i}.jpg") for i, c in enumerate(content)] if isinstance(content, list) else (io.BytesIO(content), f"{name}.jpg")
         return getattr(self.client, method)(url, data=data, content_type="multipart/form-data")
 
+    def _visitor(self):
+        return self.server._app.test_client()
+
+
+class EventsApiTests(_EventsServerCase):
     def test_page_and_menu_link(self) -> None:
         html: str = self.client.get("/events").get_data(as_text=True)
         self.assertIn('src="/static/events.js"', html)
@@ -263,6 +270,7 @@ class EventsApiTests(unittest.TestCase):
         res = self.client.get("/images/event%20default.svg")
         self.assertEqual(res.status_code, 200)
         self.assertIn(b"<svg", res.data)
+        res.close()
 
     def test_create_with_image_and_serve_it(self) -> None:
         res = self._post("/api/events", _fields(), {"image": PNG, "image_thumb": JPEG})
@@ -358,7 +366,7 @@ class EventsApiTests(unittest.TestCase):
             self.assertNotIn("Secret Picnic", f.read())
 
 
-class EventsAuthTests(EventsApiTests):
+class EventsAuthTests(_EventsServerCase):
     """Organizer passcode protection. Inherits the API tests' setup (signed in)."""
 
     def test_status_reports_signed_in(self) -> None:
@@ -369,7 +377,6 @@ class EventsAuthTests(EventsApiTests):
         visitor = self.server._app.test_client()
         self.assertEqual(visitor.get("/api/events/auth").get_json(), {"enabled": True, "editor": False})
         for res in (
-            visitor.post("/api/events", data=_fields(), content_type="multipart/form-data"),
             visitor.put(f"/api/events/{ev['id']}", data=_fields(name="Hacked"), content_type="multipart/form-data"),
             visitor.delete(f"/api/events/{ev['id']}"),
         ):
@@ -391,13 +398,16 @@ class EventsAuthTests(EventsApiTests):
         self.assertFalse(visitor.get("/api/events/auth").get_json()["editor"])
 
     def test_sign_out(self) -> None:
+        ev: dict = self._post("/api/events", _fields()).get_json()
         self.assertFalse(self.client.delete("/api/events/auth").get_json()["editor"])
-        self.assertEqual(self._post("/api/events", _fields()).status_code, 403)
+        self.assertEqual(self._post(f"/api/events/{ev['id']}", _fields(), method="put").status_code, 403)
+        # Signed out, a new event becomes a submission.
+        self.assertEqual(self._post("/api/events", _fields()).status_code, 202)
 
     def test_changing_passcode_signs_everyone_out(self) -> None:
         self._write_config("new passcode")
         self.assertFalse(self.client.get("/api/events/auth").get_json()["editor"])
-        self.assertEqual(self._post("/api/events", _fields()).status_code, 403)
+        self.assertEqual(self._post("/api/events", _fields()).status_code, 202)
         self.assertEqual(self._sign_in("new passcode").status_code, 200)
         self.assertEqual(self._post("/api/events", _fields()).status_code, 201)
 
@@ -407,6 +417,8 @@ class EventsAuthTests(EventsApiTests):
         self.assertEqual(self._sign_in().status_code, 503)
         res = self._post("/api/events", _fields())
         self.assertEqual(res.status_code, 403)
+        self.assertIn("turned off", res.get_json()["error"])
+        res = self._post("/api/events/" + "a" * 16, _fields(), method="put")
         self.assertIn("EventsPasscode", res.get_json()["error"])
 
     def test_missing_config_file_turns_editing_off(self) -> None:
@@ -416,6 +428,88 @@ class EventsAuthTests(EventsApiTests):
     def test_session_cookie_is_samesite_lax(self) -> None:
         res = self._sign_in(client=self.server._app.test_client())
         self.assertIn("SameSite=Lax", res.headers.get("Set-Cookie", ""))
+
+
+class EventsReviewTests(_EventsServerCase):
+    """Visitors submit events; they stay hidden until an organizer approves them."""
+
+    def _submit(self, visitor, **overrides):
+        return visitor.post("/api/events", data=_fields(**overrides), content_type="multipart/form-data")
+
+    def _pending_id(self, name: str) -> str:
+        events: list = self.client.get("/api/events").get_json()["events"]
+        return next(e["id"] for e in events if e["name"] == name)
+
+    def test_organizer_events_are_approved_immediately(self) -> None:
+        ev: dict = self._post("/api/events", _fields()).get_json()
+        self.assertTrue(ev["approved"])
+        self.assertEqual(len(self._visitor().get("/api/events").get_json()["events"]), 1)
+
+    def test_submission_is_pending_and_hidden(self) -> None:
+        visitor = self._visitor()
+        res = visitor.post("/api/events", data=dict(_fields(name="Visitor Picnic"), image=(io.BytesIO(PNG), "i.png")), content_type="multipart/form-data")
+        self.assertEqual(res.status_code, 202)
+        self.assertEqual(res.get_json(), {"pending": True, "name": "Visitor Picnic"})
+        # Hidden from visitors everywhere: list, detail, image, photos.
+        self.assertEqual(visitor.get("/api/events").get_json()["events"], [])
+        self.assertEqual(self._visitor().get("/api/events").get_json()["events"], [])
+        event_id: str = self._pending_id("Visitor Picnic")
+        self.assertEqual(visitor.get(f"/api/events/{event_id}").status_code, 404)
+        self.assertEqual(visitor.get(f"/events/{event_id}/image/cover").status_code, 404)
+        self.assertEqual(visitor.post(f"/api/events/{event_id}/photos", data={"photo": (io.BytesIO(JPEG), "p.jpg")}, content_type="multipart/form-data").status_code, 404)
+        # Organizers see it flagged as pending, with its picture.
+        ev: dict = self.client.get(f"/api/events/{event_id}").get_json()
+        self.assertFalse(ev["approved"])
+        self.assertEqual(self.client.get(f"/events/{event_id}/image/cover").data, PNG)
+
+    def test_approve_publishes(self) -> None:
+        visitor = self._visitor()
+        self._submit(visitor, name="Visitor Picnic", start=_iso(-1), end=_iso(1))
+        event_id: str = self._pending_id("Visitor Picnic")
+        # Not even organizers can add photos before approval.
+        res = self._post(f"/api/events/{event_id}/photos", {}, {"photo": [JPEG]})
+        self.assertEqual(res.status_code, 409)
+        # Visitors can't approve.
+        res = visitor.post(f"/api/events/{event_id}/approve")
+        self.assertEqual(res.status_code, 403)
+        res = self.client.post(f"/api/events/{event_id}/approve")
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.get_json()["approved"])
+        self.assertEqual([e["name"] for e in visitor.get("/api/events").get_json()["events"]], ["Visitor Picnic"])
+        self.assertEqual(visitor.post(f"/api/events/{event_id}/photos", data={"photo": (io.BytesIO(JPEG), "p.jpg")}, content_type="multipart/form-data").status_code, 201)
+        self.assertEqual(self.client.post("/api/events/" + "a" * 16 + "/approve").status_code, 404)
+
+    def test_editing_keeps_approval_state(self) -> None:
+        self._submit(self._visitor(), name="Visitor Picnic")
+        event_id: str = self._pending_id("Visitor Picnic")
+        res = self._post(f"/api/events/{event_id}", _fields(name="Visitor Picnic (fixed)"), method="put")
+        self.assertFalse(res.get_json()["approved"], "editing a submission does not publish it")
+        self.assertEqual(self._visitor().get("/api/events").get_json()["events"], [])
+
+    def test_organizer_can_reject_by_deleting(self) -> None:
+        self._submit(self._visitor(), name="Spam", image=(io.BytesIO(PNG), "i.png"))
+        event_id: str = self._pending_id("Spam")
+        self.assertEqual(self.client.delete(f"/api/events/{event_id}").status_code, 200)
+        self.assertEqual(self.client.get("/api/events").get_json()["events"], [])
+
+    def test_submission_validation_errors_still_reported(self) -> None:
+        res = self._submit(self._visitor(), name="")
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("name", res.get_json()["fields"])
+
+    def test_submissions_are_rate_limited(self) -> None:
+        visitor = self._visitor()
+        for i in range(5):
+            self.assertEqual(self._submit(visitor, name=f"E{i}").status_code, 202)
+        res = self._submit(visitor, name="E6")
+        self.assertEqual(res.status_code, 429)
+        self.assertIn("Too many", res.get_json()["error"])
+        # Organizers are not limited.
+        self.assertEqual(self._post("/api/events", _fields()).status_code, 201)
+
+    def test_old_events_without_flag_count_as_approved(self) -> None:
+        self.assertTrue(EventStore.is_approved({"id": "x"}))
+        self.assertFalse(EventStore.is_approved({"id": "x", "approved": False}))
 
 
 if __name__ == "__main__":

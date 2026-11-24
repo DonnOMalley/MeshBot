@@ -24,6 +24,8 @@
           </div>
         </div>
         <div id="ev-load-error" class="ev-load-error" hidden></div>
+        <div id="ev-notice" class="ev-notice" role="status" hidden></div>
+        <div id="ev-review-bar" class="ev-review-bar" hidden></div>
 
         <!-- Calendar view -->
         <div id="ev-calendar-view" class="panel-body tih-layout">
@@ -77,6 +79,7 @@
       <form id="ev-form" class="ev-dialog-inner ev-form" novalidate>
         <button type="button" class="ev-dialog-close" data-close aria-label="Close">&times;</button>
         <h2 id="ev-form-title" class="ev-form-title">New Event</h2>
+        <p id="ev-form-review-note" class="ev-review-note" hidden>&#9203; An organizer will review your event before it appears on the calendar.</p>
         <p id="ev-form-error" class="ev-form-error" hidden></p>
 
         <label class="ev-field">

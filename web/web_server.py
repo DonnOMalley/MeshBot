@@ -91,6 +91,11 @@ from common.constants import (
     _EVENTS_AUTH_WRONG,
     _EVENTS_PASSCODE_CONFIG_KEY,
     _EVENTS_SESSION_EDITOR_KEY,
+    _EVENTS_NOT_APPROVED,
+    _EVENTS_SUBMIT_DISABLED,
+    _EVENTS_SUBMIT_LIMITED,
+    _EVENTS_SUBMIT_MAX_PER_WINDOW,
+    _EVENTS_SUBMIT_WINDOW_SECONDS,
     _EVENTS_MAX_IMAGE_BYTES,
     _EVENTS_MAX_PHOTOS_PER_UPLOAD,
     _EVENTS_MAX_UPLOAD_BYTES,
@@ -264,6 +269,7 @@ class WebServer:
     _event_store: EventStore
     _config_file: str
     _auth_failures: dict[str, list[float]]
+    _submissions: dict[str, list[float]]
     _auth_lock: threading.Lock
     _pending_web_traces: dict[str, tuple[dict, float]]
     _port: int
@@ -350,6 +356,7 @@ class WebServer:
         self._event_store = EventStore(os.path.join(data_dir, _EVENTS_SUBDIR), self._fernet_key)
         self._config_file = config_file
         self._auth_failures = {}
+        self._submissions = {}
         self._auth_lock = threading.Lock()
         self._pending_web_traces = {}
         self._chat_history = chat_history
@@ -686,20 +693,38 @@ class WebServer:
         stored: str = str(session.get(_EVENTS_SESSION_EDITOR_KEY, ""))
         return passcode is not None and bool(stored) and hmac.compare_digest(stored, self._passcode_fingerprint(passcode))
 
-    def _auth_lockout_seconds(self, client: str) -> float:
-        """Seconds until *client* may try again (0 when not locked out)."""
+    def _limit_wait_seconds(self, log: dict[str, list[float]], client: str, limit: int, window: float) -> float:
+        """Seconds until *client* may act again under a sliding-window limit (0 = allowed now)."""
         now: float = time.time()
         with self._auth_lock:
-            recent: list[float] = [t for t in self._auth_failures.get(client, []) if now - t < _EVENTS_AUTH_WINDOW_SECONDS]
-            self._auth_failures[client] = recent
+            recent: list[float] = [t for t in log.get(client, []) if now - t < window]
+            log[client] = recent
             result: float = 0.0
-            if len(recent) >= _EVENTS_AUTH_MAX_FAILURES:
-                result = _EVENTS_AUTH_WINDOW_SECONDS - (now - recent[0])
+            if len(recent) >= limit:
+                result = window - (now - recent[0])
         return result
 
-    def _record_auth_failure(self, client: str) -> None:
+    def _record_hit(self, log: dict[str, list[float]], client: str) -> None:
         with self._auth_lock:
-            self._auth_failures.setdefault(client, []).append(time.time())
+            log.setdefault(client, []).append(time.time())
+
+    def _auth_lockout_seconds(self, client: str) -> float:
+        """Seconds until *client* may try the passcode again (0 when not locked out)."""
+        return self._limit_wait_seconds(self._auth_failures, client, _EVENTS_AUTH_MAX_FAILURES, _EVENTS_AUTH_WINDOW_SECONDS)
+
+    def _record_auth_failure(self, client: str) -> None:
+        self._record_hit(self._auth_failures, client)
+
+    def _visible_event(self, event_id: str) -> dict | None:
+        """The event if it exists and this session may see it (approved, or an organizer).
+
+        Raises:
+            EventStoreError: When the event files cannot be read.
+        """
+        event: dict | None = self._event_store.get(event_id) if EventStore.is_valid_id(event_id) else None
+        if event is not None and not EventStore.is_approved(event) and not self._is_events_editor():
+            event = None
+        return event
 
     def _events_auth_error(self):
         """The 403 returned when an organizer-only request is not signed in."""
@@ -731,7 +756,7 @@ class WebServer:
                 data = raw
         return data, error
 
-    def _save_event_from_request(self, event_id: str | None):
+    def _save_event_from_request(self, event_id: str | None, approved: bool = True):
         """Creates (event_id None) or updates an event from a multipart form post.
 
         The form carries the event fields plus optional ``image`` and
@@ -752,7 +777,7 @@ class WebServer:
             try:
                 event: dict | None
                 if event_id is None:
-                    event = self._event_store.create(clean, has_image=image is not None)
+                    event = self._event_store.create(clean, has_image=image is not None, approved=approved)
                 elif image is not None:
                     event = self._event_store.update(event_id, clean, has_image=True)
                 elif remove_image:
@@ -1193,24 +1218,50 @@ class WebServer:
         @self._app.route("/api/events", methods=["GET"])
         def api_events_list():
             try:
-                return jsonify({"events": self._event_store.list_events()})
+                events: list[dict] = self._event_store.list_events()
+                if not self._is_events_editor():
+                    events = [e for e in events if EventStore.is_approved(e)]
+                return jsonify({"events": events})
             except EventStoreError as exc:
                 return jsonify({"error": str(exc), "events": []}), 503
 
         @self._app.route("/api/events", methods=["POST"])
         def api_events_create():
-            if not self._is_events_editor():
-                return self._events_auth_error()
-            return self._save_event_from_request(None)
+            # Organizers publish directly; anyone else submits an event for review.
+            if self._is_events_editor():
+                return self._save_event_from_request(None)
+            if self._events_passcode() is None:
+                return jsonify({"error": _EVENTS_SUBMIT_DISABLED}), 403
+            client: str = request.remote_addr or "unknown"
+            wait: float = self._limit_wait_seconds(self._submissions, client, _EVENTS_SUBMIT_MAX_PER_WINDOW, _EVENTS_SUBMIT_WINDOW_SECONDS)
+            if wait > 0:
+                return jsonify({"error": _EVENTS_SUBMIT_LIMITED.format(minutes=max(1, int(wait // 60) + 1))}), 429
+            body, status_code = self._save_event_from_request(None, approved=False)
+            if status_code == 201:
+                self._record_hit(self._submissions, client)
+                event: dict = body.get_json()
+                # Submitters only learn it was received; the event stays hidden until approved.
+                body, status_code = jsonify({"pending": True, "name": event.get("name", "")}), 202
+            return body, status_code
 
         @self._app.route("/api/events/<event_id>", methods=["GET"])
         def api_event_get(event_id: str):
-            event: dict | None = None
-            if EventStore.is_valid_id(event_id):
-                try:
-                    event = self._event_store.get(event_id)
-                except EventStoreError as exc:
-                    return jsonify({"error": str(exc)}), 503
+            try:
+                event: dict | None = self._visible_event(event_id)
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc)}), 503
+            if event is None:
+                return jsonify({"error": "Event not found."}), 404
+            return jsonify(event)
+
+        @self._app.route("/api/events/<event_id>/approve", methods=["POST"])
+        def api_event_approve(event_id: str):
+            if not self._is_events_editor():
+                return self._events_auth_error()
+            try:
+                event: dict | None = self._event_store.set_approved(event_id, True) if EventStore.is_valid_id(event_id) else None
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc)}), 503
             if event is None:
                 return jsonify({"error": "Event not found."}), 404
             return jsonify(event)
@@ -1238,11 +1289,13 @@ class WebServer:
         @self._app.route("/api/events/<event_id>/photos", methods=["POST"])
         def api_event_photos(event_id: str):
             try:
-                event: dict | None = self._event_store.get(event_id) if EventStore.is_valid_id(event_id) else None
+                event: dict | None = self._visible_event(event_id)
             except EventStoreError as exc:
                 return jsonify({"error": str(exc)}), 503
             if event is None:
                 return jsonify({"error": "Event not found."}), 404
+            if not EventStore.is_approved(event):
+                return jsonify({"error": _EVENTS_NOT_APPROVED}), 409
             if event.get("status") != _EVENTS_STATUS_ACTIVE:
                 return jsonify({"error": "Photos can only be added while the event is happening."}), 409
             photos = request.files.getlist("photo")
@@ -1270,6 +1323,12 @@ class WebServer:
 
         @self._app.route("/events/<event_id>/image/<name>")
         def event_image(event_id: str, name: str):
+            try:
+                visible: bool = self._visible_event(event_id) is not None
+            except EventStoreError:
+                visible = False
+            if not visible:
+                abort(404)
             data: bytes | None = self._event_store.read_image(event_id, name)
             mime: str | None = EventStore.detect_image_type(data) if data else None
             if data is None or mime is None:

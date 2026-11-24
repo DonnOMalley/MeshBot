@@ -242,13 +242,28 @@ class EventStore:
                     break
         return result
 
-    def create(self, clean: dict, has_image: bool = False) -> dict:
-        """Adds a new event built from validated fields and returns it."""
+    @staticmethod
+    def is_approved(event: dict) -> bool:
+        """True when the event may be shown publicly.
+
+        Events saved before reviews existed have no flag and count as approved.
+        """
+        return bool(event.get("approved", True))
+
+    def create(self, clean: dict, has_image: bool = False, approved: bool = True) -> dict:
+        """Adds a new event built from validated fields and returns it.
+
+        Args:
+            clean: Validated fields from :meth:`validate`.
+            has_image: Whether a cover picture will be stored for it.
+            approved: False for public submissions that wait for an organizer.
+        """
         now_text: str = EventStore.format_time(datetime.now(timezone.utc))
         event: dict = dict(clean)
         event.update({
             "id": secrets.token_hex(8),
             "has_image": has_image,
+            "approved": approved,
             "photos": [],
             "created_at": now_text,
             "updated_at": now_text,
@@ -278,6 +293,21 @@ class EventStore:
                     event.update(clean)
                     if has_image is not None:
                         event["has_image"] = has_image
+                    event["updated_at"] = EventStore.format_time(datetime.now(timezone.utc))
+                    result = event
+                    break
+            if result is not None:
+                self._save_all(events)
+        return dict(result, status=EventStore.status_of(result)) if result is not None else None
+
+    def set_approved(self, event_id: str, approved: bool = True) -> dict | None:
+        """Marks an event approved (public) or pending. Returns it, or None if missing."""
+        result: dict | None = None
+        with self._lock:
+            events: list[dict] = self._load_all()
+            for event in events:
+                if event.get("id") == event_id:
+                    event["approved"] = approved
                     event["updated_at"] = EventStore.format_time(datetime.now(timezone.utc))
                     result = event
                     break

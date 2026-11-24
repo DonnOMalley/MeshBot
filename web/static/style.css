@@ -3844,6 +3844,73 @@ body.tih-page main {
   }
 }
 
+/* ── Reviews ────────────────────────────────────────────────────────────── */
+.ev-notice {
+  margin: 12px 16px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--success);
+  border-radius: 4px;
+  color: var(--success);
+  font-size: 13px;
+}
+
+.ev-review-bar {
+  margin: 12px 16px 0;
+  padding: 8px 12px;
+  border: 1px dashed #d29922;
+  border-radius: 4px;
+  background: rgba(210, 153, 34, 0.08);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.ev-review-bar-label {
+  color: #d29922;
+  font-weight: 600;
+}
+
+.ev-review-chip {
+  background: transparent;
+  border: 1px solid #d29922;
+  color: var(--text);
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ev-review-chip:hover {
+  background: rgba(210, 153, 34, 0.18);
+}
+
+.ev-status-pending {
+  color: #d29922;
+}
+
+.ev-card-pending {
+  border-style: dashed;
+  border-color: #d29922;
+}
+
+.ev-day-cell.has-pending .tih-day-dot {
+  background: #d29922;
+}
+
+.ev-review-panel,
+.ev-review-note {
+  border: 1px dashed #d29922;
+  border-radius: 6px;
+  background: rgba(210, 153, 34, 0.08);
+  padding: 10px 12px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Classes above set display:flex; make sure the hidden attribute still wins. */
 .ev-page [hidden] {
   display: none !important;
