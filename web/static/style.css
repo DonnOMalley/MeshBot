@@ -2949,6 +2949,10 @@ body.tih-page {
 body.tih-page main {
   flex: 1;
   overflow: visible;
+  /* Always use the full content width (up to main's 1280px max). Without
+     this, the auto side margins make main shrink to fit its content, so the
+     panel narrowed to just the calendar whenever a day had no events. */
+  width: 100%;
 }
 
 /* ── Two-column layout ───────────────────────────────────────────────────── */
