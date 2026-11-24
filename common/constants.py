@@ -421,6 +421,14 @@ _WEB_SERVER_PORT: int = 7331
 _WEB_SERVER_HISTORY_LIMIT: int = 200
 _WEB_SERVER_MAX_SEND_LENGTH: int = 228
 _WEB_SERVER_STARTED: str = "Web dashboard running at http://{host}:{port}"
+_WEB_SERVER_STOP_TIMEOUT_SECONDS: float = 5.0
+_RELOAD_STATE_SECRET_KEY: str = "secret_key"
+_RELOAD_STATE_WEB_USERS: str = "web_users"
+# Written only by a bot that handles SIGUSR1; reload_web.sh refuses to signal without it.
+_WEB_RELOAD_PID_FILE: str = "data/meshbot.pid"
+_MSG_WEB_RELOAD_REQUESTED: str = "[WEB] Reload requested - reloading dashboard code..."
+_MSG_WEB_RELOAD_OK: str = "[WEB] Dashboard reloaded. Radio, monitors and node list were not interrupted."
+_MSG_WEB_RELOAD_FAILED: str = "[WEB] Dashboard reload FAILED - still running the previous dashboard. Error: {error}"
 _WEB_DASHBOARD_URL: str = "http://{host}:{port}"
 _GITHUB_REPO_URL: str = "https://github.com/DonnOMalley/MeshBot"
 # endregion Web Dashboard

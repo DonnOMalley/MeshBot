@@ -15,6 +15,7 @@ from google.protobuf.json_format import MessageToDict
 from meshtastic import channel_pb2
 from meshtastic.mesh_interface import MeshInterface
 from pubsub import pub
+from werkzeug.serving import BaseWSGIServer, make_server
 
 from commands.user_commands import UserCommands
 from common.chat_history import ChatHistory
@@ -61,6 +62,9 @@ from common.constants import (
     _WEB_USER_ERR_SHORT_NAME,
 )
 from common.constants import (
+    _RELOAD_STATE_SECRET_KEY,
+    _RELOAD_STATE_WEB_USERS,
+    _WEB_SERVER_STOP_TIMEOUT_SECONDS,
     _AFFIRM_CACHE_FILE,
     _JOKE_CACHE_FILE,
     _TILE_MAX_ZOOM,
@@ -240,6 +244,8 @@ class WebServer:
     _console_logger: ConsoleLogger | None
     _dm_command_register: CommandRegister
     _app: Flask
+    _http_server: BaseWSGIServer | None
+    _server_thread: threading.Thread | None
     # endregion Protected Variables
 
     # region Constructor
@@ -336,6 +342,13 @@ class WebServer:
             static_folder=os.path.join(_base, "static"),
         )
         self._app.secret_key = secrets.token_hex(32)
+        # Pick up template edits on the next page load and stop browsers caching
+        # static JS/CSS, so front-end changes need no reload at all.
+        self._app.config["TEMPLATES_AUTO_RELOAD"] = True
+        self._app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+        self._app.jinja_env.auto_reload = True
+        self._http_server = None
+        self._server_thread = None
         self._web_users = {}
         logging.getLogger("werkzeug").setLevel(logging.WARNING)
         self._register_routes()
@@ -343,19 +356,57 @@ class WebServer:
 
     # region Public Functions
     def start(self) -> None:
-        """Starts the web server on a daemon background thread."""
+        """Starts the web server on a daemon background thread.
+
+        Binds the port immediately, so a bind failure raises here (letting a
+        hot reload fall back to the previous server). Can be called again
+        after :meth:`stop`.
+        """
+        self._http_server = make_server(_WEB_SERVER_HOST, self._port, self._app, threaded=True)
+        self._server_thread = threading.Thread(target=self._http_server.serve_forever, daemon=True)
+        self._server_thread.start()
         print(_WEB_SERVER_STARTED.format(host=self._display_host, port=self._port))
-        t = threading.Thread(
-            target=self._app.run,
-            kwargs={
-                "host": _WEB_SERVER_HOST,
-                "port": self._port,
-                "threaded": True,
-                "use_reloader": False,
+
+    def stop(self) -> None:
+        """Stops serving requests and releases the port. Safe to call twice."""
+        if self._http_server is not None:
+            self._http_server.shutdown()
+            self._http_server.server_close()
+            self._http_server = None
+        if self._server_thread is not None:
+            self._server_thread.join(timeout=_WEB_SERVER_STOP_TIMEOUT_SECONDS)
+            self._server_thread = None
+
+    def detach(self) -> None:
+        """Unsubscribes from mesh events once this server is permanently replaced."""
+        try:
+            pub.unsubscribe(self._on_web_traceroute_response, _EVENT_TRACEROUTE)
+        except Exception:
+            pass
+
+    def export_reload_state(self) -> dict:
+        """Returns the in-memory state a reloaded server should inherit.
+
+        Keeps browser sessions valid (same cookie signing key) and keeps each
+        session's web-user names, so a reload is invisible to dashboard users.
+        """
+        return {
+            _RELOAD_STATE_SECRET_KEY: self._app.secret_key,
+            _RELOAD_STATE_WEB_USERS: {
+                sid: (user.long_name, user.short_name) for sid, user in self._web_users.items()
             },
-            daemon=True,
-        )
-        t.start()
+        }
+
+    def import_reload_state(self, state: dict) -> None:
+        """Adopts state exported by the server being replaced."""
+        secret_key: object = state.get(_RELOAD_STATE_SECRET_KEY)
+        if secret_key:
+            self._app.secret_key = secret_key
+        web_users: dict = state.get(_RELOAD_STATE_WEB_USERS, {}) or {}
+        for sid, names in web_users.items():
+            user: WebUser = WebUser(sid)
+            user.update(names[0], names[1])
+            self._web_users[sid] = user
 
     def update_iface(self, iface: MeshInterface, channel: channel_pb2.Channel) -> None:
         """Replaces the active interface and channel after a reconnect.

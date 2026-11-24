@@ -1,7 +1,16 @@
+import importlib
+import os
+import signal
+import threading
 import time
+import traceback
 
 from common.app_arguments import AppArguments
 from common.constants import (
+    _MSG_WEB_RELOAD_FAILED,
+    _WEB_RELOAD_PID_FILE,
+    _MSG_WEB_RELOAD_OK,
+    _MSG_WEB_RELOAD_REQUESTED,
     _MSG_NODE_INIT_APPLYING,
     _MSG_NODE_INIT_APPLIED,
     CHANNEL_NAME_PRIMARY,
@@ -48,6 +57,8 @@ from messaging.monitors.node_monitor import NodeMonitor
 from commands.user_commands import UserCommands
 from web.tile_cache import TileCache
 from web.web_server import WebServer
+import common.constants as _constants_module
+import web.web_server as _web_server_module
 import meshtastic.serial_interface
 from meshtastic import channel_pb2
 
@@ -206,6 +217,53 @@ def reconnect_device(iface: meshtastic.serial_interface.SerialInterface, args: A
             time.sleep(_RECONNECT_DELAY_SECONDS)
     return iface
 
+def _reload_web_server(current: WebServer, web_server_kwargs: dict) -> WebServer:
+    """Reloads the dashboard code and swaps in a new web server, in place.
+
+    Re-imports ``common.constants`` and ``web.web_server`` from disk, builds a
+    new server with the same live objects (radio interface, node database,
+    chat history, ...) and hands over browser sessions. The radio connection
+    and mesh monitors are untouched. If anything fails, the previous server
+    keeps (or resumes) serving and is returned.
+
+    Args:
+        current: The web server currently serving the dashboard.
+        web_server_kwargs: Constructor arguments reflecting the current
+                           interface, channel and configuration.
+
+    Returns:
+        The server now serving the dashboard (the new one on success).
+    """
+    result: WebServer = current
+    print(_MSG_WEB_RELOAD_REQUESTED)
+    replacement: WebServer | None = None
+    try:
+        importlib.reload(_constants_module)
+        reloaded_module = importlib.reload(_web_server_module)
+        replacement = reloaded_module.WebServer(**web_server_kwargs)
+        replacement.import_reload_state(current.export_reload_state())
+    except Exception as build_error:
+        print(_MSG_WEB_RELOAD_FAILED.format(error=build_error))
+        traceback.print_exc()
+        if replacement is not None:
+            replacement.detach()
+        replacement = None
+    if replacement is not None:
+        current.stop()
+        try:
+            replacement.start()
+            current.detach()
+            result = replacement
+            print(_MSG_WEB_RELOAD_OK)
+        except Exception as start_error:
+            print(_MSG_WEB_RELOAD_FAILED.format(error=start_error))
+            traceback.print_exc()
+            replacement.stop()
+            replacement.detach()
+            current.start()
+    return result
+
+
 def main() -> None:
     """Entry point for the DAMNBot application.
 
@@ -351,7 +409,9 @@ def main() -> None:
 
             tile_cache: TileCache = TileCache()
             tile_cache.start()
-            web_server = WebServer(
+            # Kept up to date on reconnect so a dashboard hot reload is built
+            # against the current radio interface/channel/config.
+            web_server_kwargs: dict = dict(
                 node_db=node_db,
                 iface=iface,
                 channel=secondary_channel if secondary_channel is not None else primary_channel,
@@ -367,7 +427,15 @@ def main() -> None:
                 console_logger=console_logger,
                 hide_secondary_channels=args.hide_secondary_channels,
             )
+            web_server = WebServer(**web_server_kwargs)
             web_server.start()
+
+            # `kill -USR1 <pid>` asks for a dashboard-only hot reload; the main
+            # loop below performs it so the radio and monitors keep running.
+            web_reload_requested: threading.Event = threading.Event()
+            signal.signal(signal.SIGUSR1, lambda signum, frame: web_reload_requested.set())
+            with open(_WEB_RELOAD_PID_FILE, "w", encoding="utf-8") as pid_file:
+                pid_file.write(str(os.getpid()))
 
             print(_MSG_BOT_STARTED.format(bot_name=args.bot_name, channel_name=args.channel))
             print(_MSG_STOP_APPLICATION)
@@ -384,6 +452,9 @@ def main() -> None:
                             disconnected = True
                         else:
                             node_db.maintain()
+                            if web_reload_requested.is_set():
+                                web_reload_requested.clear()
+                                web_server = _reload_web_server(web_server, web_server_kwargs)
                             current_time = time.time()
                             if secondary_channel is not None and current_time - last_checkin_time >= _CHECKIN_INTERVAL:
                                 if(bot_broadcaster is not None):
@@ -450,6 +521,7 @@ def main() -> None:
                             node_monitor.start()
 
                             web_server.update_iface(iface, secondary_channel)
+                            web_server_kwargs.update(iface=iface, channel=secondary_channel, config=config)
 
                             if args.verbose:
                                 print(_MSG_RECONNECT_SUCCESS)
@@ -458,6 +530,11 @@ def main() -> None:
 
             print(_MSG_CONNECTION_MONITOR_STOPPING)
             node_db.flush()
+            web_server.stop()
+            try:
+                os.remove(_WEB_RELOAD_PID_FILE)
+            except OSError:
+                pass
             zen_quotes_api.stop_polling()
             today_in_history_api.stop_polling()
             connection_monitor.stop()
