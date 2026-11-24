@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; Events</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="tih-page ev-page">
+    {% set active_page = 'events' %} {% include "partials/_header.html" %}
+
+    <main>
+      <section class="panel tih-calendar-panel">
+        <div class="panel-header ev-panel-header">
+          <span class="panel-header-text">&#127881; Events</span>
+          <div class="ev-header-actions">
+            <div class="ev-view-toggle" role="group" aria-label="View">
+              <button type="button" id="ev-view-calendar" class="ev-toggle-btn active" aria-pressed="true">&#128197; Calendar</button>
+              <button type="button" id="ev-view-agenda" class="ev-toggle-btn" aria-pressed="false">&#9776; Agenda</button>
+            </div>
+            <button type="button" id="ev-new-btn" class="ev-primary-btn">&#65291; New Event</button>
+          </div>
+        </div>
+        <div id="ev-load-error" class="ev-load-error" hidden></div>
+
+        <!-- Calendar view -->
+        <div id="ev-calendar-view" class="panel-body tih-layout">
+          <div class="tih-calendar-col">
+            <div class="tih-month-nav">
+              <button id="ev-prev-btn" class="tih-nav-btn" title="Previous month">&#8249;</button>
+              <span id="ev-month-label" class="tih-month-label">Loading&hellip;</span>
+              <button id="ev-next-btn" class="tih-nav-btn" title="Next month">&#8250;</button>
+            </div>
+            <div id="ev-calendar-grid" class="tih-calendar-grid">
+              <div class="tih-day-header">Sun</div>
+              <div class="tih-day-header">Mon</div>
+              <div class="tih-day-header">Tue</div>
+              <div class="tih-day-header">Wed</div>
+              <div class="tih-day-header">Thu</div>
+              <div class="tih-day-header">Fri</div>
+              <div class="tih-day-header">Sat</div>
+            </div>
+            <button type="button" id="ev-today-btn" class="ev-link-btn">Jump to today</button>
+          </div>
+          <div class="tih-events-col">
+            <div id="ev-day-header" class="tih-events-header">Select a date to see events</div>
+            <div id="ev-day-list" class="tih-events-list">
+              <p class="tih-events-empty">&#127881; Days with a dot have events. Pick one to see them.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agenda view -->
+        <div id="ev-agenda-view" class="panel-body ev-agenda" hidden>
+          <div class="tih-month-nav ev-agenda-nav">
+            <button id="ev-agenda-prev-btn" class="tih-nav-btn" title="Previous month">&#8249;</button>
+            <span id="ev-agenda-label" class="tih-month-label">Loading&hellip;</span>
+            <button id="ev-agenda-next-btn" class="tih-nav-btn" title="Next month">&#8250;</button>
+          </div>
+          <div id="ev-agenda-list" class="ev-agenda-list"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Event details -->
+    <dialog id="ev-detail-dialog" class="ev-dialog">
+      <div class="ev-dialog-inner">
+        <button type="button" class="ev-dialog-close" data-close aria-label="Close">&times;</button>
+        <div id="ev-detail-body"></div>
+      </div>
+    </dialog>
+
+    <!-- Create / edit form -->
+    <dialog id="ev-form-dialog" class="ev-dialog">
+      <form id="ev-form" class="ev-dialog-inner ev-form" novalidate>
+        <button type="button" class="ev-dialog-close" data-close aria-label="Close">&times;</button>
+        <h2 id="ev-form-title" class="ev-form-title">New Event</h2>
+        <p id="ev-form-error" class="ev-form-error" hidden></p>
+
+        <label class="ev-field">
+          <span>Event name <em>*</em></span>
+          <input type="text" name="name" maxlength="120" required />
+          <small class="ev-field-error" data-for="name"></small>
+        </label>
+
+        <label class="ev-field">
+          <span>Description</span>
+          <textarea name="description" rows="3" maxlength="2000" placeholder="What's happening? Links are clickable."></textarea>
+          <small class="ev-field-error" data-for="description"></small>
+        </label>
+
+        <div class="ev-field-row">
+          <label class="ev-field">
+            <span>Starts <em>*</em></span>
+            <input type="datetime-local" name="start_local" required />
+            <small class="ev-field-error" data-for="start"></small>
+          </label>
+          <label class="ev-field">
+            <span>Ends <em>*</em></span>
+            <input type="datetime-local" name="end_local" required />
+            <small class="ev-field-error" data-for="end"></small>
+          </label>
+        </div>
+
+        <fieldset class="ev-fieldset">
+          <legend>Location <em>*</em></legend>
+          <div class="ev-radio-row">
+            <label><input type="radio" name="location_type" value="physical" checked /> In person</label>
+            <label><input type="radio" name="location_type" value="online" /> Online</label>
+          </div>
+          <label class="ev-field" data-location="physical">
+            <span>Address</span>
+            <input type="text" name="location_address" maxlength="300" placeholder="123 Main St, Dayton, OH" />
+            <small class="ev-field-error" data-for="location_address"></small>
+          </label>
+          <label class="ev-field" data-location="online" hidden>
+            <span>Meeting link</span>
+            <input type="url" name="location_link" maxlength="300" placeholder="https://" />
+            <small class="ev-field-error" data-for="location_link"></small>
+          </label>
+          <small class="ev-field-error" data-for="location_type"></small>
+        </fieldset>
+
+        <label class="ev-field">
+          <span>Website</span>
+          <input type="url" name="website" maxlength="300" placeholder="https://" />
+          <small class="ev-field-error" data-for="website"></small>
+        </label>
+
+        <div class="ev-field">
+          <span>Picture</span>
+          <div class="ev-image-picker">
+            <img id="ev-form-image-preview" class="ev-form-image-preview" src="/images/event%20default.svg" alt="" />
+            <div class="ev-image-picker-actions">
+              <label class="ev-secondary-btn">
+                Choose picture&hellip;
+                <input type="file" id="ev-form-image" accept="image/*" hidden />
+              </label>
+              <button type="button" id="ev-form-image-remove" class="ev-link-btn" hidden>Remove picture</button>
+              <small class="ev-hint">Optional &mdash; a default picture is used if none is chosen.</small>
+            </div>
+          </div>
+          <small class="ev-field-error" data-for="image"></small>
+        </div>
+
+        <fieldset class="ev-fieldset">
+          <legend>Organizer contact</legend>
+          <div class="ev-field-row">
+            <label class="ev-field">
+              <span>Name</span>
+              <input type="text" name="contact_name" maxlength="300" />
+              <small class="ev-field-error" data-for="contact_name"></small>
+            </label>
+            <label class="ev-field">
+              <span>Signal handle</span>
+              <input type="text" name="contact_signal" maxlength="300" placeholder="name.01" />
+              <small class="ev-field-error" data-for="contact_signal"></small>
+            </label>
+          </div>
+          <div class="ev-field-row">
+            <label class="ev-field">
+              <span>Phone</span>
+              <input type="tel" name="contact_phone" maxlength="25" placeholder="(937) 555-0100" />
+              <small class="ev-field-error" data-for="contact_phone"></small>
+            </label>
+            <label class="ev-check">
+              <input type="checkbox" name="contact_phone_texts" value="1" />
+              Phone accepts text messages
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="ev-form-actions">
+          <button type="button" id="ev-form-delete" class="ev-danger-btn" hidden>Delete event</button>
+          <span class="ev-spacer"></span>
+          <button type="button" class="ev-secondary-btn" data-close>Cancel</button>
+          <button type="submit" id="ev-form-save" class="ev-primary-btn">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/static/events.js"></script>
+  </body>
+</html>

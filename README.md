@@ -173,6 +173,8 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
 | Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                                                                |
+| History   | `/history`  | Today in History calendar: pick a day to see historical events.                                                                            |
+| Events    | `/events`   | Community events calendar (calendar or agenda view) with a form to create/edit events and photo uploads while an event is happening.     |
 | Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                                                               |
 | Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window.                                    |
 | Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                                                   |
@@ -222,6 +224,15 @@ Outgoing messages are prefixed with `[SHORT]` on the mesh (e.g. `[WUSR] Hello me
 - Timestamps are shown in browser local time (HH:MM:SS).
 - Days are separated by a date line.
 - Channels are selectable via tabs.
+
+### Events
+
+The **Events** page (`/events`, next to History in the menu) lists community events on a month calendar or as an agenda; the chosen view is remembered per browser. Click a day to see its events and an event to see its details. Addresses open in maps, and websites, meeting links and links in the description are clickable; a phone number gets a call link and, if it accepts texts, a text link.
+
+- **New Event** / **Edit event** open a form: name, description, start and end, in-person address or online link, website, a picture, and organizer contact (name, Signal handle, phone, and whether the phone accepts texts). Events without a picture use a default image.
+- While an event is happening (between its start and end), its details show **Take a photo** (opens the device camera) and **Upload photos** (pick files). Photos are resized in the browser to 1600 px with a 400 px thumbnail; this also strips location (EXIF) data.
+- Share a single event with `/events?id=<event id>` (the **Copy link** button).
+- Anyone who can reach the dashboard can add, edit or delete events and upload photos — there is no login, the same as the rest of the dashboard.
 
 ### Network Access
 
@@ -282,12 +293,17 @@ common/
     encryption_helper.py        Encrypt/decrypt data files
     meshtastic_helper.py        Meshtastic utility helpers
     node_database.py            Node persistence
+    today_in_history_api.py     Today in History cache
 configuration/
     node_configuration.py       Node config loading
 data/
     nodes.json                  Persisted node database
     favorites.json              Persisted favourite nodes
     <channel_name>.txt          Chat history per channel
+    Events/
+        events.json             Events that have not ended yet
+        events_history.json     Events that have ended (moved here automatically)
+        images/<event id>/      Event picture and participant photos (+ thumbnails)
 messaging/
     bot_commands.py             Built-in command definitions
     bot_lifecycle_messenger.py  Welcome/check-in/signoff messages
@@ -298,14 +314,19 @@ messaging/
         channel_monitor.py      Channel message monitor
         dm_monitor.py           Direct message monitor
         node_monitor.py         Node announcement monitor
+tests/
+    test_events.py              Event store + Events API tests
+                                (run: .venv/bin/python -m unittest discover -s tests -t .)
 log/
     console_<timestamp>.log     Console output log (one per session, git-ignored)
 web/
     web_server.py               Flask web server
+    event_store.py              Event storage (encrypted JSON + images)
     static/
         app.js                  Shared JS module (nodes, channels, history)
         chat.js                 Page init for /chat
         console.js              Page init for /console (terminal polling)
+        events.js               Events page (calendar, agenda, form, photo uploads)
         nodes.js                Page init for /nodes
         style.css               Dashboard styles
     templates/
@@ -314,6 +335,7 @@ web/
         about.html              About page
         chat.html               Chat full-page view
         console.html            Console terminal page
+        events.html             Events page
         index.html              Dashboard page
         nodes.html              Nodes full-page view
 ```
@@ -324,7 +346,9 @@ web/
 
 Node records are stored in `data/nodes.json`. Chat history is stored per-channel as `data/<channel_name>.txt`. Favourites are stored in `data/favorites.json`.
 
-When an `EncryptionKey` is provided, all three files are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.
+Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). Each event's picture and participant photos are stored under `data/Events/images/<event id>/`.
+
+When an `EncryptionKey` is provided, all of these files (including event pictures and photos) are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.
 
 ---
 

@@ -3198,3 +3198,634 @@ body.tih-page main {
     width: 100%;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Events page (reuses the Today in History calendar layout)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ev-panel-header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.ev-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.ev-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ev-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.ev-toggle-btn + .ev-toggle-btn {
+  border-left: 1px solid var(--border);
+}
+
+.ev-toggle-btn.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ev-primary-btn,
+.ev-secondary-btn,
+.ev-danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--sans);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--accent);
+  transition: background 0.12s, opacity 0.12s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ev-primary-btn {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.ev-primary-btn:hover {
+  opacity: 0.88;
+}
+
+.ev-primary-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.ev-secondary-btn {
+  background: transparent;
+  color: var(--accent);
+}
+
+.ev-secondary-btn:hover {
+  background: var(--accent-dim);
+}
+
+.ev-danger-btn {
+  background: transparent;
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.ev-danger-btn:hover {
+  background: rgba(248, 81, 73, 0.12);
+}
+
+.ev-link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  align-self: flex-start;
+}
+
+.ev-link-btn:hover {
+  text-decoration: underline;
+}
+
+.ev-load-error {
+  margin: 12px 16px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  color: var(--error);
+  font-size: 13px;
+}
+
+/* ── Calendar cells (buttons) ───────────────────────────────────────────── */
+.ev-day-cell {
+  background: transparent;
+  font-family: var(--sans);
+  color: inherit;
+}
+
+.tih-day-cell.ev-day-cell:not(.has-data) {
+  opacity: 0.55;
+}
+
+.ev-day-cell.is-today {
+  border-color: var(--border);
+}
+
+.ev-day-cell.is-today .tih-day-num {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ev-day-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--success);
+  font-weight: 700;
+}
+
+.ev-day-cell.has-active .tih-day-dot {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* ── Event card ─────────────────────────────────────────────────────────── */
+.ev-card {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  width: 100%;
+  text-align: left;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  color: var(--text);
+  font-family: var(--sans);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.ev-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.ev-card-past {
+  opacity: 0.7;
+}
+
+.ev-card-active {
+  border-color: var(--accent);
+}
+
+.ev-card-thumb {
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.ev-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ev-card-title-row,
+.ev-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ev-card-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ev-card-meta {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev-status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+}
+
+.ev-status-upcoming {
+  color: var(--muted);
+}
+
+.ev-status-active {
+  color: var(--accent);
+}
+
+.ev-status-past {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+/* ── Agenda ─────────────────────────────────────────────────────────────── */
+.ev-agenda {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 520px;
+}
+
+.ev-agenda-nav {
+  max-width: 360px;
+}
+
+.ev-agenda-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ev-agenda-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ev-agenda-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Dialogs ────────────────────────────────────────────────────────────── */
+.ev-dialog {
+  margin: auto;
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.ev-dialog::backdrop {
+  background: rgba(1, 4, 9, 0.75);
+}
+
+.ev-dialog-inner {
+  position: relative;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ev-dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: var(--surface);
+  border: none;
+  color: var(--muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
+.ev-dialog-close:hover {
+  color: var(--text);
+}
+
+#ev-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ev-detail-hero.is-default img {
+  max-height: 160px;
+  object-fit: contain;
+  background: var(--surface);
+}
+
+.ev-detail-hero img {
+  display: block;
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--surface2);
+}
+
+.ev-detail-title {
+  font-size: 20px;
+  margin: 0;
+}
+
+.ev-detail-rows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  font-size: 13px;
+}
+
+.ev-detail-rows dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.ev-detail-rows dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ev-detail-description {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.ev-link {
+  color: var(--accent);
+}
+
+.ev-muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ev-mono {
+  font-family: var(--mono);
+}
+
+/* ── Photos ─────────────────────────────────────────────────────────────── */
+.ev-photos {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ev-photos h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+
+.ev-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed var(--accent);
+  border-radius: 6px;
+  background: var(--accent-dim);
+}
+
+.ev-upload-intro {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ev-upload-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ev-upload-status {
+  font-size: 12px;
+  color: var(--success);
+  min-height: 1em;
+}
+
+.ev-error-text,
+.ev-upload-status.ev-error-text {
+  color: var(--error);
+}
+
+.ev-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+}
+
+.ev-gallery img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--surface2);
+}
+
+/* ── Form ───────────────────────────────────────────────────────────────── */
+.ev-form-title {
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.ev-form-error {
+  color: var(--error);
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.ev-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.ev-field em,
+.ev-fieldset legend em {
+  color: var(--error);
+  font-style: normal;
+}
+
+.ev-field-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ev-upload-name,
+.ev-field input[type="text"],
+.ev-field input[type="url"],
+.ev-field input[type="tel"],
+.ev-field input[type="datetime-local"],
+.ev-field textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 7px 9px;
+  font-size: 14px;
+  font-family: var(--sans);
+  font-weight: normal;
+  color-scheme: dark;
+}
+
+.ev-field textarea {
+  resize: vertical;
+}
+
+.ev-upload-name:focus,
+.ev-field input:focus,
+.ev-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.ev-field-error {
+  color: var(--error);
+  font-weight: normal;
+  min-height: 0;
+}
+
+.ev-field-error:empty {
+  display: none;
+}
+
+.ev-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ev-fieldset legend {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 6px;
+}
+
+.ev-radio-row {
+  display: flex;
+  gap: 18px;
+  font-size: 13px;
+}
+
+.ev-radio-row label,
+.ev-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ev-check {
+  flex: 1;
+  padding-top: 22px;
+}
+
+.ev-field[hidden] {
+  display: none;
+}
+
+.ev-image-picker {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.ev-form-image-preview {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.ev-image-picker-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.ev-hint {
+  font-weight: normal;
+  color: var(--muted);
+}
+
+.ev-form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.ev-spacer {
+  flex: 1;
+}
+
+@media (max-width: 700px) {
+  .ev-field-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ev-check {
+    padding-top: 0;
+  }
+
+  .ev-card-thumb {
+    width: 72px;
+    height: 56px;
+  }
+
+  .ev-dialog-inner {
+    padding: 16px;
+  }
+}
+
+/* Classes above set display:flex; make sure the hidden attribute still wins. */
+.ev-page [hidden] {
+  display: none !important;
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+import importlib
 import json
 import logging
 import os
@@ -77,12 +78,25 @@ from common.constants import (
     _ZEN_QUOTES_KEY_AUTHOR,
     _ZEN_QUOTES_KEY_QUOTE,
 )
+from common.constants import (
+    _EVENTS_MAX_IMAGE_BYTES,
+    _EVENTS_MAX_PHOTOS_PER_UPLOAD,
+    _EVENTS_MAX_UPLOAD_BYTES,
+    _EVENTS_STATUS_ACTIVE,
+    _EVENTS_SUBDIR,
+    _EVENTS_UPLOADER_MAX_LEN,
+)
 from common.encryption_helper import EncryptionHelper
 from common.meshtastic_helper import MeshtasticHelper
 from common.node_database import NodeDatabase
 from configuration.node_configuration import NodeConfiguration
 from messaging.command_register import CommandRegister
 from web.tile_cache import TileCache
+import web.event_store as _event_store_module
+
+# Re-read the event store from disk whenever this module is (hot) reloaded.
+importlib.reload(_event_store_module)
+from web.event_store import EventStore, EventStoreError  # noqa: E402  (after the reload on purpose)
 
 _dm_response_tl: threading.local = threading.local()
 
@@ -235,6 +249,7 @@ class WebServer:
     _passphrase: str | None
     _fernet_key: bytes | None
     _favorites: set[str]
+    _event_store: EventStore
     _pending_web_traces: dict[str, tuple[dict, float]]
     _port: int
     _tile_cache: TileCache
@@ -314,6 +329,7 @@ class WebServer:
             passphrase, os.path.join(data_dir, _NODE_DB_SALT_FILE)
         ) if passphrase else None
         self._favorites = self._load_favorites()
+        self._event_store = EventStore(os.path.join(data_dir, _EVENTS_SUBDIR), self._fernet_key)
         self._pending_web_traces = {}
         self._chat_history = chat_history
         self._console_logger = console_logger
@@ -346,6 +362,7 @@ class WebServer:
         # static JS/CSS, so front-end changes need no reload at all.
         self._app.config["TEMPLATES_AUTO_RELOAD"] = True
         self._app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+        self._app.config["MAX_CONTENT_LENGTH"] = _EVENTS_MAX_UPLOAD_BYTES
         self._app.jinja_env.auto_reload = True
         self._http_server = None
         self._server_thread = None
@@ -621,6 +638,71 @@ class WebServer:
             True if valid, False otherwise.
         """
         return 1 <= len(name) <= _WEB_USER_LONG_NAME_MAX_LEN
+
+    def _read_upload(self, field: str) -> tuple[bytes | None, str | None]:
+        """Reads one uploaded image from the current multipart request.
+
+        Args:
+            field: The form field name of the file.
+
+        Returns:
+            ``(data, error)``: ``data`` is None when no file was sent or it was
+            rejected; ``error`` explains a rejection.
+        """
+        data: bytes | None = None
+        error: str | None = None
+        upload = request.files.get(field)
+        if upload is not None and upload.filename is not None:
+            raw: bytes = upload.read(_EVENTS_MAX_IMAGE_BYTES + 1)
+            if not raw:
+                pass
+            elif len(raw) > _EVENTS_MAX_IMAGE_BYTES:
+                error = f"Image is larger than {_EVENTS_MAX_IMAGE_BYTES // (1024 * 1024)} MB."
+            elif EventStore.detect_image_type(raw) is None:
+                error = "Only JPEG, PNG, GIF or WebP images are accepted."
+            else:
+                data = raw
+        return data, error
+
+    def _save_event_from_request(self, event_id: str | None):
+        """Creates (event_id None) or updates an event from a multipart form post.
+
+        The form carries the event fields plus optional ``image`` and
+        ``image_thumb`` files and an optional ``remove_image`` flag.
+        """
+        clean, errors = EventStore.validate(request.form.to_dict())
+        image, image_error = self._read_upload("image")
+        thumb, thumb_error = self._read_upload("image_thumb")
+        if image_error or thumb_error:
+            errors["image"] = image_error or thumb_error
+        if image is not None and thumb is None:
+            thumb = image
+        remove_image: bool = request.form.get("remove_image", "") in ("1", "true", "on")
+        response = None
+        if errors:
+            response = (jsonify({"error": "Please fix the highlighted fields.", "fields": errors}), 400)
+        else:
+            try:
+                event: dict | None
+                if event_id is None:
+                    event = self._event_store.create(clean, has_image=image is not None)
+                elif image is not None:
+                    event = self._event_store.update(event_id, clean, has_image=True)
+                elif remove_image:
+                    event = self._event_store.update(event_id, clean, has_image=False)
+                else:
+                    event = self._event_store.update(event_id, clean)
+                if event is None:
+                    response = (jsonify({"error": "Event not found."}), 404)
+                else:
+                    if image is not None and thumb is not None:
+                        self._event_store.save_cover(event["id"], image, thumb)
+                    elif remove_image:
+                        self._event_store.remove_cover(event["id"])
+                    response = (jsonify(event), 201 if event_id is None else 200)
+            except EventStoreError as exc:
+                response = (jsonify({"error": str(exc)}), 503)
+        return response
 
     def _register_routes(self) -> None:
         """Registers all URL routes on the Flask application."""
@@ -1004,6 +1086,98 @@ class WebServer:
                     pass
             events = WebServer._sort_events_newest_first(events)
             return jsonify({"events": events, "month": month, "day": day})
+
+        @self._app.route("/events")
+        def events_page():
+            return render_template("events.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
+        @self._app.errorhandler(413)
+        def too_large(_error):
+            limit_mb: int = _EVENTS_MAX_UPLOAD_BYTES // (1024 * 1024)
+            return jsonify({"error": f"Upload is too large (limit {limit_mb} MB per request)."}), 413
+
+        @self._app.route("/api/events", methods=["GET"])
+        def api_events_list():
+            try:
+                return jsonify({"events": self._event_store.list_events()})
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc), "events": []}), 503
+
+        @self._app.route("/api/events", methods=["POST"])
+        def api_events_create():
+            return self._save_event_from_request(None)
+
+        @self._app.route("/api/events/<event_id>", methods=["GET"])
+        def api_event_get(event_id: str):
+            event: dict | None = None
+            if EventStore.is_valid_id(event_id):
+                try:
+                    event = self._event_store.get(event_id)
+                except EventStoreError as exc:
+                    return jsonify({"error": str(exc)}), 503
+            if event is None:
+                return jsonify({"error": "Event not found."}), 404
+            return jsonify(event)
+
+        @self._app.route("/api/events/<event_id>", methods=["PUT"])
+        def api_event_update(event_id: str):
+            if not EventStore.is_valid_id(event_id):
+                return jsonify({"error": "Event not found."}), 404
+            return self._save_event_from_request(event_id)
+
+        @self._app.route("/api/events/<event_id>", methods=["DELETE"])
+        def api_event_delete(event_id: str):
+            try:
+                found: bool = EventStore.is_valid_id(event_id) and self._event_store.delete(event_id)
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc)}), 503
+            if not found:
+                return jsonify({"error": "Event not found."}), 404
+            return jsonify({"ok": True})
+
+        @self._app.route("/api/events/<event_id>/photos", methods=["POST"])
+        def api_event_photos(event_id: str):
+            try:
+                event: dict | None = self._event_store.get(event_id) if EventStore.is_valid_id(event_id) else None
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc)}), 503
+            if event is None:
+                return jsonify({"error": "Event not found."}), 404
+            if event.get("status") != _EVENTS_STATUS_ACTIVE:
+                return jsonify({"error": "Photos can only be added while the event is happening."}), 409
+            photos = request.files.getlist("photo")
+            thumbs = request.files.getlist("thumb")
+            if not photos:
+                return jsonify({"error": "No photos were sent."}), 400
+            if len(photos) > _EVENTS_MAX_PHOTOS_PER_UPLOAD:
+                return jsonify({"error": f"Send at most {_EVENTS_MAX_PHOTOS_PER_UPLOAD} photos at a time."}), 400
+            uploader: str = str(request.form.get("uploader", "")).strip()[:_EVENTS_UPLOADER_MAX_LEN]
+            added: list[dict] = []
+            rejected: int = 0
+            for index, photo in enumerate(photos):
+                full: bytes = photo.read(_EVENTS_MAX_IMAGE_BYTES + 1)
+                thumb: bytes = thumbs[index].read(_EVENTS_MAX_IMAGE_BYTES + 1) if index < len(thumbs) else b""
+                if not thumb or EventStore.detect_image_type(thumb) is None:
+                    thumb = full
+                if len(full) > _EVENTS_MAX_IMAGE_BYTES or EventStore.detect_image_type(full) is None:
+                    rejected += 1
+                    continue
+                record: dict | None = self._event_store.add_photo(event_id, uploader, full, thumb)
+                if record is not None:
+                    added.append(record)
+            status_code: int = 201 if added else 400
+            return jsonify({"added": added, "rejected": rejected}), status_code
+
+        @self._app.route("/events/<event_id>/image/<name>")
+        def event_image(event_id: str, name: str):
+            data: bytes | None = self._event_store.read_image(event_id, name)
+            mime: str | None = EventStore.detect_image_type(data) if data else None
+            if data is None or mime is None:
+                abort(404)
+            response: Response = Response(data, mimetype=mime)
+            response.headers["Cache-Control"] = "private, max-age=300"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            return response
 
         @self._app.route("/dm")
         def dm():

@@ -547,3 +547,29 @@ _TODAY_IN_HISTORY_KEY_WIKIPEDIA: str = "wikipedia"
 _TODAY_IN_HISTORY_API_FAILED_CONSOLE: str = "[BOT] Today in History API unavailable for {month}/{day}."
 _TODAY_IN_HISTORY_SAVED_CONSOLE: str = "[BOT] Today in History: {count} event(s) saved for {month}/{day}."
 # endregion Today in History API
+
+# region Events
+_EVENTS_SUBDIR: str = "Events"
+_EVENTS_FILE: str = "events.json"
+_EVENTS_HISTORY_FILE: str = "events_history.json"
+_EVENTS_IMAGES_SUBDIR: str = "images"
+_EVENTS_COVER_NAME: str = "cover"
+_EVENTS_THUMB_SUFFIX: str = "_thumb"
+_EVENTS_IMAGE_EXT: str = ".img"
+_EVENTS_MAX_UPLOAD_BYTES: int = 40 * 1024 * 1024
+_EVENTS_MAX_IMAGE_BYTES: int = 15 * 1024 * 1024
+_EVENTS_MAX_PHOTOS_PER_UPLOAD: int = 20
+_EVENTS_NAME_MAX_LEN: int = 120
+_EVENTS_TEXT_MAX_LEN: int = 2000
+_EVENTS_FIELD_MAX_LEN: int = 300
+_EVENTS_UPLOADER_MAX_LEN: int = 40
+_EVENTS_LOCATION_PHYSICAL: str = "physical"
+_EVENTS_LOCATION_ONLINE: str = "online"
+_EVENTS_STATUS_UPCOMING: str = "upcoming"
+_EVENTS_STATUS_ACTIVE: str = "active"
+_EVENTS_STATUS_PAST: str = "past"
+_EVENTS_DECRYPTION_ERROR: str = (
+    "[EVENTS] Failed to decrypt {file}. "
+    "Verify that --EncryptionKey matches the value used when the file was created."
+)
+# endregion Events

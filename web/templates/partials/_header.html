@@ -28,6 +28,7 @@
     Chat
   </a>
   <a href="/history" class="nav-link{% if active_page == 'history' %} active{% endif %}">&#128197; History</a>
+  <a href="/events" class="nav-link{% if active_page == 'events' %} active{% endif %}">&#127881; Events</a>
   {% set _admin_active = active_page in ['settings', 'console', 'dm', 'about'] %}
   <div class="nav-dropdown{% if _admin_active %} admin-active{% endif %}">
     <button class="nav-dropdown-trigger{% if _admin_active %} active{% endif %}" aria-haspopup="true">&#9881; Administration &#9662;</button>
