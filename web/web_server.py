@@ -376,6 +376,21 @@ class WebServer:
     # endregion Public Functions
 
     # region Protected Functions
+    @staticmethod
+    def _sort_events_newest_first(events: list[dict]) -> list[dict]:
+        """Sorts Today in History events by year, most recent first.
+
+        Years are numeric strings (negative for BC). Events with a missing or
+        non-numeric year are placed at the end, keeping their original order.
+        """
+        def year_key(event: dict) -> tuple[int, int]:
+            year_text: str = str(event.get("year", "")).strip()
+            result: tuple[int, int] = (1, 0)
+            if year_text.lstrip("-").isdigit():
+                result = (0, -int(year_text))
+            return result
+        return sorted(events, key=year_key)
+
     def _read_random_cache_item(self, path: str) -> object | None:
         """Reads a JSON array from a cache file and returns a randomly selected element.
 
@@ -680,6 +695,7 @@ class WebServer:
                         ]
                 except Exception:
                     pass
+            events = WebServer._sort_events_newest_first(events)
             return jsonify({"events": events, "month": local_month, "day": local_day})
 
         @self._app.route("/api/joy")
@@ -935,6 +951,7 @@ class WebServer:
                         ]
                 except Exception:
                     pass
+            events = WebServer._sort_events_newest_first(events)
             return jsonify({"events": events, "month": month, "day": day})
 
         @self._app.route("/dm")
