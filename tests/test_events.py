@@ -206,8 +206,21 @@ class EventStoreTests(unittest.TestCase):
 
 
 class EventsApiTests(unittest.TestCase):
+    PASSCODE: str = "open sesame"
+
+    def _write_config(self, passcode: str | None) -> None:
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            f.write("[meshbot]\nbot_name = TestBot\n")
+            if passcode is not None:
+                f.write(f"EventsPasscode = {passcode}\n")
+
+    def _sign_in(self, passcode: str | None = None, client=None):
+        return (client or self.client).post("/api/events/auth", json={"passcode": passcode if passcode is not None else self.PASSCODE})
+
     def setUp(self) -> None:
         self.dir: str = tempfile.mkdtemp()
+        self.config_path: str = os.path.join(self.dir, "meshbot.config")
+        self._write_config(self.PASSCODE)
         channel = channel_pb2.Channel()
         channel.settings.name = "Test"
         channel.index = 1
@@ -220,8 +233,10 @@ class EventsApiTests(unittest.TestCase):
             tile_cache=MagicMock(),
             data_dir=self.dir,
             passphrase="test-passphrase",
+            config_file=self.config_path,
         )
         self.client = self.server._app.test_client()
+        self.assertEqual(self._sign_in().status_code, 200)
 
     def tearDown(self) -> None:
         shutil.rmtree(self.dir, ignore_errors=True)
@@ -341,6 +356,66 @@ class EventsApiTests(unittest.TestCase):
         path: str = os.path.join(self.dir, _EVENTS_SUBDIR, _EVENTS_FILE)
         with open(path, encoding="utf-8") as f:
             self.assertNotIn("Secret Picnic", f.read())
+
+
+class EventsAuthTests(EventsApiTests):
+    """Organizer passcode protection. Inherits the API tests' setup (signed in)."""
+
+    def test_status_reports_signed_in(self) -> None:
+        self.assertEqual(self.client.get("/api/events/auth").get_json(), {"enabled": True, "editor": True})
+
+    def test_visitors_cannot_change_events(self) -> None:
+        ev: dict = self._post("/api/events", _fields(start=_iso(-1), end=_iso(1))).get_json()
+        visitor = self.server._app.test_client()
+        self.assertEqual(visitor.get("/api/events/auth").get_json(), {"enabled": True, "editor": False})
+        for res in (
+            visitor.post("/api/events", data=_fields(), content_type="multipart/form-data"),
+            visitor.put(f"/api/events/{ev['id']}", data=_fields(name="Hacked"), content_type="multipart/form-data"),
+            visitor.delete(f"/api/events/{ev['id']}"),
+        ):
+            self.assertEqual(res.status_code, 403)
+            self.assertTrue(res.get_json()["auth_required"])
+        self.assertEqual(self.client.get(f"/api/events/{ev['id']}").get_json()["name"], "Mesh Meetup")
+        # Viewing and photo uploads stay open to everyone.
+        self.assertEqual(visitor.get("/api/events").status_code, 200)
+        res = visitor.post(f"/api/events/{ev['id']}/photos", data={"photo": (io.BytesIO(JPEG), "p.jpg")}, content_type="multipart/form-data")
+        self.assertEqual(res.status_code, 201)
+
+    def test_wrong_passcode_and_lockout(self) -> None:
+        visitor = self.server._app.test_client()
+        for _ in range(5):
+            self.assertEqual(self._sign_in("nope", visitor).status_code, 401)
+        res = self._sign_in(client=visitor)
+        self.assertEqual(res.status_code, 429, "locked out even with the right passcode")
+        self.assertIn("Too many", res.get_json()["error"])
+        self.assertFalse(visitor.get("/api/events/auth").get_json()["editor"])
+
+    def test_sign_out(self) -> None:
+        self.assertFalse(self.client.delete("/api/events/auth").get_json()["editor"])
+        self.assertEqual(self._post("/api/events", _fields()).status_code, 403)
+
+    def test_changing_passcode_signs_everyone_out(self) -> None:
+        self._write_config("new passcode")
+        self.assertFalse(self.client.get("/api/events/auth").get_json()["editor"])
+        self.assertEqual(self._post("/api/events", _fields()).status_code, 403)
+        self.assertEqual(self._sign_in("new passcode").status_code, 200)
+        self.assertEqual(self._post("/api/events", _fields()).status_code, 201)
+
+    def test_no_passcode_turns_editing_off(self) -> None:
+        self._write_config(None)
+        self.assertEqual(self.client.get("/api/events/auth").get_json(), {"enabled": False, "editor": False})
+        self.assertEqual(self._sign_in().status_code, 503)
+        res = self._post("/api/events", _fields())
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("EventsPasscode", res.get_json()["error"])
+
+    def test_missing_config_file_turns_editing_off(self) -> None:
+        os.remove(self.config_path)
+        self.assertEqual(self.client.get("/api/events/auth").get_json()["enabled"], False)
+
+    def test_session_cookie_is_samesite_lax(self) -> None:
+        res = self._sign_in(client=self.server._app.test_client())
+        self.assertIn("SameSite=Lax", res.headers.get("Set-Cookie", ""))
 
 
 if __name__ == "__main__":

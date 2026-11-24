@@ -19,7 +19,8 @@
               <button type="button" id="ev-view-calendar" class="ev-toggle-btn active" aria-pressed="true">&#128197; Calendar</button>
               <button type="button" id="ev-view-agenda" class="ev-toggle-btn" aria-pressed="false">&#9776; Agenda</button>
             </div>
-            <button type="button" id="ev-new-btn" class="ev-primary-btn">&#65291; New Event</button>
+            <button type="button" id="ev-auth-btn" class="ev-secondary-btn" hidden>&#128274; Organizer sign-in</button>
+            <button type="button" id="ev-new-btn" class="ev-primary-btn" hidden>&#65291; New Event</button>
           </div>
         </div>
         <div id="ev-load-error" class="ev-load-error" hidden></div>
@@ -176,6 +177,25 @@
           <span class="ev-spacer"></span>
           <button type="button" class="ev-secondary-btn" data-close>Cancel</button>
           <button type="submit" id="ev-form-save" class="ev-primary-btn">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Organizer sign-in -->
+    <dialog id="ev-auth-dialog" class="ev-dialog ev-auth-dialog">
+      <form id="ev-auth-form" class="ev-dialog-inner" novalidate>
+        <button type="button" class="ev-dialog-close" data-close aria-label="Close">&times;</button>
+        <h2 class="ev-form-title">&#128274; Organizer sign-in</h2>
+        <p class="ev-muted">Enter the organizer passcode to add, edit or delete events. You stay signed in until you close the browser or sign out.</p>
+        <label class="ev-field">
+          <span>Passcode</span>
+          <input type="password" name="passcode" autocomplete="current-password" required />
+        </label>
+        <p id="ev-auth-error" class="ev-form-error" hidden></p>
+        <div class="ev-form-actions">
+          <span class="ev-spacer"></span>
+          <button type="button" class="ev-secondary-btn" data-close>Cancel</button>
+          <button type="submit" id="ev-auth-submit" class="ev-primary-btn">Sign in</button>
         </div>
       </form>
     </dialog>

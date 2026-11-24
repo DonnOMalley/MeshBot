@@ -568,6 +568,14 @@ _EVENTS_LOCATION_ONLINE: str = "online"
 _EVENTS_STATUS_UPCOMING: str = "upcoming"
 _EVENTS_STATUS_ACTIVE: str = "active"
 _EVENTS_STATUS_PAST: str = "past"
+_EVENTS_PASSCODE_CONFIG_KEY: str = "EventsPasscode"
+_EVENTS_SESSION_EDITOR_KEY: str = "events_editor"
+_EVENTS_AUTH_MAX_FAILURES: int = 5
+_EVENTS_AUTH_WINDOW_SECONDS: float = 900.0
+_EVENTS_AUTH_REQUIRED: str = "Organizer sign-in required to add, edit or delete events."
+_EVENTS_AUTH_DISABLED: str = "Event editing is turned off. Set EventsPasscode in meshbot.config to turn it on."
+_EVENTS_AUTH_WRONG: str = "That passcode is not right."
+_EVENTS_AUTH_LOCKED: str = "Too many wrong passcodes. Try again in {minutes} minute(s)."
 _EVENTS_DECRYPTION_ERROR: str = (
     "[EVENTS] Failed to decrypt {file}. "
     "Verify that --EncryptionKey matches the value used when the file was created."

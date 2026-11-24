@@ -23,6 +23,8 @@ let _evEditing = null; // event being edited, or null for a new one
 let _evFormImage = null; // { full: Blob, thumb: Blob } chosen in the form
 let _evFormRemoveImage = false;
 let _evPreviewUrl = null;
+let _evAuth = { enabled: false, editor: false };
+let _evAfterSignIn = null; // action to run once the organizer signs in
 
 // ── Initialisation ──────────────────────────────────────────────────────────
 
@@ -37,7 +39,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("ev-today-btn").addEventListener("click", _evGoToday);
   document.getElementById("ev-view-calendar").addEventListener("click", () => _evSetView("calendar"));
   document.getElementById("ev-view-agenda").addEventListener("click", () => _evSetView("agenda"));
-  document.getElementById("ev-new-btn").addEventListener("click", () => _evOpenForm(null));
+  document.getElementById("ev-new-btn").addEventListener("click", () => _evRequireSignIn(() => _evOpenForm(null)));
+  document.getElementById("ev-auth-btn").addEventListener("click", _evAuthButtonClick);
+  document.getElementById("ev-auth-form").addEventListener("submit", _evSubmitSignIn);
+  document.getElementById("ev-auth-dialog").addEventListener("close", () => {
+    _evAfterSignIn = null;
+  });
 
   document.querySelectorAll("dialog [data-close]").forEach((btn) => btn.addEventListener("click", () => btn.closest("dialog").close()));
   document.querySelectorAll("dialog.ev-dialog").forEach((dlg) => {
@@ -60,6 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   _evSetView(savedView === "agenda" ? "agenda" : "calendar");
 
+  _evLoadAuth();
   _evLoad().then(() => {
     const wanted = new URLSearchParams(location.search).get("id");
     if (wanted) {
@@ -76,6 +84,87 @@ document.addEventListener("DOMContentLoaded", () => {
 // Called by the header's Refresh button.
 function refreshAll() {
   _evLoad();
+}
+
+// ── Organizer sign-in ───────────────────────────────────────────────────────
+
+async function _evLoadAuth() {
+  try {
+    const res = await fetch("/api/events/auth");
+    if (res.ok) _evAuth = await res.json();
+  } catch (_) {
+    /* keep current state */
+  }
+  _evApplyAuth();
+}
+
+function _evApplyAuth() {
+  const authBtn = document.getElementById("ev-auth-btn");
+  authBtn.hidden = !_evAuth.enabled;
+  authBtn.textContent = _evAuth.editor ? "🔓 Organizer · Sign out" : "🔒 Organizer sign-in";
+  authBtn.title = _evAuth.editor ? "Signed in as an organizer. Click to sign out." : "Sign in to add, edit or delete events.";
+  // Visitors can press "New Event" / "Edit" and are asked to sign in first.
+  document.getElementById("ev-new-btn").hidden = !_evAuth.enabled;
+  document.querySelectorAll("[data-editor-only]").forEach((el) => (el.hidden = !_evAuth.enabled));
+}
+
+async function _evAuthButtonClick() {
+  if (_evAuth.editor) {
+    try {
+      const res = await fetch("/api/events/auth", { method: "DELETE" });
+      if (res.ok) _evAuth = await res.json();
+    } catch (_) {
+      /* ignore */
+    }
+    _evApplyAuth();
+  } else {
+    _evRequireSignIn(null);
+  }
+}
+
+// Runs action now if signed in; otherwise asks for the passcode and runs it after.
+function _evRequireSignIn(action, message) {
+  if (_evAuth.editor && action) {
+    action();
+    return;
+  }
+  const form = document.getElementById("ev-auth-form");
+  form.reset();
+  const err = document.getElementById("ev-auth-error");
+  err.hidden = !message;
+  err.textContent = message || "";
+  const dlg = document.getElementById("ev-auth-dialog");
+  if (!dlg.open) dlg.showModal();
+  _evAfterSignIn = action;
+  form.elements.passcode.focus();
+}
+
+async function _evSubmitSignIn(e) {
+  e.preventDefault();
+  const form = e.target;
+  const err = document.getElementById("ev-auth-error");
+  const btn = document.getElementById("ev-auth-submit");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/events/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode: form.elements.passcode.value }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Sign-in failed.");
+    _evAuth = data;
+    _evApplyAuth();
+    const action = _evAfterSignIn;
+    document.getElementById("ev-auth-dialog").close();
+    if (action) action();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.hidden = false;
+    form.elements.passcode.select();
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ── Data ────────────────────────────────────────────────────────────────────
@@ -259,8 +348,9 @@ function _evRenderDay() {
   list.innerHTML = "";
   if (!dayEvents.length) {
     list.appendChild(_el("p", { class: "tih-events-empty" }, "No events on this day."));
-    const add = _el("button", { type: "button", class: "ev-link-btn" }, "+ Add an event on this day");
-    add.addEventListener("click", () => _evOpenForm(null, date));
+    const add = _el("button", { type: "button", class: "ev-link-btn", "data-editor-only": "" }, "+ Add an event on this day");
+    add.hidden = !_evAuth.enabled;
+    add.addEventListener("click", () => _evRequireSignIn(() => _evOpenForm(null, date)));
     list.appendChild(add);
     return;
   }
@@ -422,11 +512,14 @@ function _evRenderDetail(ev) {
       prompt("Copy this link:", url);
     }
   });
-  const edit = _el("button", { type: "button", class: "ev-primary-btn" }, "✎ Edit event");
-  edit.addEventListener("click", () => {
-    document.getElementById("ev-detail-dialog").close();
-    _evOpenForm(ev);
-  });
+  const edit = _el("button", { type: "button", class: "ev-primary-btn", "data-editor-only": "" }, "✎ Edit event");
+  edit.hidden = !_evAuth.enabled;
+  edit.addEventListener("click", () =>
+    _evRequireSignIn(() => {
+      document.getElementById("ev-detail-dialog").close();
+      _evOpenForm(ev);
+    })
+  );
   actions.appendChild(share);
   actions.appendChild(_el("span", { class: "ev-spacer" }));
   actions.appendChild(edit);
@@ -673,6 +766,13 @@ async function _evSubmitForm(e) {
     const url = _evEditing ? `/api/events/${_evEditing.id}` : "/api/events";
     const res = await fetch(url, { method: _evEditing ? "PUT" : "POST", body: data });
     const result = await res.json().catch(() => ({}));
+    if (res.status === 403 && result.auth_required) {
+      _evAuth.editor = false;
+      _evApplyAuth();
+      // Keep the form open; once signed in, save again automatically.
+      _evRequireSignIn(() => document.getElementById("ev-form").requestSubmit(), result.error);
+      throw new Error(result.error);
+    }
     if (!res.ok) {
       Object.entries(result.fields || {}).forEach(([field, msg]) => _evFieldError(field, msg));
       throw new Error(result.error || "Could not save the event.");
@@ -701,6 +801,11 @@ async function _evDeleteEvent() {
   try {
     const res = await fetch(`/api/events/${_evEditing.id}`, { method: "DELETE" });
     const result = await res.json().catch(() => ({}));
+    if (res.status === 403 && result.auth_required) {
+      _evAuth.editor = false;
+      _evApplyAuth();
+      _evRequireSignIn(null, result.error);
+    }
     if (!res.ok) throw new Error(result.error || "Could not delete the event.");
     document.getElementById("ev-form-dialog").close();
     await _evLoad();

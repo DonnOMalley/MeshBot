@@ -47,6 +47,11 @@ NodeRetentionDays = 30
 ; All nodes sharing history files must use the same key.
 EncryptionKey    =
 
+; Passcode organizers enter on the Events page to add, edit or delete events.
+; Leave blank (or remove) to turn event editing off. Viewing events and
+; uploading photos during an event never need it. Changes apply right away.
+EventsPasscode   =
+
 ; Print extra diagnostic output to the console.
 Verbose          = false
 

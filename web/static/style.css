@@ -3543,6 +3543,25 @@ body.tih-page main {
   background: var(--surface2);
 }
 
+.ev-auth-dialog {
+  width: min(400px, calc(100vw - 24px));
+}
+
+.ev-auth-dialog .ev-field input[type="password"] {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 7px 9px;
+  font-size: 14px;
+}
+
+.ev-auth-dialog .ev-field input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .ev-detail-title {
   font-size: 20px;
   margin: 0;

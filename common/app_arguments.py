@@ -163,6 +163,7 @@ class AppArguments:
     _bot_name: str
     _case_sensitive: bool
     _channel: Optional[str]
+    _config_path: str
     _encryption_key: Optional[str]
     _exclude_ootb: bool
     _hide_secondary_channels: bool
@@ -196,6 +197,11 @@ class AppArguments:
     def channel(self) -> Optional[str]:
         """The channel name supplied via --Channel, or None if not provided."""
         return self._channel
+
+    @property
+    def config_path(self) -> str:
+        """Path of the config file in use (the default name when none was found)."""
+        return self._config_path
 
     @property
     def encryption_key(self) -> Optional[str]:
@@ -259,6 +265,7 @@ class AppArguments:
         self._bot_name = ""
         self._case_sensitive = False
         self._channel = None
+        self._config_path = _DEFAULT_CONFIG_FILE
         self._encryption_key = None
         self._exclude_ootb = False
         self._hide_secondary_channels = False
@@ -317,6 +324,7 @@ class AppArguments:
 
         config_path: str = explicit_config or _DEFAULT_CONFIG_FILE
         config_exists: bool = os.path.isfile(config_path)
+        self._config_path = config_path
 
         # Nothing to work with — show help and exit cleanly (no scary error message).
         if not argv and not config_exists:

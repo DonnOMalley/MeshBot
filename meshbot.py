@@ -426,6 +426,7 @@ def main() -> None:
                 chat_history=chat_history if chat_history is not None else None,
                 console_logger=console_logger,
                 hide_secondary_channels=args.hide_secondary_channels,
+                config_file=args.config_path,
             )
             web_server = WebServer(**web_server_kwargs)
             web_server.start()

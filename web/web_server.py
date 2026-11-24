@@ -1,5 +1,7 @@
 from __future__ import annotations
+import configparser
 import hashlib
+import hmac
 import importlib
 import json
 import logging
@@ -79,6 +81,16 @@ from common.constants import (
     _ZEN_QUOTES_KEY_QUOTE,
 )
 from common.constants import (
+    _CONFIG_SECTION,
+    _DEFAULT_CONFIG_FILE,
+    _EVENTS_AUTH_DISABLED,
+    _EVENTS_AUTH_LOCKED,
+    _EVENTS_AUTH_MAX_FAILURES,
+    _EVENTS_AUTH_REQUIRED,
+    _EVENTS_AUTH_WINDOW_SECONDS,
+    _EVENTS_AUTH_WRONG,
+    _EVENTS_PASSCODE_CONFIG_KEY,
+    _EVENTS_SESSION_EDITOR_KEY,
     _EVENTS_MAX_IMAGE_BYTES,
     _EVENTS_MAX_PHOTOS_PER_UPLOAD,
     _EVENTS_MAX_UPLOAD_BYTES,
@@ -250,6 +262,9 @@ class WebServer:
     _fernet_key: bytes | None
     _favorites: set[str]
     _event_store: EventStore
+    _config_file: str
+    _auth_failures: dict[str, list[float]]
+    _auth_lock: threading.Lock
     _pending_web_traces: dict[str, tuple[dict, float]]
     _port: int
     _tile_cache: TileCache
@@ -282,6 +297,7 @@ class WebServer:
         console_logger: ConsoleLogger | None = None,
         hide_secondary_channels: bool = False,
         verbose: bool = False,
+        config_file: str = _DEFAULT_CONFIG_FILE,
     ) -> None:
         """Initialises the web server.
 
@@ -310,6 +326,8 @@ class WebServer:
                             endpoint serve live bot console output.
             hide_secondary_channels: When True, secondary channels are hidden from
                                      the chat, dashboard, and settings pages.
+            config_file: The bot's config file. ``EventsPasscode`` is read from it
+                         on each check, so changing it needs no restart.
         """
         self._bot_name = bot_name
         self._bot_description = bot_description
@@ -330,6 +348,9 @@ class WebServer:
         ) if passphrase else None
         self._favorites = self._load_favorites()
         self._event_store = EventStore(os.path.join(data_dir, _EVENTS_SUBDIR), self._fernet_key)
+        self._config_file = config_file
+        self._auth_failures = {}
+        self._auth_lock = threading.Lock()
         self._pending_web_traces = {}
         self._chat_history = chat_history
         self._console_logger = console_logger
@@ -363,6 +384,8 @@ class WebServer:
         self._app.config["TEMPLATES_AUTO_RELOAD"] = True
         self._app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
         self._app.config["MAX_CONTENT_LENGTH"] = _EVENTS_MAX_UPLOAD_BYTES
+        # Not sent on cross-site form posts, so other sites can't act as a signed-in organizer.
+        self._app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
         self._app.jinja_env.auto_reload = True
         self._http_server = None
         self._server_thread = None
@@ -638,6 +661,50 @@ class WebServer:
             True if valid, False otherwise.
         """
         return 1 <= len(name) <= _WEB_USER_LONG_NAME_MAX_LEN
+
+    def _events_passcode(self) -> str | None:
+        """Reads ``EventsPasscode`` from the config file; None when unset or unreadable."""
+        result: str | None = None
+        parser: configparser.RawConfigParser = configparser.RawConfigParser()
+        try:
+            parser.read(self._config_file, encoding="utf-8")
+            if parser.has_section(_CONFIG_SECTION):
+                value: str = parser.get(_CONFIG_SECTION, _EVENTS_PASSCODE_CONFIG_KEY, fallback="").strip()
+                result = value or None
+        except (configparser.Error, OSError, UnicodeDecodeError):
+            pass
+        return result
+
+    @staticmethod
+    def _passcode_fingerprint(passcode: str) -> str:
+        """Value kept in the session cookie; changes when the passcode changes."""
+        return hashlib.sha256(("meshbot-events:" + passcode).encode("utf-8")).hexdigest()[:32]
+
+    def _is_events_editor(self) -> bool:
+        """True when this browser session signed in with the current passcode."""
+        passcode: str | None = self._events_passcode()
+        stored: str = str(session.get(_EVENTS_SESSION_EDITOR_KEY, ""))
+        return passcode is not None and bool(stored) and hmac.compare_digest(stored, self._passcode_fingerprint(passcode))
+
+    def _auth_lockout_seconds(self, client: str) -> float:
+        """Seconds until *client* may try again (0 when not locked out)."""
+        now: float = time.time()
+        with self._auth_lock:
+            recent: list[float] = [t for t in self._auth_failures.get(client, []) if now - t < _EVENTS_AUTH_WINDOW_SECONDS]
+            self._auth_failures[client] = recent
+            result: float = 0.0
+            if len(recent) >= _EVENTS_AUTH_MAX_FAILURES:
+                result = _EVENTS_AUTH_WINDOW_SECONDS - (now - recent[0])
+        return result
+
+    def _record_auth_failure(self, client: str) -> None:
+        with self._auth_lock:
+            self._auth_failures.setdefault(client, []).append(time.time())
+
+    def _events_auth_error(self):
+        """The 403 returned when an organizer-only request is not signed in."""
+        message: str = _EVENTS_AUTH_REQUIRED if self._events_passcode() else _EVENTS_AUTH_DISABLED
+        return jsonify({"error": message, "auth_required": True}), 403
 
     def _read_upload(self, field: str) -> tuple[bytes | None, str | None]:
         """Reads one uploaded image from the current multipart request.
@@ -1096,6 +1163,33 @@ class WebServer:
             limit_mb: int = _EVENTS_MAX_UPLOAD_BYTES // (1024 * 1024)
             return jsonify({"error": f"Upload is too large (limit {limit_mb} MB per request)."}), 413
 
+        @self._app.route("/api/events/auth", methods=["GET"])
+        def api_events_auth_status():
+            return jsonify({"enabled": self._events_passcode() is not None, "editor": self._is_events_editor()})
+
+        @self._app.route("/api/events/auth", methods=["POST"])
+        def api_events_sign_in():
+            passcode: str | None = self._events_passcode()
+            if passcode is None:
+                return jsonify({"error": _EVENTS_AUTH_DISABLED}), 503
+            client: str = request.remote_addr or "unknown"
+            wait: float = self._auth_lockout_seconds(client)
+            if wait > 0:
+                minutes: int = max(1, int(wait // 60) + 1)
+                return jsonify({"error": _EVENTS_AUTH_LOCKED.format(minutes=minutes)}), 429
+            body: dict = request.get_json(force=True, silent=True) or {}
+            attempt: str = str(body.get("passcode", "")).strip()
+            if not hmac.compare_digest(attempt.encode("utf-8"), passcode.encode("utf-8")):
+                self._record_auth_failure(client)
+                return jsonify({"error": _EVENTS_AUTH_WRONG}), 401
+            session[_EVENTS_SESSION_EDITOR_KEY] = self._passcode_fingerprint(passcode)
+            return jsonify({"enabled": True, "editor": True})
+
+        @self._app.route("/api/events/auth", methods=["DELETE"])
+        def api_events_sign_out():
+            session.pop(_EVENTS_SESSION_EDITOR_KEY, None)
+            return jsonify({"enabled": self._events_passcode() is not None, "editor": False})
+
         @self._app.route("/api/events", methods=["GET"])
         def api_events_list():
             try:
@@ -1105,6 +1199,8 @@ class WebServer:
 
         @self._app.route("/api/events", methods=["POST"])
         def api_events_create():
+            if not self._is_events_editor():
+                return self._events_auth_error()
             return self._save_event_from_request(None)
 
         @self._app.route("/api/events/<event_id>", methods=["GET"])
@@ -1121,12 +1217,16 @@ class WebServer:
 
         @self._app.route("/api/events/<event_id>", methods=["PUT"])
         def api_event_update(event_id: str):
+            if not self._is_events_editor():
+                return self._events_auth_error()
             if not EventStore.is_valid_id(event_id):
                 return jsonify({"error": "Event not found."}), 404
             return self._save_event_from_request(event_id)
 
         @self._app.route("/api/events/<event_id>", methods=["DELETE"])
         def api_event_delete(event_id: str):
+            if not self._is_events_editor():
+                return self._events_auth_error()
             try:
                 found: bool = EventStore.is_valid_id(event_id) and self._event_store.delete(event_id)
             except EventStoreError as exc:
