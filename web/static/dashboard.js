@@ -14,11 +14,26 @@ const _MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "J
 
 async function _fetchJoy() {
   try {
-    const res = await fetch("/api/joy");
+    const res = await fetch("/api/joy", { cache: "no-store" });
     if (!res.ok) return;
     const data = await res.json();
     _renderJoy(data);
   } catch (_) {}
+}
+
+// Refresh button: fetch a new random set; spin the icon while loading and
+// ignore extra clicks until the request finishes.
+async function _onJoyRefreshClick() {
+  const btn = document.getElementById("dash-joy-refresh");
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.classList.add("spinning");
+  try {
+    await _fetchJoy();
+  } finally {
+    btn.classList.remove("spinning");
+    btn.disabled = false;
+  }
 }
 
 function _renderJoy(data) {
@@ -255,6 +270,8 @@ function _renderBotInfo(data) {
 
 function dashboardInit() {
   _fetchJoy();
+  const joyRefreshBtn = document.getElementById("dash-joy-refresh");
+  if (joyRefreshBtn) joyRefreshBtn.addEventListener("click", _onJoyRefreshClick);
   _fetchTodayInHistory();
   // Defer map init until all resources are loaded so the container has its
   // final dimensions before Leaflet measures it.

@@ -2814,6 +2814,35 @@ body.dashboard-page main {
   opacity: 1;
 }
 
+.dash-joy-refresh {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 6px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.dash-joy-refresh:hover,
+.dash-joy-refresh:focus-visible {
+  opacity: 1;
+}
+
+.dash-joy-refresh:disabled {
+  cursor: wait;
+}
+
+.dash-joy-refresh.spinning {
+  animation: dash-joy-spin 0.8s linear infinite;
+}
+
+@keyframes dash-joy-spin {
+  to { transform: rotate(360deg); }
+}
+
 .dash-map-anchor {
   flex: 1;
   min-height: 0;
