@@ -449,12 +449,25 @@ class EventStore:
         )
         if misfiled:
             self._save_all(events, moment)
+            events = [e for e in events if not EventStore._is_expired_submission(e, moment)]
         return events
 
+    @staticmethod
+    def _is_expired_submission(event: dict, now: datetime) -> bool:
+        """True for a submission nobody approved before the event ended."""
+        return not EventStore.is_approved(event) and EventStore.status_of(event, now) == _EVENTS_STATUS_PAST
+
     def _save_all(self, events: list[dict], now: datetime | None = None) -> None:
-        """Splits events into current/history by end time and writes both files."""
+        """Splits events into current/history by end time and writes both files.
+
+        Submissions that were never approved are deleted (with their images)
+        once they end, instead of being kept in the history file.
+        """
         moment: datetime = now or datetime.now(timezone.utc)
-        ordered: list[dict] = sorted(events, key=lambda e: e.get("start", ""))
+        for expired in [e for e in events if EventStore._is_expired_submission(e, moment)]:
+            shutil.rmtree(self._event_image_dir(str(expired.get("id", ""))), ignore_errors=True)
+        kept: list[dict] = [e for e in events if not EventStore._is_expired_submission(e, moment)]
+        ordered: list[dict] = sorted(kept, key=lambda e: e.get("start", ""))
         current: list[dict] = [e for e in ordered if EventStore.status_of(e, moment) != _EVENTS_STATUS_PAST]
         history: list[dict] = [e for e in ordered if EventStore.status_of(e, moment) == _EVENTS_STATUS_PAST]
         self._write_file(_EVENTS_FILE, current)

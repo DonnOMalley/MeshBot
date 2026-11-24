@@ -580,6 +580,7 @@ _EVENTS_SUBMIT_MAX_PER_WINDOW: int = 5
 _EVENTS_SUBMIT_WINDOW_SECONDS: float = 3600.0
 _EVENTS_SUBMIT_LIMITED: str = "Too many event submissions from this connection. Try again in {minutes} minute(s)."
 _EVENTS_SUBMIT_DISABLED: str = "Event submissions are turned off right now."
+_EVENTS_SUBMIT_ENDED: str = "This event has already ended. Only upcoming or current events can be submitted."
 _EVENTS_NOT_APPROVED: str = "This event has not been approved yet."
 _EVENTS_DECRYPTION_ERROR: str = (
     "[EVENTS] Failed to decrypt {file}. "

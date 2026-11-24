@@ -78,7 +78,7 @@ RangeTestDelay    = 1
 | `NoNodeInit`            | When `true`, skips node configuration on startup and shutdown. Default: `false`.                       |
 | `NodeRetentionDays`     | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
 | `EncryptionKey`         | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
-| `EventsPasscode`        | Passcode organizers enter on the Events page to add, edit or delete events. Blank turns editing off.   |
+| `EventsPasscode`        | Passcode organizers enter on the Events page to publish, edit, approve or delete events. Blank turns editing and public submissions off. |
 | `Verbose`               | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
 | `HideSecondaryChannels` | When `true`, secondary channels are hidden from the web dashboard (chat, dashboard, settings pages).   |
 | `WebUrl`                | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
@@ -176,7 +176,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
 | Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                                                                |
 | History   | `/history`  | Today in History calendar: pick a day to see historical events.                                                                            |
-| Events    | `/events`   | Community events calendar (calendar or agenda view) with a form to create/edit events and photo uploads while an event is happening.     |
+| Events    | `/events`   | Community events calendar (calendar or agenda view). Organizers add/edit events, visitors submit events for review, and anyone can upload photos while an event is happening. |
 | Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                                                               |
 | Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window.                                    |
 | Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                                                   |
@@ -231,10 +231,13 @@ Outgoing messages are prefixed with `[SHORT]` on the mesh (e.g. `[WUSR] Hello me
 
 The **Events** page (`/events`, next to History in the menu) lists community events on a month calendar or as an agenda; the chosen view is remembered per browser. Click a day to see its events and an event to see its details. Addresses open in maps, and websites, meeting links and links in the description are clickable; a phone number gets a call link and, if it accepts texts, a text link.
 
-- **New Event** / **Edit event** open a form: name, description, start and end, in-person address or online link, website, a picture, and organizer contact (name, Signal handle, phone, and whether the phone accepts texts). Events without a picture use a default image.
+- The event form has: name, description, start and end, in-person address or online link, website, a picture, and organizer contact (name, Signal handle, phone, and whether the phone accepts texts). Events without a picture use a default image.
 - While an event is happening (between its start and end), its details show **Take a photo** (opens the device camera) and **Upload photos** (pick files). Photos are resized in the browser to 1600 px with a 400 px thumbnail; this also strips location (EXIF) data.
 - Share a single event with `/events?id=<event id>` (the **Copy link** button).
-- **Organizer passcode:** adding, editing and deleting events needs the passcode set as `EventsPasscode` in `meshbot.config`. Organizers click **Organizer sign-in** (or just **New Event** / **Edit event**) and enter it once; they stay signed in until the browser closes or they sign out. Five wrong tries from one address lock it out for 15 minutes. The passcode is read from the config file on each check, so changing it takes effect right away (and signs everyone out). With no passcode set, event editing is off. Viewing events and uploading photos during an event never need the passcode.
+- **Organizer passcode:** publishing, editing, approving and deleting events needs the passcode set as `EventsPasscode` in `meshbot.config`. Organizers click **Organizer sign-in** (or **Edit event**) and enter it once; they stay signed in until the browser closes or they sign out. Five wrong tries from one address lock it out for 15 minutes. The passcode is read from the config file on each check, so changing it takes effect right away (and signs everyone out). Viewing events and uploading photos during an event never need the passcode.
+- **Visitor submissions:** visitors who are not signed in see **Submit an Event** instead of **New Event**. Their event is saved as *pending review* and stays hidden from everyone else (calendar, details, picture and photo uploads) until an organizer approves it. An address can submit 5 events per hour, and only events that have not ended yet can be submitted.
+- **Reviewing:** signed-in organizers see a "⏳ N events waiting for review" bar, and days with pending events get an orange dot. Open a pending event to check it (use **Edit event** to fix anything), then **Approve & publish** or **Reject** (deletes it and its picture). Organizers' own events are published straight away. A submission nobody approves is deleted, with its picture, once its end time passes.
+- With no `EventsPasscode` set, event editing and visitor submissions are both off.
 - The dashboard is plain HTTP, so the passcode is sent unencrypted over the network; use HTTPS (e.g. a reverse proxy) if that matters.
 
 ### Network Access
@@ -305,7 +308,8 @@ data/
     <channel_name>.txt          Chat history per channel
     Events/
         events.json             Events that have not ended yet
-        events_history.json     Events that have ended (moved here automatically)
+        events_history.json     Events that have ended (moved here automatically;
+                                unapproved submissions are deleted instead)
         images/<event id>/      Event picture and participant photos (+ thumbnails)
 messaging/
     bot_commands.py             Built-in command definitions
@@ -349,7 +353,7 @@ web/
 
 Node records are stored in `data/nodes.json`. Chat history is stored per-channel as `data/<channel_name>.txt`. Favourites are stored in `data/favorites.json`.
 
-Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). Each event's picture and participant photos are stored under `data/Events/images/<event id>/`.
+Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`.
 
 When an `EncryptionKey` is provided, all of these files (including event pictures and photos) are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.
 

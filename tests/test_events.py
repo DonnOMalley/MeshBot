@@ -507,6 +507,29 @@ class EventsReviewTests(_EventsServerCase):
         # Organizers are not limited.
         self.assertEqual(self._post("/api/events", _fields()).status_code, 201)
 
+    def test_unreviewed_submission_is_deleted_once_it_ends(self) -> None:
+        visitor = self._visitor()
+        self._submit(visitor, name="Never Reviewed", start=_iso(1), end=_iso(2), image=(io.BytesIO(PNG), "i.png"))
+        self._submit(visitor, name="Approved Later", start=_iso(1), end=_iso(2))
+        pending_id: str = self._pending_id("Never Reviewed")
+        self.client.post(f"/api/events/{self._pending_id('Approved Later')}/approve")
+        img_dir: str = os.path.join(self.dir, _EVENTS_SUBDIR, "images", pending_id)
+        self.assertTrue(os.path.isdir(img_dir))
+        store: EventStore = self.server._event_store
+        later: datetime = datetime.now(timezone.utc) + timedelta(hours=3)
+        names: list = [e["name"] for e in store.list_events(now=later)]
+        self.assertEqual(names, ["Approved Later"], "approved event kept in history, submission gone")
+        self.assertFalse(os.path.exists(img_dir), "its picture is deleted too")
+        self.assertIsNone(store.get(pending_id, now=later))
+        self.assertEqual(store.get(self._pending_id("Approved Later"), now=later)["status"], "past")
+
+    def test_cannot_submit_an_event_that_already_ended(self) -> None:
+        res = self._submit(self._visitor(), name="Yesterday", start=_iso(-5), end=_iso(-4))
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("end", res.get_json()["fields"])
+        # Organizers can still record past events.
+        self.assertEqual(self._post("/api/events", _fields(start=_iso(-5), end=_iso(-4))).status_code, 201)
+
     def test_old_events_without_flag_count_as_approved(self) -> None:
         self.assertTrue(EventStore.is_approved({"id": "x"}))
         self.assertFalse(EventStore.is_approved({"id": "x", "approved": False}))
