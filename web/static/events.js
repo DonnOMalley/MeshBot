@@ -68,6 +68,8 @@ document.addEventListener("DOMContentLoaded", () => {
   _evSetView(savedView === "agenda" ? "agenda" : "calendar");
 
   _evLoadAuth();
+  // Open on today's events; a shared ?id= link jumps to that event instead.
+  if (!new URLSearchParams(location.search).get("id")) _evSelectedKey = _evKey(new Date());
   _evLoad().then(() => {
     const wanted = new URLSearchParams(location.search).get("id");
     if (wanted) {

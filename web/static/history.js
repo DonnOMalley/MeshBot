@@ -6,7 +6,7 @@ const _MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "J
 
 // State
 let _currentMonth = new Date().getMonth() + 1; // 1-based
-let _selectedDay = null;
+let _selectedDay = new Date().getDate(); // open on today
 let _daysWithData = new Set();
 
 // ── Initialisation ────────────────────────────────────────────────────────
@@ -52,6 +52,9 @@ async function _loadMonth(month) {
   // Restore or clear events panel
   if (_selectedDay !== null && _daysWithData.has(_selectedDay)) {
     _loadDayEvents(_currentMonth, _selectedDay);
+  } else if (_selectedDay !== null) {
+    // Selected day (e.g. today on first load) has no cached events yet.
+    _showNoDataPanel(_selectedDay);
   } else {
     _selectedDay = null;
     _clearEventsPanel();

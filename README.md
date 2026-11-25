@@ -171,12 +171,12 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 | Page      | Path        | Description                                                                                                                                |
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dashboard | `/`         | Node panel (collapsible) and channel chat history.                                                                                         |
+| Dashboard | `/`         | Channel chat history, the Joy panel (events happening right now, each linking to its details and photo upload, then an affirmation, quote and joke), Today in History and a mini-map. |
 | Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
 | Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                                                                |
-| History   | `/history`  | Today in History calendar: pick a day to see historical events.                                                                            |
-| Events    | `/events`   | Community events calendar (calendar or agenda view). Organizers add/edit events, visitors submit events for review, and anyone can upload photos while an event is happening. |
+| History   | `/history`  | Today in History calendar: opens on today's date; pick another day to see its historical events.                                           |
+| Events    | `/events`   | Community events calendar (calendar or agenda view); opens on today's events. Organizers add/edit events, visitors submit events for review, and anyone can upload photos while an event is happening. |
 | Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                                                               |
 | Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window.                                    |
 | Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                                                   |

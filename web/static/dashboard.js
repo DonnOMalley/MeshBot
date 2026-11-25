@@ -12,6 +12,59 @@ const _MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "J
 
 // ── Joy panel ──────────────────────────────────────────────────────────────
 
+const _JOY_EVENTS_REFRESH_MS = 60_000;
+
+// Events happening right now, listed at the top of the Joy panel. Each links
+// to the event on the Events page (details + photo upload).
+async function _fetchActiveEvents() {
+  const box = document.getElementById("dash-joy-events");
+  if (!box) return;
+  try {
+    const res = await fetch("/api/events", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const active = (data.events || []).filter((e) => e.status === "active" && e.approved !== false);
+    active.sort((a, b) => String(a.end).localeCompare(String(b.end)));
+    _renderActiveEvents(active);
+  } catch (_) {}
+}
+
+function _renderActiveEvents(events) {
+  const box = document.getElementById("dash-joy-events");
+  box.hidden = !events.length;
+  if (!events.length) {
+    box.innerHTML = "";
+    return;
+  }
+  const rows = events
+    .map((e) => {
+      const loc = e.location || {};
+      const where = loc.type === "online" ? "Online" : loc.address || "";
+      const meta = [_joyEventUntil(e), where].filter(Boolean).join(" · ");
+      return `<li><a class="joy-event-link" href="/events?id=${encodeURIComponent(e.id)}">${_escapeHtml(e.name)}</a>${meta ? `<span class="joy-event-meta">${_escapeHtml(meta)}</span>` : ""}</li>`;
+    })
+    .join("");
+  box.innerHTML = `<div class="joy-item">
+    <span class="joy-label">&#127881; Happening now &mdash; tap to see details &amp; share photos</span>
+    <ul class="joy-events">${rows}</ul>
+  </div>`;
+}
+
+// "Until 8:00 PM", "Until Sat, Dec 6", or "All day" / "Through Sun, Dec 6".
+function _joyEventUntil(e) {
+  const today = new Date();
+  const sameDay = (d) => d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  const dayLabel = (d) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  if (e.all_day && e.end_day) {
+    const [y, m, d] = e.end_day.split("-").map(Number);
+    const last = new Date(y, m - 1, d);
+    return sameDay(last) ? "All day" : `Through ${dayLabel(last)}`;
+  }
+  const end = new Date(e.end);
+  if (isNaN(end)) return "";
+  return sameDay(end) ? `Until ${end.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : `Until ${dayLabel(end)}`;
+}
+
 async function _fetchJoy() {
   try {
     const res = await fetch("/api/joy", { cache: "no-store" });
@@ -29,7 +82,7 @@ async function _onJoyRefreshClick() {
   btn.disabled = true;
   btn.classList.add("spinning");
   try {
-    await _fetchJoy();
+    await Promise.all([_fetchJoy(), _fetchActiveEvents()]);
   } finally {
     btn.classList.remove("spinning");
     btn.disabled = false;
@@ -270,6 +323,8 @@ function _renderBotInfo(data) {
 
 function dashboardInit() {
   _fetchJoy();
+  _fetchActiveEvents();
+  setInterval(_fetchActiveEvents, _JOY_EVENTS_REFRESH_MS);
   const joyRefreshBtn = document.getElementById("dash-joy-refresh");
   if (joyRefreshBtn) joyRefreshBtn.addEventListener("click", _onJoyRefreshClick);
   _fetchTodayInHistory();
