@@ -16,7 +16,7 @@
       <div class="dash-left panel">
         <div class="panel-header">
           <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
-          <span class="panel-header-text">Chat History</span>
+          <a href="/chat" class="panel-header-text panel-title-link" title="Open Chat">Chat History</a>
         </div>
         <div id="channel-tabs" class="tabs">
           <span class="tab-empty">No channel history found.</span>
@@ -45,8 +45,9 @@
           <!-- Events panel: agenda of what's coming up -->
           <div class="dash-events panel" id="dash-events">
             <div class="panel-header">
-              <span class="panel-header-text">&#127881; Events</span>
-              <a href="/events" class="dash-events-all" title="Open the Events page">See all &rarr;</a>
+              <a href="/events" class="panel-header-text panel-title-link" title="Open Events">&#127881; Events</a>
+              <button type="button" class="dash-joy-refresh" id="dash-events-refresh"
+                      title="Refresh upcoming events" aria-label="Refresh Events">&#x21bb;</button>
             </div>
             <div class="dash-events-body scroll-box" id="dash-events-body">
               <p class="dash-events-empty">Loading&hellip;</p>
@@ -59,7 +60,7 @@
           <!-- Today in History panel -->
           <div class="dash-history panel" id="dash-history">
             <div class="panel-header">
-              <span class="panel-header-text" id="dash-history-title">&#128197; Today in History</span>
+              <a href="/history" class="panel-header-text panel-title-link" id="dash-history-title" title="Open History">&#128197; Today in History</a>
             </div>
             <div class="dash-history-body scroll-box" id="dash-history-body">
               <!-- populated by dashboard.js -->
@@ -70,8 +71,7 @@
           <div class="dash-map-wrap panel" id="dash-map-outer">
             <div class="panel-header" id="dash-map-header">
               <img src="/images/nodes%20icon.png" class="panel-icon" alt="" />
-              <span class="panel-header-text" id="dash-map-title">Map</span>
-              <a href="/map" class="dash-map-link" title="Open full map">&#8599;</a>
+              <a href="/map" class="panel-header-text panel-title-link" id="dash-map-title" title="Open Map">Map</a>
             </div>
 
             <a href="/map" id="dash-map-link-wrap" class="dash-map-anchor" title="Click to Open Map">

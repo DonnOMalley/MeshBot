@@ -107,6 +107,20 @@ async function _fetchJoy() {
   } catch (_) {}
 }
 
+// Events ↻: reload the agenda now; spin the icon while loading.
+async function _onEventsRefreshClick() {
+  const btn = document.getElementById("dash-events-refresh");
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.classList.add("spinning");
+  try {
+    await _fetchUpcomingEvents();
+  } finally {
+    btn.classList.remove("spinning");
+    btn.disabled = false;
+  }
+}
+
 // Refresh button: fetch a new random set; spin the icon while loading and
 // ignore extra clicks until the request finishes.
 async function _onJoyRefreshClick() {
@@ -358,6 +372,8 @@ function dashboardInit() {
   _fetchJoy();
   _fetchUpcomingEvents();
   setInterval(_fetchUpcomingEvents, _DASH_EVENTS_REFRESH_MS);
+  const eventsRefreshBtn = document.getElementById("dash-events-refresh");
+  if (eventsRefreshBtn) eventsRefreshBtn.addEventListener("click", _onEventsRefreshClick);
   const joyRefreshBtn = document.getElementById("dash-joy-refresh");
   if (joyRefreshBtn) joyRefreshBtn.addEventListener("click", _onJoyRefreshClick);
   _fetchTodayInHistory();
