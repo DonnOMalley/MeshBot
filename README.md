@@ -171,11 +171,11 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 | Page      | Path        | Description                                                                                                                                |
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dashboard | `/`         | Panel titles open their full pages. Channel chat history; the Joy panel (affirmation, quote and joke) beside an Events panel  listing what's happening now and the next dates in the coming 30 days (repeats included, each linking to its details and photo upload); Today in History and a mini-map. |
+| Dashboard | `/`         | Panel titles open their full pages. Channel chat history; the Joy panel (affirmation, quote and joke) beside an Events panel listing what's happening now and the next dates in the coming 30 days (repeats included, each linking to its details and photo upload); Today in History and a mini-map. |
 | Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
 | Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                                                                |
-| Joy       | `/joy`      | All the affirmations, a fresh set of quotes and jokes (↻ for more), and past events with their shared photo albums, plus a link to upcoming events. |
+| Joy       | `/joy`      | A "Happening now" banner for each event in progress (its picture shown large, with Share photos / Details buttons); all the affirmations, a fresh set of quotes and jokes (↻ for more), and past events with their shared photo albums, plus a link to upcoming events. |
 | History   | `/history`  | Today in History calendar: opens on today's date; pick another day to see its historical events.                                           |
 | Events    | `/events`   | Community events calendar (calendar or agenda view); opens on today's events. Organizers add/edit events, visitors submit events for review, and anyone can upload photos while an event is happening. |
 | Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                                                               |

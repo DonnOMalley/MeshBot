@@ -11,6 +11,9 @@
     {% set active_page = 'joy' %} {% include "partials/_header.html" %}
 
     <main class="joy-main">
+      <!-- Shown while an event is happening (filled by joy.js) -->
+      <div class="joy-live" id="joy-live" hidden></div>
+
       <div class="joy-grid">
         <!-- Affirmations -->
         <section class="panel joy-panel" id="joy-affirmations">

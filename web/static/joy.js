@@ -5,6 +5,7 @@
 const _JOY_QUOTES = 10;
 const _JOY_JOKES = 5;
 const _JOY_THUMBS = 6; // photo thumbnails shown per past event
+const _JOY_EVENTS_REFRESH_MS = 60_000;
 
 document.addEventListener("DOMContentLoaded", () => {
   const label = document.getElementById("refresh-label");
@@ -13,6 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("joy-jokes-refresh").addEventListener("click", (e) => _joySpin(e.currentTarget, () => _joyLoadLists("jokes")));
   _joyLoadLists("all");
   _joyLoadPastEvents();
+  // Keep the "happening now" banner (and past list) current.
+  setInterval(_joyLoadPastEvents, _JOY_EVENTS_REFRESH_MS);
 });
 
 // Header "Refresh" button: new quotes and jokes, and reload past events.
@@ -84,6 +87,7 @@ async function _joyLoadPastEvents() {
     if (!res.ok) throw new Error("load failed");
     const data = await res.json();
     const published = (data.events || []).filter((e) => e.approved !== false);
+    _joyRenderLive(published.filter((e) => e.status === "active"));
     // Finished events, plus repeating events still going that already have photos.
     const past = published.filter((e) => e.status === "past" || (e.recurrence && (e.photos || []).length));
     past.sort((a, b) => _joyLastDate(b) - _joyLastDate(a));
@@ -91,6 +95,85 @@ async function _joyLoadPastEvents() {
   } catch (_) {
     box.innerHTML = '<p class="joy-empty">Couldn’t load past events.</p>';
   }
+}
+
+// ── "Happening now" banner ──────────────────────────────────────────────────
+
+// One banner per event happening now. With a picture: shown large and whole,
+// over a blurred copy of itself; without one: a compact banner.
+function _joyRenderLive(events) {
+  const box = document.getElementById("joy-live");
+  // Don't rebuild (and re-load the big picture) every minute if nothing changed.
+  const signature = events.map((e) => `${e.id}:${e.updated_at}:${e.occurrence_end}`).join("|");
+  if (box.dataset.signature === signature) return;
+  box.dataset.signature = signature;
+  box.innerHTML = "";
+  box.hidden = !events.length;
+  events
+    .slice()
+    // Events with a picture first (they draw the eye), then whichever ends soonest.
+    .sort((a, b) => (b.has_image ? 1 : 0) - (a.has_image ? 1 : 0) || String(a.occurrence_end || a.end).localeCompare(String(b.occurrence_end || b.end)))
+    .forEach((e) => box.appendChild(_joyLiveBanner(e)));
+}
+
+function _joyLiveBanner(e) {
+  const url = `/events?id=${encodeURIComponent(e.id)}`;
+  const banner = _joyEl("section", "joy-live-banner" + (e.has_image ? " has-image" : ""));
+  banner.setAttribute("aria-label", `Happening now: ${e.name}`);
+
+  if (e.has_image) {
+    const src = `/events/${encodeURIComponent(e.id)}/image/cover?v=${encodeURIComponent(e.updated_at || "")}`;
+    const backdrop = _joyEl("div", "joy-live-backdrop");
+    backdrop.style.backgroundImage = `url("${src}")`;
+    banner.appendChild(backdrop);
+    const pic = document.createElement("a");
+    pic.className = "joy-live-picture";
+    pic.href = url;
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = e.name;
+    pic.appendChild(img);
+    banner.appendChild(pic);
+  }
+
+  const info = _joyEl("div", "joy-live-info");
+  info.appendChild(_joyEl("span", "joy-live-badge", "🎉 Happening now"));
+  const title = _joyEl("a", "joy-live-title", e.name);
+  title.href = url;
+  info.appendChild(title);
+  const loc = e.location || {};
+  const where = loc.type === "online" ? "Online" : loc.address || "";
+  info.appendChild(_joyEl("p", "joy-live-meta", [_joyUntil(e), where].filter(Boolean).join(" · ")));
+  const actions = _joyEl("div", "joy-live-actions");
+  const share = _joyEl("a", "joy-live-btn is-primary", "📸 Share photos");
+  share.href = url;
+  const details = _joyEl("a", "joy-live-btn", "Details");
+  details.href = url;
+  actions.appendChild(share);
+  actions.appendChild(details);
+  info.appendChild(actions);
+  banner.appendChild(info);
+  return banner;
+}
+
+// "Until 9:00 PM", "Until Sat, Dec 6", "All day" or "Through Sun, Dec 6".
+function _joyUntil(e) {
+  const end = new Date(e.occurrence_end || e.end);
+  if (isNaN(end)) return "";
+  const today = new Date();
+  const sameDay = (d) => d.toDateString() === today.toDateString();
+  const dayLabel = (d) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  if (e.all_day) {
+    let last;
+    if (!e.recurrence && e.end_day) {
+      const [y, m, d] = e.end_day.split("-").map(Number);
+      last = new Date(y, m - 1, d);
+    } else {
+      last = new Date(end.getTime() - 1);
+    }
+    return sameDay(last) ? "All day" : `Through ${dayLabel(last)}`;
+  }
+  return sameDay(end) ? `Until ${end.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : `Until ${dayLabel(end)}`;
 }
 
 // The date that best represents an event looking back: its (last) date, or

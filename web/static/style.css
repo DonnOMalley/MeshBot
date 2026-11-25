@@ -4306,3 +4306,157 @@ body.joy-page main.joy-main {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Joy page: "Happening now" banner ─────────────────────────────── */
+
+.joy-live {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.joy-live[hidden] {
+  display: none;
+}
+
+.joy-live-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 1px rgba(57, 208, 216, 0.15), 0 10px 32px rgba(0, 0, 0, 0.55);
+  background: linear-gradient(120deg, rgba(57, 208, 216, 0.22), rgba(63, 185, 80, 0.12) 60%, var(--surface));
+}
+
+/* The event picture, shown whole and large over a blurred copy of itself. */
+.joy-live-backdrop {
+  position: absolute;
+  inset: -40px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) brightness(0.45) saturate(1.2);
+}
+
+.joy-live-picture {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: min(58vh, 480px);
+  padding: 18px 18px 0;
+}
+
+.joy-live-picture img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.joy-live-info {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 22px 18px;
+}
+
+.joy-live-banner.has-image .joy-live-info {
+  background: linear-gradient(to top, rgba(13, 17, 23, 0.92) 30%, rgba(13, 17, 23, 0));
+  margin-top: -40px;
+  padding-top: 44px;
+  align-items: center;
+  text-align: center;
+}
+
+.joy-live-badge {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--accent);
+  padding: 3px 10px;
+  border-radius: 999px;
+  animation: joy-live-pulse 2s ease-in-out infinite;
+}
+
+.joy-live-banner.has-image .joy-live-badge {
+  align-self: center;
+}
+
+@keyframes joy-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(57, 208, 216, 0.55); }
+  50% { box-shadow: 0 0 0 8px rgba(57, 208, 216, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .joy-live-badge {
+    animation: none;
+  }
+}
+
+.joy-live-title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.joy-live-title:hover {
+  text-decoration: underline;
+}
+
+.joy-live-meta {
+  font-size: 14px;
+  color: #c9d1d9;
+}
+
+.joy-live-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.joy-live-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: rgba(13, 17, 23, 0.5);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.joy-live-btn.is-primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.joy-live-btn:hover {
+  opacity: 0.88;
+}
+
+@media (max-width: 700px) {
+  .joy-live-picture {
+    height: min(45vh, 340px);
+    padding: 12px 12px 0;
+  }
+
+  .joy-live-title {
+    font-size: 22px;
+  }
+
+  .joy-live-info {
+    padding: 12px 14px 14px;
+  }
+}
