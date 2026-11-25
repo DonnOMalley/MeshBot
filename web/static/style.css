@@ -3808,6 +3808,7 @@ body.tih-page main {
 .ev-field input[type="tel"],
 .ev-field input[type="datetime-local"],
 .ev-field input[type="date"],
+.ev-field select,
 .ev-field textarea {
   width: 100%;
   background: var(--bg);

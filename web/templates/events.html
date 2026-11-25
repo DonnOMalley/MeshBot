@@ -111,6 +111,26 @@
           </label>
         </div>
 
+        <div class="ev-field-row">
+          <label class="ev-field">
+            <span>Repeats</span>
+            <select name="recurrence">
+              <option value="">Does not repeat</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Every other week</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <small class="ev-field-error" data-for="recurrence"></small>
+          </label>
+          <label class="ev-field" data-repeat-only hidden>
+            <span>Until <small class="ev-hint">(optional)</small></span>
+            <input type="date" name="repeat_until" />
+            <small class="ev-field-error" data-for="repeat_until"></small>
+          </label>
+        </div>
+        <small class="ev-hint ev-repeat-hint" data-repeat-only hidden></small>
+
         <fieldset class="ev-fieldset">
           <legend>Location <em>*</em></legend>
           <div class="ev-radio-row">

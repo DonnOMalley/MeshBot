@@ -102,6 +102,7 @@ from common.constants import (
     _EVENTS_MAX_PHOTOS_PER_UPLOAD,
     _EVENTS_MAX_UPLOAD_BYTES,
     _EVENTS_STATUS_ACTIVE,
+    _EVENTS_STATUS_PAST,
     _EVENTS_SUBDIR,
     _EVENTS_UPLOADER_MAX_LEN,
 )
@@ -1238,8 +1239,9 @@ class WebServer:
             wait: float = self._limit_wait_seconds(self._submissions, client, _EVENTS_SUBMIT_MAX_PER_WINDOW, _EVENTS_SUBMIT_WINDOW_SECONDS)
             if wait > 0:
                 return jsonify({"error": _EVENTS_SUBMIT_LIMITED.format(minutes=max(1, int(wait // 60) + 1))}), 429
-            end: datetime | None = EventStore.parse_time(request.form.get("end", ""))
-            if end is not None and end <= datetime.now(timezone.utc):
+            # Only events with a date still to come (a repeat counts) may be submitted.
+            submitted, submit_errors = EventStore.validate(request.form.to_dict())
+            if not submit_errors and EventStore.status_of(submitted) == _EVENTS_STATUS_PAST:
                 return jsonify({"error": _EVENTS_SUBMIT_ENDED, "fields": {"end": _EVENTS_SUBMIT_ENDED}}), 400
             body, status_code = self._save_event_from_request(None, approved=False)
             if status_code == 201:

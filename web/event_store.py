@@ -6,6 +6,7 @@ import secrets
 import shutil
 import threading
 from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -33,6 +34,109 @@ _IMAGE_NAME_PATTERN: re.Pattern = re.compile(r"^(cover|[a-f0-9]{8,32})(_thumb)?$
 _URL_PATTERN: re.Pattern = re.compile(r"^https?://[^\s<>\"']+$", re.IGNORECASE)
 _PHONE_PATTERN: re.Pattern = re.compile(r"^[0-9+()\-.\s]{7,25}$")
 _DAY_PATTERN: re.Pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# Repeat choices; each maps to an RFC 5545 RRULE.
+_RECURRENCE_RULES: dict[str, str] = {
+    "weekly": "FREQ=WEEKLY",
+    "biweekly": "FREQ=WEEKLY;INTERVAL=2",
+    "monthly": "FREQ=MONTHLY",
+    "yearly": "FREQ=YEARLY",
+}
+_RECURRENCE_LABELS: dict[str, str] = {
+    "weekly": "Weekly",
+    "biweekly": "Every other week",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+}
+# Safety cap when walking a series (about 40 years of weekly dates).
+_MAX_OCCURRENCES: int = 2100
+
+
+def _event_zone(event: dict) -> ZoneInfo | timezone:
+    """The event's own time zone (where it repeats at the same wall-clock time)."""
+    result: ZoneInfo | timezone = timezone.utc
+    name: str = str(event.get("tz", "") or "")
+    if name:
+        try:
+            result = ZoneInfo(name)
+        except (ZoneInfoNotFoundError, ValueError):
+            pass
+    return result
+
+
+def _shift_date(base: date, recurrence: str, n: int) -> date | None:
+    """The n-th repeat date of *base*, or None when that month/year has no such day.
+
+    Matches RRULE behaviour: the 31st skips shorter months and Feb 29 only
+    repeats in leap years.
+    """
+    result: date | None = None
+    if recurrence == "weekly":
+        result = base + timedelta(weeks=n)
+    elif recurrence == "biweekly":
+        result = base + timedelta(weeks=2 * n)
+    elif recurrence in ("monthly", "yearly"):
+        months: int = n if recurrence == "monthly" else 12 * n
+        index: int = base.year * 12 + (base.month - 1) + months
+        try:
+            result = date(index // 12, index % 12 + 1, base.day)
+        except ValueError:
+            result = None
+    return result
+
+
+def occurrences(event: dict):
+    """Yields ``(start, end)`` UTC datetimes for every occurrence of *event*.
+
+    A one-off event yields once. Repeats keep the same local wall-clock time
+    in the event's time zone (so 7 PM stays 7 PM across daylight saving);
+    all-day repeats keep their dates. Stops at ``repeat_until`` (inclusive
+    date) or after a safety cap.
+    """
+    recurrence: str = str(event.get("recurrence", "") or "")
+    start: datetime | None = EventStore.parse_time(event.get("start", ""))
+    end: datetime | None = EventStore.parse_time(event.get("end", ""))
+    if start is None or end is None:
+        return
+    if recurrence not in _RECURRENCE_RULES:
+        yield start, end
+        return
+    zone = _event_zone(event)
+    until: date | None = EventStore.parse_day(event.get("repeat_until", ""))
+    first_day: date | None = EventStore.parse_day(event.get("start_day", "")) if event.get("all_day") else None
+    last_day: date | None = EventStore.parse_day(event.get("end_day", "")) if event.get("all_day") else None
+    local_start: datetime = start.astimezone(zone)
+    base: date = first_day or local_start.date()
+    span_days: int = ((last_day - first_day).days + 1) if first_day and last_day else 0
+    duration: timedelta = end - start
+    for n in range(_MAX_OCCURRENCES):
+        day: date | None = _shift_date(base, recurrence, n)
+        if day is None:
+            continue
+        if until is not None and day > until:
+            break
+        if span_days:
+            occ_start = datetime.combine(day, time.min, tzinfo=zone)
+            occ_end = datetime.combine(day + timedelta(days=span_days), time.min, tzinfo=zone)
+        else:
+            occ_start = datetime.combine(day, local_start.timetz().replace(tzinfo=None), tzinfo=zone)
+            occ_end = occ_start + duration
+        yield occ_start.astimezone(timezone.utc), occ_end.astimezone(timezone.utc)
+
+
+def occurrence_at(event: dict, now: datetime) -> tuple[datetime, datetime, str] | None:
+    """The occurrence that matters at *now*: the one happening, else the next one,
+    else the last one. Returns ``(start, end, status)`` or None for no dates."""
+    result: tuple[datetime, datetime, str] | None = None
+    last: tuple[datetime, datetime] | None = None
+    for occ_start, occ_end in occurrences(event):
+        if occ_end > now:
+            status: str = _EVENTS_STATUS_ACTIVE if occ_start <= now else _EVENTS_STATUS_UPCOMING
+            result = (occ_start, occ_end, status)
+            break
+        last = (occ_start, occ_end)
+    if result is None and last is not None:
+        result = (last[0], last[1], _EVENTS_STATUS_PAST)
+    return result
 _IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
     (b"\xff\xd8\xff", "image/jpeg"),
     (b"\x89PNG\r\n\x1a\n", "image/png"),
@@ -89,6 +193,29 @@ def build_ics(event: dict, page_url: str) -> str:
         dates = ["DTSTART;VALUE=DATE:" + first.strftime("%Y%m%d"), "DTEND;VALUE=DATE:" + (last + timedelta(days=1)).strftime("%Y%m%d")]
     else:
         dates = ["DTSTART:" + stamp(event.get("start", "")), "DTEND:" + stamp(event.get("end", ""))]
+    recurrence: str = str(event.get("recurrence", "") or "")
+    if recurrence in _RECURRENCE_RULES:
+        rule: str = "RRULE:" + _RECURRENCE_RULES[recurrence]
+        until: date | None = EventStore.parse_day(event.get("repeat_until", ""))
+        zone = _event_zone(event)
+        if first is None and event.get("tz") and zone is not timezone.utc:
+            # Timed repeats are anchored in the event's time zone so they keep
+            # their local time across daylight saving.
+            start_dt: datetime | None = EventStore.parse_time(event.get("start", ""))
+            end_dt: datetime | None = EventStore.parse_time(event.get("end", ""))
+            if start_dt and end_dt:
+                fmt: str = "%Y%m%dT%H%M%S"
+                dates = [
+                    f"DTSTART;TZID={event['tz']}:" + start_dt.astimezone(zone).strftime(fmt),
+                    f"DTEND;TZID={event['tz']}:" + end_dt.astimezone(zone).strftime(fmt),
+                ]
+        if until is not None:
+            if first is not None:
+                rule += ";UNTIL=" + until.strftime("%Y%m%d")
+            else:
+                last_moment: datetime = datetime.combine(until, time(23, 59, 59), tzinfo=zone)
+                rule += ";UNTIL=" + last_moment.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        dates.append(rule)
 
     location: dict = event.get("location") or {}
     where: str = location.get("link", "") if location.get("type") == _EVENTS_LOCATION_ONLINE else location.get("address", "")
@@ -285,6 +412,32 @@ class EventStore:
         if start is not None and end is not None and end < start and "end" not in errors:
             errors["end"] = "End must be after the start."
 
+        recurrence: str = str(fields.get("recurrence", "") or "").strip().lower()
+        if recurrence in ("", "none"):
+            recurrence = ""
+        elif recurrence not in _RECURRENCE_RULES:
+            errors["recurrence"] = "Choose how often the event repeats."
+            recurrence = ""
+        repeat_until: str = ""
+        if recurrence:
+            until_text: str = str(fields.get("repeat_until", "") or "").strip()
+            until_day: date | None = EventStore.parse_day(until_text)
+            if until_text and until_day is None:
+                errors["repeat_until"] = "Use a valid date."
+            elif until_day is not None:
+                first_date: date | None = EventStore.parse_day(start_day) if all_day else None
+                if first_date is None and start is not None:
+                    first_date = start.astimezone(_event_zone({"tz": fields.get("tz", "")})).date()
+                if first_date is not None and until_day < first_date:
+                    errors["repeat_until"] = "The repeat end date must be on or after the first date."
+                repeat_until = until_day.isoformat()
+        tz_name: str = str(fields.get("tz", "") or "").strip()[:64]
+        if tz_name:
+            try:
+                ZoneInfo(tz_name)
+            except (ZoneInfoNotFoundError, ValueError):
+                tz_name = ""
+
         location_type: str = str(fields.get("location_type", "") or "").strip().lower()
         address: str = ""
         link: str = ""
@@ -313,6 +466,9 @@ class EventStore:
             "all_day": all_day,
             "start_day": start_day,
             "end_day": end_day,
+            "recurrence": recurrence,
+            "repeat_until": repeat_until,
+            "tz": tz_name,
             "location": {"type": location_type, "address": address, "link": link},
             "website": website,
             "contact": {
@@ -328,13 +484,18 @@ class EventStore:
     def status_of(event: dict, now: datetime | None = None) -> str:
         """Returns ``upcoming``, ``active`` or ``past`` for *event* at *now*."""
         moment: datetime = now or datetime.now(timezone.utc)
-        start: datetime | None = EventStore.parse_time(event.get("start", ""))
-        end: datetime | None = EventStore.parse_time(event.get("end", ""))
-        result: str = _EVENTS_STATUS_UPCOMING
-        if end is not None and end <= moment:
-            result = _EVENTS_STATUS_PAST
-        elif start is not None and start <= moment:
-            result = _EVENTS_STATUS_ACTIVE
+        found: tuple[datetime, datetime, str] | None = occurrence_at(event, moment)
+        return found[2] if found is not None else _EVENTS_STATUS_UPCOMING
+
+    @staticmethod
+    def with_status(event: dict, now: datetime | None = None) -> dict:
+        """A copy of *event* with ``status`` plus ``occurrence_start``/``occurrence_end``
+        (the date happening now, else the next one, else the last one)."""
+        moment: datetime = now or datetime.now(timezone.utc)
+        found: tuple[datetime, datetime, str] | None = occurrence_at(event, moment)
+        result: dict = dict(event, status=found[2] if found else _EVENTS_STATUS_UPCOMING)
+        result["occurrence_start"] = EventStore.format_time(found[0]) if found else event.get("start", "")
+        result["occurrence_end"] = EventStore.format_time(found[1]) if found else event.get("end", "")
         return result
 
     def list_events(self, now: datetime | None = None) -> list[dict]:
@@ -345,7 +506,7 @@ class EventStore:
         moment: datetime = now or datetime.now(timezone.utc)
         with self._lock:
             events: list[dict] = self._load_all(moment)
-        return [dict(e, status=EventStore.status_of(e, moment)) for e in events]
+        return [EventStore.with_status(e, moment) for e in events]
 
     def get(self, event_id: str, now: datetime | None = None) -> dict | None:
         """Returns one event with its ``status``, or None if not found."""
@@ -354,7 +515,7 @@ class EventStore:
         with self._lock:
             for event in self._load_all(moment):
                 if event.get("id") == event_id:
-                    result = dict(event, status=EventStore.status_of(event, moment))
+                    result = EventStore.with_status(event, moment)
                     break
         return result
 
@@ -388,7 +549,7 @@ class EventStore:
             events: list[dict] = self._load_all()
             events.append(event)
             self._save_all(events)
-        return dict(event, status=EventStore.status_of(event))
+        return EventStore.with_status(event)
 
     def update(self, event_id: str, clean: dict, has_image: bool | None = None) -> dict | None:
         """Replaces the editable fields of an event. Photos and ID are kept.
@@ -414,7 +575,7 @@ class EventStore:
                     break
             if result is not None:
                 self._save_all(events)
-        return dict(result, status=EventStore.status_of(result)) if result is not None else None
+        return EventStore.with_status(result) if result is not None else None
 
     def set_approved(self, event_id: str, approved: bool = True) -> dict | None:
         """Marks an event approved (public) or pending. Returns it, or None if missing."""
@@ -429,7 +590,7 @@ class EventStore:
                     break
             if result is not None:
                 self._save_all(events)
-        return dict(result, status=EventStore.status_of(result)) if result is not None else None
+        return EventStore.with_status(result) if result is not None else None
 
     def delete(self, event_id: str) -> bool:
         """Removes an event and all of its images. Returns False if it did not exist."""

@@ -19,6 +19,7 @@ let _evMonth = new Date().getMonth(); // 0-based
 let _evSelectedKey = null; // "YYYY-MM-DD"
 let _evView = "calendar";
 let _evDetailId = null;
+let _evDetailOcc = null; // {start, end} of the repeat date being shown, if picked from a card
 let _evEditing = null; // event being edited, or null for a new one
 let _evFormImage = null; // { full: Blob, thumb: Blob } chosen in the form
 let _evFormRemoveImage = false;
@@ -75,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (wanted) {
       const ev = _evEvents.find((e) => e.id === wanted);
       if (ev) {
-        _evJumpTo(new Date(ev.start));
+        _evJumpTo(_evNextOccurrence(ev)._start);
         _evOpenDetail(ev.id);
       }
     }
@@ -240,20 +241,101 @@ function _evDateFromKey(key) {
   return new Date(y, m - 1, d);
 }
 
-// Events that overlap the local calendar day starting at dayStart.
+// ── Repeating events ────────────────────────────────────────────────────────
+
+const _EV_REPEAT_LABELS = { weekly: "Weekly", biweekly: "Every other week", monthly: "Monthly", yearly: "Yearly" };
+const _EV_RRULES = { weekly: "FREQ=WEEKLY", biweekly: "FREQ=WEEKLY;INTERVAL=2", monthly: "FREQ=MONTHLY", yearly: "FREQ=YEARLY" };
+const _EV_MAX_OCCURRENCES = 2100;
+
+function _evIsRepeating(ev) {
+  return !!_EV_RRULES[ev.recurrence];
+}
+
+// The n-th repeat start of a series (local wall-clock time), or null when that
+// month/year has no such day (the 31st skips short months, Feb 29 non-leap years).
+function _evShiftStart(base, recurrence, n) {
+  const y = base.getFullYear(), m = base.getMonth(), d = base.getDate(), h = base.getHours(), mi = base.getMinutes();
+  if (recurrence === "weekly") return new Date(y, m, d + 7 * n, h, mi);
+  if (recurrence === "biweekly") return new Date(y, m, d + 14 * n, h, mi);
+  const months = recurrence === "monthly" ? n : 12 * n;
+  const t = new Date(y, m + months, d, h, mi);
+  return t.getDate() === d ? t : null;
+}
+
+function _evOccStatus(start, end) {
+  const now = new Date();
+  if (end <= now) return "past";
+  return start <= now ? "active" : "upcoming";
+}
+
+// Occurrences of ev that overlap [from, to). Each is a copy of the event with
+// its own _start/_end and status. One-off events return themselves.
+function _evOccurrences(ev, from, to) {
+  const overlaps = (s, e) => s < to && (e > from || (+s === +e && s >= from));
+  if (!_evIsRepeating(ev)) return overlaps(ev._start, ev._end) ? [ev] : [];
+  const result = [];
+  const duration = ev._end - ev._start;
+  const spanDays = ev.all_day ? Math.round(duration / 86400_000) : 0;
+  const until = ev.repeat_until || null;
+  for (let n = 0; n < _EV_MAX_OCCURRENCES; n++) {
+    const s = _evShiftStart(ev._start, ev.recurrence, n);
+    if (!s) continue;
+    if (until && _evKey(s) > until) break;
+    if (s >= to) break;
+    const e = ev.all_day ? new Date(s.getFullYear(), s.getMonth(), s.getDate() + spanDays) : new Date(s.getTime() + duration);
+    if (overlaps(s, e)) result.push(Object.assign({}, ev, { _start: s, _end: e, _occ: true, status: _evOccStatus(s, e) }));
+  }
+  return result;
+}
+
+// The date that matters now: happening, else next, else the last one.
+function _evNextOccurrence(ev) {
+  if (!_evIsRepeating(ev)) return ev;
+  const now = new Date();
+  const duration = ev._end - ev._start;
+  const spanDays = ev.all_day ? Math.round(duration / 86400_000) : 0;
+  let last = null;
+  for (let n = 0; n < _EV_MAX_OCCURRENCES; n++) {
+    const s = _evShiftStart(ev._start, ev.recurrence, n);
+    if (!s) continue;
+    if (ev.repeat_until && _evKey(s) > ev.repeat_until) break;
+    const e = ev.all_day ? new Date(s.getFullYear(), s.getMonth(), s.getDate() + spanDays) : new Date(s.getTime() + duration);
+    const occ = { _start: s, _end: e };
+    if (e > now) {
+      last = occ;
+      break;
+    }
+    last = occ;
+  }
+  return last ? Object.assign({}, ev, last, { _occ: true, status: _evOccStatus(last._start, last._end) }) : ev;
+}
+
+// "Every week on Thursday · until Mar 1, 2027"
+function _evRepeatText(ev) {
+  const s = ev._start;
+  const weekday = s.toLocaleDateString(undefined, { weekday: "long" });
+  const day = s.getDate();
+  const suffix = day % 10 === 1 && day !== 11 ? "st" : day % 10 === 2 && day !== 12 ? "nd" : day % 10 === 3 && day !== 13 ? "rd" : "th";
+  let text = {
+    weekly: `Every week on ${weekday}`,
+    biweekly: `Every other week on ${weekday}`,
+    monthly: `Every month on the ${day}${suffix}`,
+    yearly: `Every year on ${s.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`,
+  }[ev.recurrence] || "";
+  if (text && ev.repeat_until) text += ` · until ${_evFmtDate(_evDateFromKey(ev.repeat_until), true)}`;
+  return text;
+}
+
+// Events (with repeats expanded) that overlap the local calendar day starting at dayStart.
 function _evEventsOnDay(dayStart) {
   const dayEnd = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate() + 1);
-  return _evEvents
-    .filter((e) => e._start < dayEnd && (e._end > dayStart || (+e._start === +e._end && e._start >= dayStart)))
-    .sort((a, b) => a._start - b._start);
+  return _evEvents.flatMap((e) => _evOccurrences(e, dayStart, dayEnd)).sort((a, b) => a._start - b._start);
 }
 
 function _evEventsInMonth(year, month) {
   const monthStart = new Date(year, month, 1);
   const monthEnd = new Date(year, month + 1, 1);
-  return _evEvents
-    .filter((e) => e._start < monthEnd && (e._end > monthStart || (+e._start === +e._end && e._start >= monthStart)))
-    .sort((a, b) => a._start - b._start);
+  return _evEvents.flatMap((e) => _evOccurrences(e, monthStart, monthEnd)).sort((a, b) => a._start - b._start);
 }
 
 function _evFmtDate(date, withYear) {
@@ -471,20 +553,23 @@ function _evCard(ev) {
     _el("img", { class: "ev-card-thumb", src: _evThumbUrl(ev), alt: "", loading: "lazy" }),
     _el("div", { class: "ev-card-body" }, [
       _el("div", { class: "ev-card-title-row" }, [_el("span", { class: "ev-card-title" }, ev.name), _evStatusBadge(ev)]),
-      _el("div", { class: "ev-card-meta" }, _evFmtRange(ev)),
+      _el("div", { class: "ev-card-meta" }, _evFmtRange(ev) + (_evIsRepeating(ev) ? ` · ↻ ${_EV_REPEAT_LABELS[ev.recurrence]}` : "")),
       _el("div", { class: "ev-card-meta" }, _evLocationText(ev)),
     ]),
   ]);
-  card.addEventListener("click", () => _evOpenDetail(ev.id));
+  // A repeat's card opens the event showing that date.
+  card.addEventListener("click", () => _evOpenDetail(ev.id, ev._occ ? ev : null));
   return card;
 }
 
 // ── Detail dialog ───────────────────────────────────────────────────────────
 
-function _evOpenDetail(id) {
+// occ: the particular date of a repeating event to show (default: the next one).
+function _evOpenDetail(id, occ) {
   const ev = _evFind(id);
   if (!ev) return;
   _evDetailId = id;
+  _evDetailOcc = occ ? { start: +occ._start, end: +occ._end } : null;
   _evRenderDetail(ev);
   const dlg = document.getElementById("ev-detail-dialog");
   if (!dlg.open) dlg.showModal();
@@ -509,7 +594,14 @@ function _evRenderDetail(ev) {
     rows.appendChild(_el("dt", {}, label));
     rows.appendChild(_el("dd", {}, content));
   };
-  addRow("When", _evFmtRange(ev));
+  if (_evIsRepeating(ev)) {
+    const picked = _evDetailId === ev.id && _evDetailOcc ? Object.assign({}, ev, { _start: new Date(_evDetailOcc.start), _end: new Date(_evDetailOcc.end) }) : _evNextOccurrence(ev);
+    const upcomingLabel = picked._end <= new Date() ? "Last" : picked._start <= new Date() ? "Now" : "When";
+    addRow(upcomingLabel, _evFmtRange(picked));
+    addRow("Repeats", "↻ " + _evRepeatText(ev));
+  } else {
+    addRow("When", _evFmtRange(ev));
+  }
 
   const loc = ev.location || {};
   if (loc.type === "online") {
@@ -623,11 +715,23 @@ function _evGoogleCalendarUrl(ev) {
     details: _evCalDetails(ev),
     location: _evCalLocation(ev),
   });
+  if (_evIsRepeating(ev)) {
+    // The whole series: first date + RRULE (+ the event's time zone so repeats keep their local time).
+    let rule = "RRULE:" + _EV_RRULES[ev.recurrence];
+    if (ev.repeat_until) {
+      const u = _evDateFromKey(ev.repeat_until);
+      rule += ";UNTIL=" + (ev.all_day ? ev.repeat_until.replace(/-/g, "") : _evCalStamp(new Date(u.getFullYear(), u.getMonth(), u.getDate(), 23, 59, 59)));
+    }
+    p.set("recur", rule);
+    if (ev.tz) p.set("ctz", ev.tz);
+  }
   return "https://calendar.google.com/calendar/render?" + p.toString();
 }
 
 // host: outlook.live.com (personal) or outlook.office.com (work/school).
-function _evOutlookUrl(ev, host) {
+// Outlook's link can't carry repeats, so a repeating event adds its next date.
+function _evOutlookUrl(series, host) {
+  const ev = _evNextOccurrence(series);
   const p = new URLSearchParams({
     path: "/calendar/action/compose",
     rru: "addevent",
@@ -653,8 +757,8 @@ function _evCalendarMenu(ev) {
     _el("div", { class: "ev-cal-menu", role: "menu" }, [
       item(_evGoogleCalendarUrl(ev), "Google Calendar"),
       item(`/events/${ev.id}/calendar.ics`, "Apple Calendar / iPhone", true),
-      item(_evOutlookUrl(ev, "outlook.live.com"), "Outlook.com"),
-      item(_evOutlookUrl(ev, "outlook.office.com"), "Outlook (work or school)"),
+      item(_evOutlookUrl(ev, "outlook.live.com"), "Outlook.com" + (_evIsRepeating(ev) ? " (next date only)" : "")),
+      item(_evOutlookUrl(ev, "outlook.office.com"), "Outlook (work or school)" + (_evIsRepeating(ev) ? " (next date only)" : "")),
       item(`/events/${ev.id}/calendar.ics`, "Other calendar app (.ics file)", true),
     ]),
   ]);
@@ -849,7 +953,12 @@ function _evInitForm() {
   });
   document.getElementById("ev-form-delete").addEventListener("click", _evDeleteEvent);
 
-  form.elements.all_day.addEventListener("change", () => _evSetAllDay(form.elements.all_day.checked));
+  form.elements.all_day.addEventListener("change", () => {
+    _evSetAllDay(form.elements.all_day.checked);
+    _evSyncRepeatFields();
+  });
+  form.elements.recurrence.addEventListener("change", _evSyncRepeatFields);
+  form.elements.start_local.addEventListener("change", _evSyncRepeatFields);
 
   // Keep the end after the start when the start moves.
   form.elements.start_local.addEventListener("change", () => {
@@ -897,6 +1006,17 @@ function _evSetPreview(src, removable) {
   _evPreviewUrl = src.startsWith("blob:") ? src : null;
   document.getElementById("ev-form-image-preview").src = src;
   document.getElementById("ev-form-image-remove").hidden = !removable;
+}
+
+// Shows "Until" and a plain-English summary only when the event repeats.
+function _evSyncRepeatFields() {
+  const form = document.getElementById("ev-form");
+  const recurrence = form.elements.recurrence.value;
+  form.querySelectorAll("[data-repeat-only]").forEach((el) => (el.hidden = !recurrence));
+  const hint = form.querySelector(".ev-repeat-hint");
+  const sv = form.elements.start_local.value;
+  const start = !sv ? null : form.elements.all_day.checked ? _evDateFromKey(sv) : new Date(sv);
+  hint.textContent = recurrence && start && !isNaN(start) ? "↻ " + _evRepeatText({ _start: start, recurrence, repeat_until: form.elements.repeat_until.value }) : "";
 }
 
 function _evSyncLocationFields() {
@@ -957,6 +1077,8 @@ function _evOpenForm(ev, onDate) {
     form.elements.contact_signal.value = c.signal || "";
     form.elements.contact_phone.value = c.phone || "";
     form.elements.contact_phone_texts.checked = !!c.phone_texts;
+    form.elements.recurrence.value = _EV_RRULES[ev.recurrence] ? ev.recurrence : "";
+    form.elements.repeat_until.value = ev.repeat_until || "";
     _evSetPreview(_evThumbUrl(ev), !!ev.has_image);
   } else {
     // Default: the chosen day (or the next whole hour today), two hours long.
@@ -968,6 +1090,7 @@ function _evOpenForm(ev, onDate) {
     _evSetPreview(_EV_DEFAULT_IMAGE, false);
   }
   _evSyncLocationFields();
+  _evSyncRepeatFields();
   document.getElementById("ev-form-dialog").showModal();
   form.elements.name.focus();
 }
@@ -997,6 +1120,14 @@ async function _evSubmitForm(e) {
   }
   ["name", "description", "location_type", "location_address", "location_link", "website", "contact_name", "contact_signal", "contact_phone"].forEach((n) => data.append(n, form.elements[n].value.trim()));
   data.append("contact_phone_texts", form.elements.contact_phone_texts.checked ? "1" : "");
+  data.append("recurrence", form.elements.recurrence.value);
+  data.append("repeat_until", form.elements.recurrence.value ? form.elements.repeat_until.value : "");
+  // Repeats keep their local time in this time zone (e.g. 7 PM across daylight saving).
+  try {
+    data.append("tz", Intl.DateTimeFormat().resolvedOptions().timeZone || "");
+  } catch (_) {
+    data.append("tz", "");
+  }
   data.append("start", isNaN(start) ? "" : start.toISOString());
   data.append("end", isNaN(end) ? "" : end.toISOString());
   if (_evFormImage) {
@@ -1033,7 +1164,7 @@ async function _evSubmitForm(e) {
     await _evLoad();
     const saved = _evFind(result.id);
     if (saved) {
-      _evJumpTo(saved._start);
+      _evJumpTo(_evNextOccurrence(saved)._start);
       _evOpenDetail(saved.id);
     }
   } catch (err) {

@@ -18,7 +18,7 @@ from meshtastic import channel_pb2
 
 from common.constants import _EVENTS_FILE, _EVENTS_HISTORY_FILE, _EVENTS_SUBDIR
 from web.web_server import WebServer  # first: it reloads web.event_store on import
-from web.event_store import EventStore, EventStoreError, build_ics
+from web.event_store import EventStore, EventStoreError, build_ics, occurrences
 
 PNG: bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 JPEG: bytes = b"\xff\xd8\xff\xe0" + b"\x00" * 64
@@ -643,6 +643,132 @@ class AllDayEventTests(_EventsServerCase):
         today: str = datetime.now(timezone.utc).date().isoformat()
         res = self._visitor().post("/api/events", data=self._all_day(today, today), content_type="multipart/form-data")
         self.assertEqual(res.status_code, 202)
+
+
+class RecurringEventTests(_EventsServerCase):
+    """Repeating events: weekly, every other week, monthly, yearly."""
+
+    NY: str = "America/New_York"
+
+    def _repeat(self, recurrence: str, start: str, end: str, **extra) -> dict:
+        return _fields(recurrence=recurrence, start=start, end=end, tz=self.NY, **extra)
+
+    def _clean(self, **kw) -> dict:
+        clean, errors = EventStore.validate(self._repeat(**kw))
+        self.assertEqual(errors, {})
+        return clean
+
+    @staticmethod
+    def _starts(event: dict, count: int) -> list[str]:
+        result: list[str] = []
+        for start, _ in occurrences(event):
+            result.append(EventStore.format_time(start))
+            if len(result) == count:
+                break
+        return result
+
+    # ── validation ──
+    def test_validation_stores_repeat_fields(self) -> None:
+        clean = self._clean(recurrence="biweekly", start="2026-12-03T00:00:00Z", end="2026-12-03T02:00:00Z", repeat_until="2027-03-01")
+        self.assertEqual((clean["recurrence"], clean["repeat_until"], clean["tz"]), ("biweekly", "2027-03-01", self.NY))
+        clean, errors = EventStore.validate(_fields(recurrence="", repeat_until="2027-03-01"))
+        self.assertEqual(errors, {})
+        self.assertEqual((clean["recurrence"], clean["repeat_until"]), ("", ""), "no repeat → no end date kept")
+
+    def test_validation_rejects_bad_values(self) -> None:
+        _, errors = EventStore.validate(_fields(recurrence="daily"))
+        self.assertIn("recurrence", errors)
+        _, errors = EventStore.validate(self._repeat("weekly", "2026-12-03T00:00:00Z", "2026-12-03T02:00:00Z", repeat_until="2026-12-01"))
+        self.assertIn("repeat_until", errors)
+        _, errors = EventStore.validate(self._repeat("weekly", "2026-12-03T00:00:00Z", "2026-12-03T02:00:00Z", repeat_until="2026-13-01"))
+        self.assertIn("repeat_until", errors)
+        clean, errors = EventStore.validate(_fields(recurrence="weekly", tz="Not/AZone"))
+        self.assertEqual((errors, clean["tz"]), ({}, ""), "unknown time zone is dropped, not an error")
+
+    # ── occurrences ──
+    def test_weekly_keeps_local_time_across_daylight_saving(self) -> None:
+        # Thursdays 7 PM New York: 00:00Z in winter (EST), 23:00Z in summer (EDT).
+        ev = self._clean(recurrence="weekly", start="2027-03-05T00:00:00Z", end="2027-03-05T02:00:00Z")
+        self.assertEqual(self._starts(ev, 3), ["2027-03-05T00:00:00Z", "2027-03-12T00:00:00Z", "2027-03-18T23:00:00Z"])
+
+    def test_biweekly_is_every_14_days(self) -> None:
+        ev = self._clean(recurrence="biweekly", start="2026-12-03T00:00:00Z", end="2026-12-03T02:00:00Z")
+        self.assertEqual(self._starts(ev, 3), ["2026-12-03T00:00:00Z", "2026-12-17T00:00:00Z", "2026-12-31T00:00:00Z"])
+
+    def test_monthly_on_the_31st_skips_short_months(self) -> None:
+        ev = self._clean(recurrence="monthly", start="2027-01-31T17:00:00Z", end="2027-01-31T18:00:00Z")
+        days: list[str] = [s[:10] for s in self._starts(ev, 4)]
+        self.assertEqual(days, ["2027-01-31", "2027-03-31", "2027-05-31", "2027-07-31"])
+
+    def test_yearly_on_feb_29_only_in_leap_years(self) -> None:
+        ev = self._clean(recurrence="yearly", start="2028-02-29T17:00:00Z", end="2028-02-29T18:00:00Z")
+        self.assertEqual([s[:10] for s in self._starts(ev, 2)], ["2028-02-29", "2032-02-29"])
+
+    def test_until_is_inclusive(self) -> None:
+        ev = self._clean(recurrence="weekly", start="2026-12-03T00:00:00Z", end="2026-12-03T02:00:00Z", repeat_until="2026-12-16")
+        # Local dates Dec 2, 9, 16 (7 PM New York) — the 16th is included.
+        self.assertEqual(len(list(occurrences(ev))), 3)
+
+    def test_all_day_repeats_keep_their_dates(self) -> None:
+        ev = self._clean(recurrence="monthly", start="", end="", all_day="1", start_day="2026-12-05", end_day="2026-12-06")
+        spans = [(EventStore.format_time(s), EventStore.format_time(e)) for s, e in list(occurrences(ev))[:2]]
+        self.assertEqual(spans, [("2026-12-05T05:00:00Z", "2026-12-07T05:00:00Z"), ("2027-01-05T05:00:00Z", "2027-01-07T05:00:00Z")])
+
+    # ── status, archiving, photos ──
+    def test_status_follows_the_current_or_next_date(self) -> None:
+        ev = self._clean(recurrence="weekly", start="2026-11-05T00:00:00Z", end="2026-11-05T02:00:00Z")
+        during = EventStore.with_status(ev, datetime(2026, 11, 26, 1, 0, tzinfo=timezone.utc))
+        self.assertEqual((during["status"], during["occurrence_start"]), ("active", "2026-11-26T00:00:00Z"))
+        between = EventStore.with_status(ev, datetime(2026, 11, 27, 12, 0, tzinfo=timezone.utc))
+        self.assertEqual((between["status"], between["occurrence_start"]), ("upcoming", "2026-12-03T00:00:00Z"))
+        ended = dict(ev, repeat_until="2026-11-19")
+        after = EventStore.with_status(ended, datetime(2026, 11, 27, tzinfo=timezone.utc))
+        self.assertEqual((after["status"], after["occurrence_start"]), ("past", "2026-11-19T00:00:00Z"))
+
+    def test_repeating_event_stays_current_until_its_last_date(self) -> None:
+        open_ended: dict = self._post("/api/events", self._repeat("weekly", _iso(-24 * 20), _iso(-24 * 20 + 2))).get_json()
+        finished: dict = self._post("/api/events", self._repeat("weekly", _iso(-24 * 30), _iso(-24 * 30 + 2), repeat_until=(datetime.now(timezone.utc) - timedelta(days=9)).date().isoformat())).get_json()
+        self.assertEqual(open_ended["status"], "upcoming")
+        self.assertEqual(finished["status"], "past")
+        with open(os.path.join(self.dir, _EVENTS_SUBDIR, _EVENTS_HISTORY_FILE), encoding="utf-8") as f:
+            history_raw: str = f.read()
+        current: list = self.server._event_store._read_file(_EVENTS_FILE)
+        self.assertEqual([e["id"] for e in current], [open_ended["id"]])
+        self.assertTrue(history_raw)
+
+    def test_photos_can_be_added_during_a_later_date(self) -> None:
+        # First date a week ago; today's repeat is happening now.
+        ev: dict = self._post("/api/events", self._repeat("weekly", _iso(-24 * 7 - 1), _iso(-24 * 7 + 2))).get_json()
+        self.assertEqual(ev["status"], "active")
+        res = self._visitor().post(f"/api/events/{ev['id']}/photos", data={"photo": (io.BytesIO(JPEG), "p.jpg")}, content_type="multipart/form-data")
+        self.assertEqual(res.status_code, 201)
+
+    def test_visitors_can_submit_a_series_that_is_still_going(self) -> None:
+        visitor = self._visitor()
+        going = visitor.post("/api/events", data=self._repeat("monthly", _iso(-24 * 40), _iso(-24 * 40 + 2)), content_type="multipart/form-data")
+        self.assertEqual(going.status_code, 202)
+        done = visitor.post("/api/events", data=self._repeat("weekly", _iso(-24 * 40), _iso(-24 * 40 + 2), repeat_until=(datetime.now(timezone.utc) - timedelta(days=20)).date().isoformat()), content_type="multipart/form-data")
+        self.assertEqual(done.status_code, 400)
+
+    # ── calendar file ──
+    def test_calendar_file_has_rrule_and_time_zone(self) -> None:
+        ev: dict = self._post("/api/events", self._repeat("biweekly", "2026-12-04T00:00:00Z", "2026-12-04T02:00:00Z", repeat_until="2027-02-25")).get_json()
+        text: str = self.client.get(f"/events/{ev['id']}/calendar.ics").get_data(as_text=True).replace("\r\n ", "")
+        self.assertIn("DTSTART;TZID=America/New_York:20261203T190000\r\n", text)
+        self.assertIn("DTEND;TZID=America/New_York:20261203T210000\r\n", text)
+        self.assertIn("RRULE:FREQ=WEEKLY;INTERVAL=2;UNTIL=20270226T045959Z\r\n", text)
+
+    def test_calendar_file_all_day_repeat(self) -> None:
+        ev: dict = self._post("/api/events", _fields(recurrence="yearly", all_day="1", start_day="2026-12-25", end_day="2026-12-25", start="", end="", repeat_until="2030-12-25")).get_json()
+        text: str = self.client.get(f"/events/{ev['id']}/calendar.ics").get_data(as_text=True)
+        self.assertIn("DTSTART;VALUE=DATE:20261225\r\n", text)
+        self.assertIn("RRULE:FREQ=YEARLY;UNTIL=20301225\r\n", text)
+
+    def test_one_off_events_are_unchanged(self) -> None:
+        ev: dict = self._post("/api/events", _fields()).get_json()
+        self.assertEqual((ev["recurrence"], ev["occurrence_start"]), ("", ev["start"]))
+        text: str = self.client.get(f"/events/{ev['id']}/calendar.ics").get_data(as_text=True)
+        self.assertNotIn("RRULE", text)
 
 
 if __name__ == "__main__":

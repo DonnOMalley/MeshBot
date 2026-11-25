@@ -24,7 +24,8 @@ async function _fetchActiveEvents() {
     if (!res.ok) return;
     const data = await res.json();
     const active = (data.events || []).filter((e) => e.status === "active" && e.approved !== false);
-    active.sort((a, b) => String(a.end).localeCompare(String(b.end)));
+    const endOf = (e) => String(e.occurrence_end || e.end);
+    active.sort((a, b) => endOf(a).localeCompare(endOf(b)));
     _renderActiveEvents(active);
   } catch (_) {}
 }
@@ -55,12 +56,19 @@ function _joyEventUntil(e) {
   const today = new Date();
   const sameDay = (d) => d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   const dayLabel = (d) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  // Repeating events: the server sends the date that's happening now.
+  const repeating = !!e.recurrence && e.occurrence_end;
   if (e.all_day && e.end_day) {
-    const [y, m, d] = e.end_day.split("-").map(Number);
-    const last = new Date(y, m - 1, d);
+    let last;
+    if (repeating) {
+      last = new Date(new Date(e.occurrence_end).getTime() - 1);
+    } else {
+      const [y, m, d] = e.end_day.split("-").map(Number);
+      last = new Date(y, m - 1, d);
+    }
     return sameDay(last) ? "All day" : `Through ${dayLabel(last)}`;
   }
-  const end = new Date(e.end);
+  const end = new Date(repeating ? e.occurrence_end : e.end);
   if (isNaN(end)) return "";
   return sameDay(end) ? `Until ${end.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : `Until ${dayLabel(end)}`;
 }
