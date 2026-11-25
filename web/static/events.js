@@ -376,7 +376,7 @@ function _evRenderDay() {
       _el(
         "p",
         { class: "tih-events-empty" },
-        monthCount ? `🎉 ${monthCount} event${monthCount === 1 ? "" : "s"} this month — days with a dot have events.` : "No events this month yet. Use “+ New Event” to add one."
+        monthCount ? `🎉 ${monthCount} event${monthCount === 1 ? "" : "s"} this month — days with a dot have events.` : "No events this month yet. Use the button above to add one."
       )
     );
     return;

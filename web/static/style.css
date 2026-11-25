@@ -239,6 +239,20 @@ header h1 {
   background: var(--accent-dim);
 }
 
+/* Hamburger menu button — only shown at phone width (see the mobile media query). */
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 34px;
+}
+.header-right .nav-toggle {
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 10px;
+}
+
 /* ── Main layout ─────────────────────────────────────────────────────── */
 main {
   display: flex;
@@ -1573,38 +1587,78 @@ main > section:last-child #chat-messages {
     font-size: 11px;
   }
 
-  /* Nav — horizontal scroll so all items remain reachable */
-  nav {
-    padding: 0 2px;
-    gap: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex-wrap: nowrap;
+  /* Nav — hidden behind the header's hamburger button; opens as a
+     full-width list below the header. */
+  .nav-toggle {
+    display: inline-flex;
   }
-  nav::-webkit-scrollbar {
+  .header-right .nav-toggle {
+    font-size: 20px;
+    padding: 0 10px;
+  }
+  nav {
     display: none;
   }
-  .nav-link {
-    padding: 8px 10px;
-    font-size: 10px;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
+  body.nav-open nav {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 4px 0 8px;
+    position: fixed;
+    top: var(--nav-top, 52px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    max-height: calc(100vh - var(--nav-top, 52px));
+    overflow-y: auto;
+    border-bottom: 2px solid var(--accent);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
+  }
+  body.nav-open .nav-link,
+  body.nav-open .nav-dropdown-item {
+    padding: 13px 18px;
+    font-size: 13px;
+    letter-spacing: 1px;
+    border-bottom: none;
+    border-left: 3px solid transparent;
+  }
+  body.nav-open .nav-link.active,
+  body.nav-open .nav-dropdown-item.active {
+    border-left-color: var(--accent);
+    background: var(--accent-dim);
   }
   .nav-icon {
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
   }
-  .nav-dropdown-trigger {
-    padding: 8px 10px;
-    font-size: 10px;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
+  /* Administration: a section heading with its pages listed below it. */
+  body.nav-open .nav-dropdown {
+    flex-direction: column;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 4px;
   }
-  .nav-dropdown-menu {
-    right: auto;
-    left: 0;
+  body.nav-open .nav-dropdown-trigger {
+    padding: 10px 18px 4px;
+    font-size: 11px;
+    cursor: default;
+    border-bottom: none;
+    pointer-events: none;
+  }
+  body.nav-open .nav-caret {
+    display: none;
+  }
+  body.nav-open .nav-dropdown-menu {
+    display: flex;
+    position: static;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    min-width: 0;
+  }
+  body.nav-open .nav-dropdown-item {
+    padding-left: 30px;
   }
 
   /* Main layout — no gaps/padding, panels go edge-to-edge */
