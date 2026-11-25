@@ -771,5 +771,60 @@ class RecurringEventTests(_EventsServerCase):
         self.assertNotIn("RRULE", text)
 
 
+class UpcomingAgendaTests(_EventsServerCase):
+    """/api/events/upcoming: the dashboard's Events panel."""
+
+    def _upcoming(self, client=None, **params) -> list:
+        query: str = "&".join(f"{k}={v}" for k, v in params.items())
+        res = (client or self._visitor()).get("/api/events/upcoming" + (f"?{query}" if query else ""))
+        self.assertEqual(res.status_code, 200)
+        return res.get_json()["events"]
+
+    def test_happening_now_first_then_soonest(self) -> None:
+        self._post("/api/events", _fields(name="Later", start=_iso(48), end=_iso(50)))
+        self._post("/api/events", _fields(name="Sooner", start=_iso(5), end=_iso(6)))
+        self._post("/api/events", _fields(name="Now", start=_iso(-1), end=_iso(1)))
+        items = self._upcoming()
+        self.assertEqual([i["name"] for i in items], ["Now", "Sooner", "Later"])
+        self.assertEqual([i["status"] for i in items], ["active", "upcoming", "upcoming"])
+        self.assertTrue(all(set(i) >= {"id", "start", "end", "location", "recurrence"} for i in items))
+
+    def test_past_and_far_future_left_out(self) -> None:
+        self._post("/api/events", _fields(name="Done", start=_iso(-5), end=_iso(-4)))
+        self._post("/api/events", _fields(name="Far", start=_iso(24 * 40), end=_iso(24 * 40 + 1)))
+        self._post("/api/events", _fields(name="Soon", start=_iso(24 * 3), end=_iso(24 * 3 + 1)))
+        self.assertEqual([i["name"] for i in self._upcoming()], ["Soon"])
+        self.assertEqual([i["name"] for i in self._upcoming(days=60)], ["Soon", "Far"])
+
+    def test_repeats_listed_once_per_date(self) -> None:
+        self._post("/api/events", _fields(name="Weekly Net", start=_iso(2), end=_iso(3), recurrence="weekly", tz="America/New_York"))
+        items = self._upcoming(days=30)
+        self.assertEqual(len(items), 5, "dates in the next 30 days: +2h, +7d, +14d, +21d, +28d")
+        self.assertTrue(all(i["name"] == "Weekly Net" and i["recurrence"] == "weekly" for i in items))
+        self.assertEqual(len(set(i["start"] for i in items)), 5)
+
+    def test_limit(self) -> None:
+        self._post("/api/events", _fields(name="Weekly Net", start=_iso(2), end=_iso(3), recurrence="weekly"))
+        self.assertEqual(len(self._upcoming(days=365, limit=3)), 3)
+        self.assertEqual(len(self._upcoming(days=365)), 8, "default limit is 8")
+
+    def test_pending_submissions_never_listed(self) -> None:
+        self._visitor().post("/api/events", data=_fields(name="Pending"), content_type="multipart/form-data")
+        self.assertEqual(self._upcoming(), [])
+        self.assertEqual(self._upcoming(client=self.client), [], "not even for organizers")
+
+    def test_all_day_dates_in_event_time_zone(self) -> None:
+        first = (datetime.now(timezone.utc) + timedelta(days=3)).date()
+        self._post("/api/events", _fields(name="Field Day", all_day="1", start_day=first.isoformat(), end_day=(first + timedelta(days=1)).isoformat(),
+                                          start="", end="", tz="America/New_York"))
+        item = self._upcoming()[0]
+        self.assertTrue(item["all_day"])
+        self.assertEqual((item["first_day"], item["last_day"]), (first.isoformat(), (first + timedelta(days=1)).isoformat()))
+
+    def test_bad_parameters_fall_back(self) -> None:
+        res = self._visitor().get("/api/events/upcoming?days=abc&limit=-4")
+        self.assertEqual((res.status_code, res.get_json()["days"]), (200, 30))
+
+
 if __name__ == "__main__":
     unittest.main()

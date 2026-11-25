@@ -116,7 +116,7 @@ import web.event_store as _event_store_module
 
 # Re-read the event store from disk whenever this module is (hot) reloaded.
 importlib.reload(_event_store_module)
-from web.event_store import EventStore, EventStoreError, build_ics  # noqa: E402  (after the reload on purpose)
+from web.event_store import EventStore, EventStoreError, build_ics, upcoming_occurrences  # noqa: E402  (after the reload on purpose)
 
 _dm_response_tl: threading.local = threading.local()
 
@@ -1227,6 +1227,20 @@ class WebServer:
                 return jsonify({"events": events})
             except EventStoreError as exc:
                 return jsonify({"error": str(exc), "events": []}), 503
+
+        @self._app.route("/api/events/upcoming", methods=["GET"])
+        def api_events_upcoming():
+            # Dashboard agenda: published events happening now or in the next N days.
+            try:
+                days: int = max(1, min(365, int(request.args.get("days", 30))))
+                limit: int = max(1, min(50, int(request.args.get("limit", 8))))
+            except (TypeError, ValueError):
+                days, limit = 30, 8
+            try:
+                events: list[dict] = [e for e in self._event_store.list_events() if EventStore.is_approved(e)]
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc), "events": []}), 503
+            return jsonify({"events": upcoming_occurrences(events, datetime.now(timezone.utc), days, limit), "days": days})
 
         @self._app.route("/api/events", methods=["POST"])
         def api_events_create():

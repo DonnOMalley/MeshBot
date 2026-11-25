@@ -10,68 +10,93 @@ let _dashTileErrorFired = false;
 // Month name lookup for the TIH panel header
 const _MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-// ── Joy panel ──────────────────────────────────────────────────────────────
+// ── Events panel: agenda of what's happening now and coming up ─────────────
 
-const _JOY_EVENTS_REFRESH_MS = 60_000;
+const _DASH_EVENTS_REFRESH_MS = 60_000;
+const _DASH_EVENTS_DAYS = 30;
 
-// Events happening right now, listed at the top of the Joy panel. Each links
-// to the event on the Events page (details + photo upload).
-async function _fetchActiveEvents() {
-  const box = document.getElementById("dash-joy-events");
-  if (!box) return;
+async function _fetchUpcomingEvents() {
+  const body = document.getElementById("dash-events-body");
+  if (!body) return;
   try {
-    const res = await fetch("/api/events", { cache: "no-store" });
-    if (!res.ok) return;
+    const res = await fetch(`/api/events/upcoming?days=${_DASH_EVENTS_DAYS}&limit=8`, { cache: "no-store" });
+    if (!res.ok) throw new Error("load failed");
     const data = await res.json();
-    const active = (data.events || []).filter((e) => e.status === "active" && e.approved !== false);
-    const endOf = (e) => String(e.occurrence_end || e.end);
-    active.sort((a, b) => endOf(a).localeCompare(endOf(b)));
-    _renderActiveEvents(active);
-  } catch (_) {}
+    _renderUpcomingEvents(data.events || []);
+  } catch (_) {
+    if (!body.querySelector(".dash-ev-group")) body.innerHTML = '<p class="dash-events-empty">Couldn’t load events.</p>';
+  }
 }
 
-function _renderActiveEvents(events) {
-  const box = document.getElementById("dash-joy-events");
-  box.hidden = !events.length;
-  if (!events.length) {
-    box.innerHTML = "";
+function _dashDay(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function _dashKey(date) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
+}
+
+// "Today", "Tomorrow", or "Wed, Dec 2".
+function _dashDayLabel(date) {
+  const today = new Date();
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  if (_dashKey(date) === _dashKey(today)) return "Today";
+  if (_dashKey(date) === _dashKey(tomorrow)) return "Tomorrow";
+  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function _dashTime(date) {
+  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+// Time text for one date: "7:00 PM – 9:00 PM", "All day", "Through Sun, Dec 6",
+// or for one happening now "Until 9:00 PM".
+function _dashWhen(o) {
+  if (o.all_day) {
+    const last = _dashDay(o.last_day);
+    if (o.status === "active") return o.first_day === o.last_day ? "All day" : `Through ${_dashDayLabel(last)}`;
+    return o.first_day === o.last_day ? "All day" : `All day, through ${_dashDayLabel(last)}`;
+  }
+  const s = new Date(o.start);
+  const e = new Date(o.end);
+  const endText = _dashKey(s) === _dashKey(e) ? _dashTime(e) : `${_dashDayLabel(e)} ${_dashTime(e)}`;
+  return o.status === "active" ? `Until ${endText}` : `${_dashTime(s)} – ${endText}`;
+}
+
+function _renderUpcomingEvents(items) {
+  const body = document.getElementById("dash-events-body");
+  if (!items.length) {
+    body.innerHTML = `<p class="dash-events-empty">No events in the next ${_DASH_EVENTS_DAYS} days.<br /><a href="/events">Open the Events page &rarr;</a></p>`;
     return;
   }
-  const rows = events
-    .map((e) => {
-      const loc = e.location || {};
-      const where = loc.type === "online" ? "Online" : loc.address || "";
-      const meta = [_joyEventUntil(e), where].filter(Boolean).join(" · ");
-      return `<li><a class="joy-event-link" href="/events?id=${encodeURIComponent(e.id)}">${_escapeHtml(e.name)}</a>${meta ? `<span class="joy-event-meta">${_escapeHtml(meta)}</span>` : ""}</li>`;
-    })
+  // Group: happening now first, then by day.
+  const groups = [];
+  items.forEach((o) => {
+    const label = o.status === "active" ? "Happening now" : _dashDayLabel(o.all_day ? _dashDay(o.first_day) : new Date(o.start));
+    let group = groups.find((g) => g.label === label);
+    if (!group) groups.push((group = { label, now: o.status === "active", rows: [] }));
+    group.rows.push(o);
+  });
+  body.innerHTML = groups
+    .map(
+      (g) => `<div class="dash-ev-group${g.now ? " is-now" : ""}">
+        <div class="dash-ev-day">${g.now ? "&#127881; " : ""}${_escapeHtml(g.label)}</div>
+        <ul class="dash-ev-list">${g.rows
+          .map((o) => {
+            const loc = o.location || {};
+            const where = loc.type === "online" ? "Online" : loc.address || "";
+            const meta = [_dashWhen(o), where].filter(Boolean).join(" · ") + (o.recurrence ? " · ↻" : "");
+            return `<li><a class="dash-ev-link" href="/events?id=${encodeURIComponent(o.id)}">${_escapeHtml(o.name)}</a><span class="dash-ev-meta">${_escapeHtml(meta)}</span></li>`;
+          })
+          .join("")}</ul>
+      </div>`
+    )
     .join("");
-  box.innerHTML = `<div class="joy-item">
-    <span class="joy-label">&#127881; Happening now &mdash; tap to see details &amp; share photos</span>
-    <ul class="joy-events">${rows}</ul>
-  </div>`;
 }
 
-// "Until 8:00 PM", "Until Sat, Dec 6", or "All day" / "Through Sun, Dec 6".
-function _joyEventUntil(e) {
-  const today = new Date();
-  const sameDay = (d) => d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-  const dayLabel = (d) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-  // Repeating events: the server sends the date that's happening now.
-  const repeating = !!e.recurrence && e.occurrence_end;
-  if (e.all_day && e.end_day) {
-    let last;
-    if (repeating) {
-      last = new Date(new Date(e.occurrence_end).getTime() - 1);
-    } else {
-      const [y, m, d] = e.end_day.split("-").map(Number);
-      last = new Date(y, m - 1, d);
-    }
-    return sameDay(last) ? "All day" : `Through ${dayLabel(last)}`;
-  }
-  const end = new Date(repeating ? e.occurrence_end : e.end);
-  if (isNaN(end)) return "";
-  return sameDay(end) ? `Until ${end.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : `Until ${dayLabel(end)}`;
-}
+// ── Joy panel ──────────────────────────────────────────────────────────────
 
 async function _fetchJoy() {
   try {
@@ -90,7 +115,7 @@ async function _onJoyRefreshClick() {
   btn.disabled = true;
   btn.classList.add("spinning");
   try {
-    await Promise.all([_fetchJoy(), _fetchActiveEvents()]);
+    await _fetchJoy();
   } finally {
     btn.classList.remove("spinning");
     btn.disabled = false;
@@ -331,8 +356,8 @@ function _renderBotInfo(data) {
 
 function dashboardInit() {
   _fetchJoy();
-  _fetchActiveEvents();
-  setInterval(_fetchActiveEvents, _JOY_EVENTS_REFRESH_MS);
+  _fetchUpcomingEvents();
+  setInterval(_fetchUpcomingEvents, _DASH_EVENTS_REFRESH_MS);
   const joyRefreshBtn = document.getElementById("dash-joy-refresh");
   if (joyRefreshBtn) joyRefreshBtn.addEventListener("click", _onJoyRefreshClick);
   _fetchTodayInHistory();

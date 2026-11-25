@@ -246,6 +246,46 @@ def build_ics(event: dict, page_url: str) -> str:
     return "\r\n".join(_ics_fold(line) for line in lines) + "\r\n"
 
 
+def upcoming_occurrences(events: list[dict], now: datetime, days: int = 30, limit: int = 8) -> list[dict]:
+    """The next dates across *events*: those happening at *now* plus those
+    starting within *days*. Repeats are expanded; happening-now first, then
+    earliest first, at most *limit*.
+
+    All-day dates are given as ``first_day``/``last_day`` in the event's own
+    time zone so they read the same for every viewer.
+    """
+    horizon: datetime = now + timedelta(days=days)
+    found: list[dict] = []
+    for event in events:
+        zone = _event_zone(event)
+        location: dict = event.get("location") or {}
+        for occ_start, occ_end in occurrences(event):
+            if occ_start >= horizon:
+                break
+            if occ_end <= now:
+                continue
+            item: dict = {
+                "id": event.get("id", ""),
+                "name": event.get("name", ""),
+                "start": EventStore.format_time(occ_start),
+                "end": EventStore.format_time(occ_end),
+                "all_day": bool(event.get("all_day")),
+                "status": _EVENTS_STATUS_ACTIVE if occ_start <= now else _EVENTS_STATUS_UPCOMING,
+                "recurrence": event.get("recurrence", "") or "",
+                "location": {"type": location.get("type", ""), "address": location.get("address", "")},
+            }
+            if item["all_day"]:
+                if not item["recurrence"] and event.get("start_day") and event.get("end_day"):
+                    # One-off: its own calendar dates, exactly as entered.
+                    item["first_day"], item["last_day"] = event["start_day"], event["end_day"]
+                else:
+                    item["first_day"] = occ_start.astimezone(zone).date().isoformat()
+                    item["last_day"] = (occ_end - timedelta(microseconds=1)).astimezone(zone).date().isoformat()
+            found.append(item)
+    found.sort(key=lambda o: (o["status"] != _EVENTS_STATUS_ACTIVE, o["start"]))
+    return found[:limit]
+
+
 class EventStoreError(Exception):
     """Raised when the event files exist but cannot be read (e.g. wrong key).
 
