@@ -3764,6 +3764,7 @@ body.tih-page main {
 .ev-field input[type="url"],
 .ev-field input[type="tel"],
 .ev-field input[type="datetime-local"],
+.ev-field input[type="date"],
 .ev-field textarea {
   width: 100%;
   background: var(--bg);
@@ -4010,4 +4011,11 @@ body.tih-page main {
   background: var(--accent-dim);
   color: var(--accent);
   outline: none;
+}
+
+/* All-day checkbox sits above the start/end row. */
+.ev-check.ev-allday-check {
+  flex: none;
+  padding-top: 0;
+  align-self: flex-start;
 }

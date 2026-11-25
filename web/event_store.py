@@ -5,7 +5,7 @@ import re
 import secrets
 import shutil
 import threading
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -32,6 +32,7 @@ _ID_PATTERN: re.Pattern = re.compile(r"^[a-f0-9]{8,32}$")
 _IMAGE_NAME_PATTERN: re.Pattern = re.compile(r"^(cover|[a-f0-9]{8,32})(_thumb)?$")
 _URL_PATTERN: re.Pattern = re.compile(r"^https?://[^\s<>\"']+$", re.IGNORECASE)
 _PHONE_PATTERN: re.Pattern = re.compile(r"^[0-9+()\-.\s]{7,25}$")
+_DAY_PATTERN: re.Pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
     (b"\xff\xd8\xff", "image/jpeg"),
     (b"\x89PNG\r\n\x1a\n", "image/png"),
@@ -80,6 +81,15 @@ def build_ics(event: dict, page_url: str) -> str:
         parsed: datetime | None = EventStore.parse_time(value)
         return parsed.strftime("%Y%m%dT%H%M%SZ") if parsed else ""
 
+    first: date | None = EventStore.parse_day(event.get("start_day", "")) if event.get("all_day") else None
+    last: date | None = EventStore.parse_day(event.get("end_day", "")) if event.get("all_day") else None
+    dates: list[str]
+    if first is not None and last is not None:
+        # All-day: date values, end is the day after the last day (RFC 5545).
+        dates = ["DTSTART;VALUE=DATE:" + first.strftime("%Y%m%d"), "DTEND;VALUE=DATE:" + (last + timedelta(days=1)).strftime("%Y%m%d")]
+    else:
+        dates = ["DTSTART:" + stamp(event.get("start", "")), "DTEND:" + stamp(event.get("end", ""))]
+
     location: dict = event.get("location") or {}
     where: str = location.get("link", "") if location.get("type") == _EVENTS_LOCATION_ONLINE else location.get("address", "")
     details: list[str] = []
@@ -99,8 +109,7 @@ def build_ics(event: dict, page_url: str) -> str:
         "BEGIN:VEVENT",
         f"UID:{event.get('id', '')}@meshbot-events",
         "DTSTAMP:" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
-        "DTSTART:" + stamp(event.get("start", "")),
-        "DTEND:" + stamp(event.get("end", "")),
+        *dates,
         "SUMMARY:" + _ics_escape(event.get("name", "")),
         "DESCRIPTION:" + _ics_escape("\n\n".join(details)),
     ]
@@ -197,6 +206,18 @@ class EventStore:
         return result
 
     @staticmethod
+    def parse_day(value: str) -> date | None:
+        """Parses a ``YYYY-MM-DD`` calendar date; None when missing or invalid."""
+        result: date | None = None
+        text: str = str(value or "").strip()
+        if _DAY_PATTERN.match(text):
+            try:
+                result = date.fromisoformat(text)
+            except ValueError:
+                pass
+        return result
+
+    @staticmethod
     def format_time(value: datetime) -> str:
         """Formats an aware datetime as a UTC ISO-8601 string ending in ``Z``."""
         return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -233,13 +254,35 @@ class EventStore:
             errors["name"] = "Name is required."
         description: str = text("description", _EVENTS_TEXT_MAX_LEN)
 
+        all_day: bool = str(fields.get("all_day", "")).strip().lower() in ("1", "true", "on", "yes")
+        start_day: str = ""
+        end_day: str = ""
         start: datetime | None = EventStore.parse_time(fields.get("start", ""))
         end: datetime | None = EventStore.parse_time(fields.get("end", ""))
-        if start is None:
+        if all_day:
+            # All-day events keep their calendar dates (end_day = last day,
+            # inclusive) so they show on the same days in every time zone.
+            first: date | None = EventStore.parse_day(fields.get("start_day", ""))
+            last: date | None = EventStore.parse_day(fields.get("end_day", ""))
+            if first is None:
+                errors["start"] = "Start date is required."
+            if last is None:
+                errors["end"] = "End date is required."
+            if first is not None and last is not None:
+                if last < first:
+                    errors["end"] = "End date must be on or after the start date."
+                start_day, end_day = first.isoformat(), last.isoformat()
+                # Midnight-to-midnight; the browser sends its local midnights,
+                # otherwise fall back to UTC midnights.
+                if start is None:
+                    start = datetime.combine(first, time.min, tzinfo=timezone.utc)
+                if end is None:
+                    end = datetime.combine(last + timedelta(days=1), time.min, tzinfo=timezone.utc)
+        if start is None and "start" not in errors:
             errors["start"] = "Start date/time is required."
-        if end is None:
+        if end is None and "end" not in errors:
             errors["end"] = "End date/time is required."
-        if start is not None and end is not None and end < start:
+        if start is not None and end is not None and end < start and "end" not in errors:
             errors["end"] = "End must be after the start."
 
         location_type: str = str(fields.get("location_type", "") or "").strip().lower()
@@ -267,6 +310,9 @@ class EventStore:
             "description": description,
             "start": EventStore.format_time(start) if start else "",
             "end": EventStore.format_time(end) if end else "",
+            "all_day": all_day,
+            "start_day": start_day,
+            "end_day": end_day,
             "location": {"type": location_type, "address": address, "link": link},
             "website": website,
             "contact": {

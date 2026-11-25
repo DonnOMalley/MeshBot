@@ -182,7 +182,7 @@ async function _evLoad() {
     const res = await fetch("/api/events");
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not load events.");
-    _evEvents = (data.events || []).map((e) => Object.assign(e, { _start: new Date(e.start), _end: new Date(e.end) }));
+    _evEvents = (data.events || []).map((e) => Object.assign(e, _evEventTimes(e)));
     errorBox.hidden = true;
     _evRenderReviewBar();
   } catch (err) {
@@ -262,9 +262,30 @@ function _evFmtTime(date) {
   return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
+// All-day events run from local midnight on start_day to local midnight after
+// end_day (their dates are kept, so they land on the same days everywhere).
+function _evEventTimes(e) {
+  if (e.all_day && e.start_day && e.end_day) {
+    const first = _evDateFromKey(e.start_day);
+    const last = _evDateFromKey(e.end_day);
+    return { _start: first, _end: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1) };
+  }
+  return { _start: new Date(e.start), _end: new Date(e.end) };
+}
+
+// Last day of an all-day event (its _end is the following midnight).
+function _evLastDay(ev) {
+  return new Date(ev._end.getFullYear(), ev._end.getMonth(), ev._end.getDate() - 1);
+}
+
 function _evFmtRange(ev) {
   const s = ev._start;
   const e = ev._end;
+  if (ev.all_day) {
+    const last = _evLastDay(ev);
+    if (_evKey(s) === _evKey(last)) return `${_evFmtDate(s, true)} · All day`;
+    return `${_evFmtDate(s, s.getFullYear() !== last.getFullYear())} – ${_evFmtDate(last, true)} · All day`;
+  }
   if (_evKey(s) === _evKey(e)) return `${_evFmtDate(s, true)} · ${_evFmtTime(s)} – ${_evFmtTime(e)}`;
   return `${_evFmtDate(s, true)} ${_evFmtTime(s)} – ${_evFmtDate(e, true)} ${_evFmtTime(e)}`;
 }
@@ -595,7 +616,8 @@ function _evGoogleCalendarUrl(ev) {
   const p = new URLSearchParams({
     action: "TEMPLATE",
     text: ev.name,
-    dates: `${_evCalStamp(ev._start)}/${_evCalStamp(ev._end)}`,
+    // All-day: dates only, end = the day after the last day.
+    dates: ev.all_day ? `${_evKey(ev._start).replace(/-/g, "")}/${_evKey(ev._end).replace(/-/g, "")}` : `${_evCalStamp(ev._start)}/${_evCalStamp(ev._end)}`,
     details: _evCalDetails(ev),
     location: _evCalLocation(ev),
   });
@@ -608,11 +630,12 @@ function _evOutlookUrl(ev, host) {
     path: "/calendar/action/compose",
     rru: "addevent",
     subject: ev.name,
-    startdt: ev._start.toISOString(),
-    enddt: ev._end.toISOString(),
+    startdt: ev.all_day ? _evKey(ev._start) : ev._start.toISOString(),
+    enddt: ev.all_day ? _evKey(ev._end) : ev._end.toISOString(),
     body: _evCalDetails(ev),
     location: _evCalLocation(ev),
   });
+  if (ev.all_day) p.set("allday", "true");
   return `https://${host}/calendar/0/action/compose?` + p.toString();
 }
 
@@ -824,12 +847,47 @@ function _evInitForm() {
   });
   document.getElementById("ev-form-delete").addEventListener("click", _evDeleteEvent);
 
+  form.elements.all_day.addEventListener("change", () => _evSetAllDay(form.elements.all_day.checked));
+
   // Keep the end after the start when the start moves.
   form.elements.start_local.addEventListener("change", () => {
+    if (form.elements.all_day.checked) {
+      const sv = form.elements.start_local.value;
+      if (sv && (!form.elements.end_local.value || form.elements.end_local.value < sv)) form.elements.end_local.value = sv;
+      return;
+    }
     const s = new Date(form.elements.start_local.value);
     const e = new Date(form.elements.end_local.value);
     if (!isNaN(s) && (isNaN(e) || e <= s)) form.elements.end_local.value = _evLocalInputValue(new Date(s.getTime() + 2 * 3600_000));
   });
+}
+
+// Switches the start/end inputs between date+time and date only, keeping
+// the dates (and remembering the times so unticking brings them back).
+function _evSetAllDay(on) {
+  const form = document.getElementById("ev-form");
+  const start = form.elements.start_local;
+  const end = form.elements.end_local;
+  if (on && start.type !== "date") {
+    form.dataset.startTime = (start.value.split("T")[1] || "").slice(0, 5);
+    form.dataset.endTime = (end.value.split("T")[1] || "").slice(0, 5);
+    const sDay = start.value.slice(0, 10);
+    let eDay = end.value.slice(0, 10);
+    // A timed event ending exactly at midnight ends on the previous day.
+    if (eDay && end.value.slice(11, 16) === "00:00" && eDay > sDay) eDay = _evKey(new Date(_evDateFromKey(eDay).getTime() - 86400_000));
+    start.type = "date";
+    end.type = "date";
+    start.value = sDay;
+    end.value = eDay || sDay;
+  } else if (!on && start.type !== "datetime-local") {
+    const sDay = start.value;
+    const eDay = end.value || sDay;
+    start.type = "datetime-local";
+    end.type = "datetime-local";
+    if (sDay) start.value = `${sDay}T${form.dataset.startTime || "18:00"}`;
+    if (eDay) end.value = `${eDay}T${form.dataset.endTime || "20:00"}`;
+  }
+  form.elements.all_day.checked = on;
 }
 
 function _evSetPreview(src, removable) {
@@ -862,6 +920,9 @@ function _evClearErrors() {
 function _evOpenForm(ev, onDate) {
   const form = document.getElementById("ev-form");
   form.reset();
+  _evSetAllDay(false);
+  delete form.dataset.startTime;
+  delete form.dataset.endTime;
   _evClearErrors();
   _evEditing = ev;
   _evFormImage = null;
@@ -878,8 +939,14 @@ function _evOpenForm(ev, onDate) {
     const c = ev.contact || {};
     form.elements.name.value = ev.name || "";
     form.elements.description.value = ev.description || "";
-    form.elements.start_local.value = _evLocalInputValue(ev._start);
-    form.elements.end_local.value = _evLocalInputValue(ev._end);
+    if (ev.all_day) {
+      _evSetAllDay(true);
+      form.elements.start_local.value = _evKey(ev._start);
+      form.elements.end_local.value = _evKey(_evLastDay(ev));
+    } else {
+      form.elements.start_local.value = _evLocalInputValue(ev._start);
+      form.elements.end_local.value = _evLocalInputValue(ev._end);
+    }
     form.elements.location_type.value = loc.type === "online" ? "online" : "physical";
     form.elements.location_address.value = loc.address || "";
     form.elements.location_link.value = loc.link || "";
@@ -908,9 +975,24 @@ async function _evSubmitForm(e) {
   const form = e.target;
   _evClearErrors();
 
-  const start = new Date(form.elements.start_local.value);
-  const end = new Date(form.elements.end_local.value);
+  const allDay = form.elements.all_day.checked;
+  let start;
+  let end;
   const data = new FormData();
+  if (allDay) {
+    // Local midnight at the start of the first day to midnight after the last day.
+    const sDay = form.elements.start_local.value;
+    const eDay = form.elements.end_local.value;
+    start = sDay ? _evDateFromKey(sDay) : new Date(NaN);
+    const last = eDay ? _evDateFromKey(eDay) : new Date(NaN);
+    end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+    data.append("all_day", "1");
+    data.append("start_day", sDay);
+    data.append("end_day", eDay);
+  } else {
+    start = new Date(form.elements.start_local.value);
+    end = new Date(form.elements.end_local.value);
+  }
   ["name", "description", "location_type", "location_address", "location_link", "website", "contact_name", "contact_signal", "contact_phone"].forEach((n) => data.append(n, form.elements[n].value.trim()));
   data.append("contact_phone_texts", form.elements.contact_phone_texts.checked ? "1" : "");
   data.append("start", isNaN(start) ? "" : start.toISOString());

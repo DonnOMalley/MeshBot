@@ -588,5 +588,62 @@ class CalendarFileTests(_EventsServerCase):
         self.assertEqual(visitor.get("/events/..%2F..%2Fx/calendar.ics").status_code, 404)
 
 
+class AllDayEventTests(_EventsServerCase):
+    """All-day events: dates instead of times, midnight to midnight."""
+
+    def _all_day(self, first: str, last: str, **extra) -> dict:
+        values: dict = {"start": "", "end": ""}
+        values.update(extra)
+        return _fields(all_day="1", start_day=first, end_day=last, **values)
+
+    def test_validation_keeps_dates_and_spans_midnight_to_midnight(self) -> None:
+        clean, errors = EventStore.validate(self._all_day("2026-12-05", "2026-12-06"))
+        self.assertEqual(errors, {})
+        self.assertTrue(clean["all_day"])
+        self.assertEqual((clean["start_day"], clean["end_day"]), ("2026-12-05", "2026-12-06"))
+        # Without browser times, falls back to UTC midnights; the end is the
+        # midnight after the last day.
+        self.assertEqual((clean["start"], clean["end"]), ("2026-12-05T00:00:00Z", "2026-12-07T00:00:00Z"))
+
+    def test_browser_local_midnights_are_kept(self) -> None:
+        clean, errors = EventStore.validate(self._all_day("2026-12-05", "2026-12-05", start="2026-12-05T05:00:00Z", end="2026-12-06T05:00:00Z"))
+        self.assertEqual(errors, {})
+        self.assertEqual((clean["start"], clean["end"]), ("2026-12-05T05:00:00Z", "2026-12-06T05:00:00Z"))
+
+    def test_bad_dates_are_rejected(self) -> None:
+        _, errors = EventStore.validate(self._all_day("2026-12-06", "2026-12-05"))
+        self.assertIn("end", errors)
+        _, errors = EventStore.validate(self._all_day("", "2026-12-05"))
+        self.assertEqual(errors.get("start"), "Start date is required.")
+        _, errors = EventStore.validate(self._all_day("2026-02-30", "2026-03-01"))
+        self.assertIn("start", errors)
+
+    def test_timed_events_are_unchanged(self) -> None:
+        clean, errors = EventStore.validate(_fields(start_day="2026-12-05", end_day="2026-12-06"))
+        self.assertEqual(errors, {})
+        self.assertFalse(clean["all_day"])
+        self.assertEqual((clean["start_day"], clean["end_day"]), ("", ""))
+
+    def test_saved_and_switched_back(self) -> None:
+        ev: dict = self._post("/api/events", self._all_day("2026-12-05", "2026-12-06")).get_json()
+        self.assertTrue(ev["all_day"])
+        self.assertEqual(self.client.get(f"/api/events/{ev['id']}").get_json()["end_day"], "2026-12-06")
+        timed: dict = self._post(f"/api/events/{ev['id']}", _fields(start="2026-12-05T18:00:00Z", end="2026-12-05T20:00:00Z"), method="put").get_json()
+        self.assertFalse(timed["all_day"])
+        self.assertEqual(timed["start_day"], "")
+
+    def test_calendar_file_uses_date_values(self) -> None:
+        ev: dict = self._post("/api/events", self._all_day("2026-12-31", "2027-01-01")).get_json()
+        text: str = self.client.get(f"/events/{ev['id']}/calendar.ics").get_data(as_text=True)
+        self.assertIn("DTSTART;VALUE=DATE:20261231\r\n", text)
+        self.assertIn("DTEND;VALUE=DATE:20270102\r\n", text)
+        self.assertNotIn("DTSTART:", text)
+
+    def test_visitors_can_submit_all_day_events_for_today(self) -> None:
+        today: str = datetime.now(timezone.utc).date().isoformat()
+        res = self._visitor().post("/api/events", data=self._all_day(today, today), content_type="multipart/form-data")
+        self.assertEqual(res.status_code, 202)
+
+
 if __name__ == "__main__":
     unittest.main()
