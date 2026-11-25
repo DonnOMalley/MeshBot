@@ -34,6 +34,11 @@ htmlcov/
 .idea/
 *.suo
 *.user
+# Editor swap/lock and backup files (nano/vim make .<name>.swp next to a file
+# being edited, e.g. .meshbot.config.swp, which can hold copies of secrets)
+*.swp
+*.swo
+*~
 
 # OS
 Thumbs.db
