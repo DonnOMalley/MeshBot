@@ -3969,3 +3969,45 @@ body.tih-page main {
 .ev-page [hidden] {
   display: none !important;
 }
+
+/* ── Add to calendar menu (event details) ─────────────────────────────── */
+.ev-cal {
+  position: relative;
+}
+
+.ev-cal > summary {
+  list-style: none;
+}
+
+.ev-cal > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ev-cal-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  min-width: 230px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  padding: 4px 0;
+}
+
+.ev-cal-item {
+  padding: 10px 14px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.ev-cal-item:hover,
+.ev-cal-item:focus {
+  background: var(--accent-dim);
+  color: var(--accent);
+  outline: none;
+}

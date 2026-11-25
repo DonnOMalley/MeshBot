@@ -562,9 +562,80 @@ function _evRenderDetail(ev) {
     })
   );
   actions.appendChild(share);
+  // Offer "Add to calendar" for published events that haven't ended.
+  if (_evIsApproved(ev) && ev.status !== "past") actions.appendChild(_evCalendarMenu(ev));
   actions.appendChild(_el("span", { class: "ev-spacer" }));
   actions.appendChild(edit);
   body.appendChild(actions);
+}
+
+// ── Add to calendar ─────────────────────────────────────────────────────────
+
+function _evCalStamp(date) {
+  // 20261126T190000Z (UTC), the format Google Calendar expects.
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+}
+
+function _evCalDetails(ev) {
+  const loc = ev.location || {};
+  const parts = [];
+  if (ev.description) parts.push(ev.description);
+  if (loc.type === "online" && loc.link) parts.push("Join online: " + loc.link);
+  if (ev.website) parts.push("Website: " + ev.website);
+  parts.push("Event page: " + `${location.origin}/events?id=${ev.id}`);
+  return parts.join("\n\n").slice(0, 1500);
+}
+
+function _evCalLocation(ev) {
+  const loc = ev.location || {};
+  return loc.type === "online" ? loc.link || "Online" : loc.address || "";
+}
+
+function _evGoogleCalendarUrl(ev) {
+  const p = new URLSearchParams({
+    action: "TEMPLATE",
+    text: ev.name,
+    dates: `${_evCalStamp(ev._start)}/${_evCalStamp(ev._end)}`,
+    details: _evCalDetails(ev),
+    location: _evCalLocation(ev),
+  });
+  return "https://calendar.google.com/calendar/render?" + p.toString();
+}
+
+// host: outlook.live.com (personal) or outlook.office.com (work/school).
+function _evOutlookUrl(ev, host) {
+  const p = new URLSearchParams({
+    path: "/calendar/action/compose",
+    rru: "addevent",
+    subject: ev.name,
+    startdt: ev._start.toISOString(),
+    enddt: ev._end.toISOString(),
+    body: _evCalDetails(ev),
+    location: _evCalLocation(ev),
+  });
+  return `https://${host}/calendar/0/action/compose?` + p.toString();
+}
+
+function _evCalendarMenu(ev) {
+  const item = (href, label, download) => {
+    const attrs = { href, class: "ev-cal-item", role: "menuitem" };
+    if (download) attrs.download = "";
+    else Object.assign(attrs, { target: "_blank", rel: "noopener noreferrer" });
+    return _el("a", attrs, label);
+  };
+  const menu = _el("details", { class: "ev-cal" }, [
+    _el("summary", { class: "ev-secondary-btn" }, "📅 Add to calendar"),
+    _el("div", { class: "ev-cal-menu", role: "menu" }, [
+      item(_evGoogleCalendarUrl(ev), "Google Calendar"),
+      item(`/events/${ev.id}/calendar.ics`, "Apple Calendar / iPhone", true),
+      item(_evOutlookUrl(ev, "outlook.live.com"), "Outlook.com"),
+      item(_evOutlookUrl(ev, "outlook.office.com"), "Outlook (work or school)"),
+      item(`/events/${ev.id}/calendar.ics`, "Other calendar app (.ics file)", true),
+    ]),
+  ]);
+  // Close the menu after picking a calendar.
+  menu.querySelectorAll(".ev-cal-item").forEach((a) => a.addEventListener("click", () => (menu.open = false)));
+  return menu;
 }
 
 function _evReviewPanel(ev) {

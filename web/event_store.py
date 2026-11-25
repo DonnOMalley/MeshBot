@@ -40,6 +40,76 @@ _IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
 )
 
 
+def _ics_escape(text: str) -> str:
+    """Escapes text for an iCalendar TEXT value (RFC 5545 §3.3.11)."""
+    return (
+        str(text).replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
+        .replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n")
+    )
+
+
+def _ics_fold(line: str) -> str:
+    """Folds a content line so no physical line exceeds 75 octets (RFC 5545 §3.1)."""
+    parts: list[str] = []
+    current: str = ""
+    size: int = 0
+    for char in line:
+        width: int = len(char.encode("utf-8"))
+        limit: int = 75 if not parts else 74  # continuation lines start with a space
+        if size + width > limit:
+            parts.append(current)
+            current, size = "", 0
+        current += char
+        size += width
+    parts.append(current)
+    return "\r\n ".join(parts)
+
+
+def build_ics(event: dict, page_url: str) -> str:
+    """Builds a one-event iCalendar (.ics) file for *event*.
+
+    Args:
+        event: A stored event (times are UTC ``...Z`` strings).
+        page_url: Link back to the event on the dashboard, added as URL and
+                  at the end of the description.
+
+    Returns:
+        The calendar text with CRLF line endings.
+    """
+    def stamp(value: str) -> str:
+        parsed: datetime | None = EventStore.parse_time(value)
+        return parsed.strftime("%Y%m%dT%H%M%SZ") if parsed else ""
+
+    location: dict = event.get("location") or {}
+    where: str = location.get("link", "") if location.get("type") == _EVENTS_LOCATION_ONLINE else location.get("address", "")
+    details: list[str] = []
+    if event.get("description"):
+        details.append(str(event["description"]))
+    if location.get("type") == _EVENTS_LOCATION_ONLINE and location.get("link"):
+        details.append("Join online: " + location["link"])
+    if event.get("website"):
+        details.append("Website: " + event["website"])
+    details.append("Event page: " + page_url)
+    lines: list[str] = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//MeshBot//Events//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{event.get('id', '')}@meshbot-events",
+        "DTSTAMP:" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+        "DTSTART:" + stamp(event.get("start", "")),
+        "DTEND:" + stamp(event.get("end", "")),
+        "SUMMARY:" + _ics_escape(event.get("name", "")),
+        "DESCRIPTION:" + _ics_escape("\n\n".join(details)),
+    ]
+    if where:
+        lines.append("LOCATION:" + _ics_escape(where))
+    lines += ["URL:" + page_url, "END:VEVENT", "END:VCALENDAR"]
+    return "\r\n".join(_ics_fold(line) for line in lines) + "\r\n"
+
+
 class EventStoreError(Exception):
     """Raised when the event files exist but cannot be read (e.g. wrong key).
 

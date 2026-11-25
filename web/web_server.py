@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import random
+import re
 import secrets
 import threading
 import time
@@ -114,7 +115,7 @@ import web.event_store as _event_store_module
 
 # Re-read the event store from disk whenever this module is (hot) reloaded.
 importlib.reload(_event_store_module)
-from web.event_store import EventStore, EventStoreError  # noqa: E402  (after the reload on purpose)
+from web.event_store import EventStore, EventStoreError, build_ics  # noqa: E402  (after the reload on purpose)
 
 _dm_response_tl: threading.local = threading.local()
 
@@ -1324,6 +1325,21 @@ class WebServer:
                     added.append(record)
             status_code: int = 201 if added else 400
             return jsonify({"added": added, "rejected": rejected}), status_code
+
+        @self._app.route("/events/<event_id>/calendar.ics")
+        def event_calendar_file(event_id: str):
+            try:
+                event: dict | None = self._visible_event(event_id)
+            except EventStoreError:
+                event = None
+            if event is None:
+                abort(404)
+            page_url: str = f"{request.host_url}events?id={event['id']}"
+            safe_name: str = re.sub(r"[^A-Za-z0-9]+", "-", str(event.get("name", ""))).strip("-")[:60] or "event"
+            response: Response = Response(build_ics(event, page_url), mimetype="text/calendar")
+            response.headers["Content-Disposition"] = f'attachment; filename="{safe_name}.ics"'
+            response.headers["Cache-Control"] = "no-store"
+            return response
 
         @self._app.route("/events/<event_id>/image/<name>")
         def event_image(event_id: str, name: str):

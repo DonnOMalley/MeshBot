@@ -18,7 +18,7 @@ from meshtastic import channel_pb2
 
 from common.constants import _EVENTS_FILE, _EVENTS_HISTORY_FILE, _EVENTS_SUBDIR
 from web.web_server import WebServer  # first: it reloads web.event_store on import
-from web.event_store import EventStore, EventStoreError
+from web.event_store import EventStore, EventStoreError, build_ics
 
 PNG: bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 JPEG: bytes = b"\xff\xd8\xff\xe0" + b"\x00" * 64
@@ -533,6 +533,59 @@ class EventsReviewTests(_EventsServerCase):
     def test_old_events_without_flag_count_as_approved(self) -> None:
         self.assertTrue(EventStore.is_approved({"id": "x"}))
         self.assertFalse(EventStore.is_approved({"id": "x", "approved": False}))
+
+
+class CalendarFileTests(_EventsServerCase):
+    """'Add to calendar': the .ics download (Google/Outlook links are built in the browser)."""
+
+    def _unfold(self, text: str) -> str:
+        return text.replace("\r\n ", "")
+
+    def test_ics_contents(self) -> None:
+        ev: dict = self._post("/api/events", _fields(
+            name="Mesh Meetup; Radios, Antennas",
+            start="2026-12-05T23:00:00Z", end="2026-12-06T01:30:00Z",
+            description="Line one\nBring coax, connectors; snacks \\ drinks",
+        )).get_json()
+        res = self._visitor().get(f"/events/{ev['id']}/calendar.ics")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, "text/calendar")
+        self.assertIn('attachment; filename="Mesh-Meetup-Radios-Antennas.ics"', res.headers["Content-Disposition"])
+        raw: str = res.get_data(as_text=True)
+        self.assertTrue(raw.startswith("BEGIN:VCALENDAR\r\n") and raw.endswith("END:VCALENDAR\r\n"))
+        self.assertNotIn("\n", raw.replace("\r\n", ""), "only CRLF line endings")
+        for line in raw.split("\r\n"):
+            self.assertLessEqual(len(line.encode("utf-8")), 75, line)
+        text: str = self._unfold(raw)
+        self.assertIn("DTSTART:20261205T230000Z\r\n", text)
+        self.assertIn("DTEND:20261206T013000Z\r\n", text)
+        self.assertIn(f"UID:{ev['id']}@meshbot-events\r\n", text)
+        self.assertIn("SUMMARY:Mesh Meetup\\; Radios\\, Antennas\r\n", text)
+        self.assertIn("LOCATION:1 Main St\\, Dayton\\, OH\r\n", text)
+        self.assertIn("Line one\\nBring coax\\, connectors\\; snacks \\\\ drinks", text)
+        self.assertIn("Website: https://example.com", text)
+        self.assertIn(f"URL:http://localhost/events?id={ev['id']}\r\n", text)
+
+    def test_online_event_uses_meeting_link(self) -> None:
+        ev: dict = self._post("/api/events", _fields(location_type="online", location_link="https://meet.example.com/net")).get_json()
+        text: str = self._unfold(self.client.get(f"/events/{ev['id']}/calendar.ics").get_data(as_text=True))
+        self.assertIn("LOCATION:https://meet.example.com/net\r\n", text)
+        self.assertIn("Join online: https://meet.example.com/net", text)
+
+    def test_long_unicode_lines_are_folded_safely(self) -> None:
+        ics: str = build_ics({"id": "abcdef1234", "name": "🎉 Événement " * 20, "start": "2026-12-05T23:00:00Z", "end": "2026-12-06T01:00:00Z"}, "http://x/events?id=abcdef1234")
+        for line in ics.split("\r\n"):
+            self.assertLessEqual(len(line.encode("utf-8")), 75)
+        self.assertIn("SUMMARY:" + "🎉 Événement " * 20, self._unfold(ics))
+
+    def test_pending_and_unknown_events_are_not_downloadable(self) -> None:
+        visitor = self._visitor()
+        visitor.post("/api/events", data=_fields(name="Pending One"), content_type="multipart/form-data")
+        pending_id: str = next(e["id"] for e in self.client.get("/api/events").get_json()["events"] if e["name"] == "Pending One")
+        self.assertEqual(visitor.get(f"/events/{pending_id}/calendar.ics").status_code, 404)
+        self.assertEqual(self.client.get(f"/events/{pending_id}/calendar.ics").status_code, 200)
+        self.assertEqual(visitor.get("/events/" + "a" * 16 + "/calendar.ics").status_code, 404)
+        self.assertEqual(visitor.get("/events/..%2F..%2Fx/calendar.ics").status_code, 404)
 
 
 if __name__ == "__main__":
