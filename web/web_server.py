@@ -492,6 +492,20 @@ class WebServer:
             return result
         return sorted(events, key=year_key)
 
+    @staticmethod
+    def _read_cache_list(path: str) -> list:
+        """Reads a JSON array cache file; an empty list if missing or unreadable."""
+        result: list = []
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data: object = json.load(f)
+                if isinstance(data, list):
+                    result = data
+            except Exception:
+                pass
+        return result
+
     def _read_random_cache_item(self, path: str) -> object | None:
         """Reads a JSON array from a cache file and returns a randomly selected element.
 
@@ -925,6 +939,36 @@ class WebServer:
                     pass
             events = WebServer._sort_events_newest_first(events)
             return jsonify({"events": events, "month": local_month, "day": local_day})
+
+        @self._app.route("/joy")
+        def joy_page():
+            return render_template("joy.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
+        @self._app.route("/api/joy/lists")
+        def api_joy_lists():
+            # Joy page: every affirmation, plus a random handful of quotes and jokes.
+            def count(name: str, default: int) -> int:
+                try:
+                    return max(1, min(50, int(request.args.get(name, default))))
+                except (TypeError, ValueError):
+                    return default
+
+            def sample(filename: str, how_many: int | None) -> list:
+                items: list = self._read_cache_list(os.path.join(self._data_dir, filename))
+                if how_many is None or len(items) <= how_many:
+                    return items
+                return random.sample(items, how_many)
+
+            affirmations: list[str] = [a for a in sample(_AFFIRM_CACHE_FILE, None) if isinstance(a, str) and a.strip()]
+            quotes: list[dict] = []
+            for raw in sample(_ZEN_QUOTES_CACHE_FILE, count("quotes", 10)):
+                if isinstance(raw, dict) and str(raw.get(_ZEN_QUOTES_KEY_QUOTE, "")).strip():
+                    quotes.append({
+                        "quote": str(raw.get(_ZEN_QUOTES_KEY_QUOTE, "")).strip(),
+                        "author": str(raw.get(_ZEN_QUOTES_KEY_AUTHOR, "")).strip(),
+                    })
+            jokes: list[str] = [j for j in sample(_JOKE_CACHE_FILE, count("jokes", 5)) if isinstance(j, str) and j.strip()]
+            return jsonify({"affirmations": affirmations, "quotes": quotes, "jokes": jokes})
 
         @self._app.route("/api/joy")
         def api_joy():

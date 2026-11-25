@@ -826,5 +826,45 @@ class UpcomingAgendaTests(_EventsServerCase):
         self.assertEqual((res.status_code, res.get_json()["days"]), (200, 30))
 
 
+class JoyPageTests(_EventsServerCase):
+    """The Joy page and its /api/joy/lists endpoint."""
+
+    def _write(self, name: str, data: object) -> None:
+        with open(os.path.join(self.dir, name), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+
+    def test_page_and_menu_order(self) -> None:
+        html: str = self.client.get("/joy").get_data(as_text=True)
+        self.assertIn('src="/static/joy.js"', html)
+        nav: list = [h for h in ("/chat", "/joy", "/history") if f'href="{h}"' in html]
+        self.assertEqual(nav, ["/chat", "/joy", "/history"])
+        self.assertLess(html.index('href="/chat" class="nav-link'), html.index('href="/joy" class="nav-link'))
+        self.assertLess(html.index('href="/joy" class="nav-link'), html.index('href="/history" class="nav-link'))
+        self.assertIn('href="/joy" class="nav-link active"', html)
+        self.assertIn('href="/events" class="joy-upcoming-link"', html, "link to upcoming events")
+
+    def test_dashboard_joy_title_links_to_page(self) -> None:
+        self.assertIn('<a href="/joy" class="panel-header-text panel-title-link"', self.client.get("/").get_data(as_text=True))
+
+    def test_lists(self) -> None:
+        self._write("affirmations.json", [f"Affirmation {i}" for i in range(10)])
+        self._write("zen_quotes.json", [{"q": f"Quote {i}", "a": f"Author {i}", "h": "<b>x</b>"} for i in range(40)])
+        self._write("jokes.json", [f"Joke {i}" for i in range(28)])
+        data: dict = self._visitor().get("/api/joy/lists").get_json()
+        self.assertEqual(data["affirmations"], [f"Affirmation {i}" for i in range(10)], "every affirmation, in order")
+        self.assertEqual(len(data["quotes"]), 10)
+        self.assertEqual(set(data["quotes"][0]), {"quote", "author"}, "no raw HTML passed through")
+        self.assertEqual(len(data["jokes"]), 5)
+        self.assertEqual(len(set(data["jokes"])), 5, "no repeats within a set")
+        custom: dict = self._visitor().get("/api/joy/lists?quotes=3&jokes=2").get_json()
+        self.assertEqual((len(custom["quotes"]), len(custom["jokes"])), (3, 2))
+
+    def test_missing_or_bad_files_give_empty_lists(self) -> None:
+        with open(os.path.join(self.dir, "jokes.json"), "w", encoding="utf-8") as f:
+            f.write("not json")
+        data: dict = self._visitor().get("/api/joy/lists?quotes=abc").get_json()
+        self.assertEqual(data, {"affirmations": [], "quotes": [], "jokes": []})
+
+
 if __name__ == "__main__":
     unittest.main()

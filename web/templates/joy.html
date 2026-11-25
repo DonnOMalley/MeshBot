@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} &mdash; Joy</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="tih-page joy-page">
+    {% set active_page = 'joy' %} {% include "partials/_header.html" %}
+
+    <main class="joy-main">
+      <div class="joy-grid">
+        <!-- Affirmations -->
+        <section class="panel joy-panel" id="joy-affirmations">
+          <div class="panel-header">
+            <span class="panel-header-text">&#128150; Affirmations</span>
+          </div>
+          <ul class="joy-list" id="joy-affirmations-list">
+            <li class="joy-empty">Loading&hellip;</li>
+          </ul>
+        </section>
+
+        <!-- Quotes -->
+        <section class="panel joy-panel" id="joy-quotes">
+          <div class="panel-header">
+            <span class="panel-header-text">&#128172; Quotes</span>
+            <button type="button" class="dash-joy-refresh" id="joy-quotes-refresh" title="Show different quotes" aria-label="Show different quotes">&#x21bb;</button>
+          </div>
+          <ul class="joy-list" id="joy-quotes-list">
+            <li class="joy-empty">Loading&hellip;</li>
+          </ul>
+        </section>
+
+        <!-- Jokes -->
+        <section class="panel joy-panel" id="joy-jokes">
+          <div class="panel-header">
+            <span class="panel-header-text">&#128514; Jokes</span>
+            <button type="button" class="dash-joy-refresh" id="joy-jokes-refresh" title="Show different jokes" aria-label="Show different jokes">&#x21bb;</button>
+          </div>
+          <ul class="joy-list" id="joy-jokes-list">
+            <li class="joy-empty">Loading&hellip;</li>
+          </ul>
+        </section>
+
+        <!-- Past events + their photo albums -->
+        <section class="panel joy-panel joy-past" id="joy-past-events">
+          <div class="panel-header">
+            <span class="panel-header-text">&#128248; Past Events &amp; Photos</span>
+            <a href="/events" class="joy-upcoming-link" title="See upcoming events on the Events page">&#127881; Upcoming events &rarr;</a>
+          </div>
+          <div class="joy-past-list" id="joy-past-list">
+            <p class="joy-empty">Loading&hellip;</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/static/joy.js"></script>
+  </body>
+</html>

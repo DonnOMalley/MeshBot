@@ -4129,3 +4129,180 @@ body.tih-page main {
   padding-top: 0;
   align-self: flex-start;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Joy page: affirmations, quotes, jokes, past events + photo albums
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.joy-page main.joy-main {
+  width: 100%;
+}
+
+.joy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.joy-past {
+  grid-column: 1 / -1;
+}
+
+.joy-panel .panel-header {
+  justify-content: space-between;
+}
+
+.joy-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 14px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.joy-list li {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.joy-list li:last-child {
+  border-bottom: none;
+}
+
+.joy-line {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.joy-author {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.joy-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 10px 0;
+}
+
+.joy-upcoming-link {
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.joy-upcoming-link:hover {
+  text-decoration: underline;
+}
+
+.joy-past-list {
+  padding: 8px 14px 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.joy-past-list > .joy-empty {
+  grid-column: 1 / -1;
+}
+
+.joy-past-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.joy-past-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.joy-past-title {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.joy-past-title:hover {
+  text-decoration: underline;
+}
+
+.joy-past-count {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.joy-past-count.is-empty {
+  color: var(--muted);
+}
+
+.joy-past-meta {
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.joy-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 4px;
+}
+
+.joy-thumbs img,
+.joy-thumbs-more {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.joy-thumbs-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+
+.joy-album-link {
+  align-self: flex-start;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.joy-album-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .joy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .joy-past-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
