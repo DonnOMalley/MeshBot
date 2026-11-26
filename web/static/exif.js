@@ -172,7 +172,7 @@ function _exifFindTiff(dv) {
       const size = dv.getUint32(off);
       const type = ascii(off + 4, 4);
       if (type === "eXIf") return stripExifHeader(off + 8, size);
-      if (type === "IDAT" || type === "IEND") break;
+      if (type === "IEND") break; // eXIf may come before or after the IDAT chunks
       off += 12 + size;
     }
   } else if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") {
@@ -212,7 +212,7 @@ function _exifParseTiff(dv) {
       const name = names[tag] || `Tag 0x${tag.toString(16).padStart(4, "0")}`;
       const value = _exifReadValue(dv, entry, le);
       if (value === null) continue;
-      const text = _exifFormat(name, value);
+      const text = _exifFormat(name, value, le);
       if (text !== "") out[name] = text;
     }
     return pointers;
@@ -279,7 +279,22 @@ function _exifVersion(bytes) {
   return /^\d{4}$/.test(s) ? `${Number(s.slice(0, 2))}.${s.slice(2)}` : s;
 }
 
-function _exifFormat(name, { type, values }) {
+// le: the TIFF block's byte order, used for UTF-16 text without a byte-order mark.
+// UTF-16 text: a byte-order mark wins, otherwise the TIFF byte order is used.
+function _exifUtf16(bytes, le) {
+  let littleEndian = le !== false;
+  let start = 0;
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    littleEndian = true;
+    start = 2;
+  } else if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    littleEndian = false;
+    start = 2;
+  }
+  return new TextDecoder(littleEndian ? "utf-16le" : "utf-16be").decode(bytes.subarray(start));
+}
+
+function _exifFormat(name, { type, values }, le) {
   if (typeof values === "string") {
     // "2026:11:26 10:00:00" → "2026-11-26 10:00:00"
     if (/^DateTime/.test(name)) return values.replace(/^(\d{4}):(\d{2}):(\d{2})/, "$1-$2-$3");
@@ -294,7 +309,7 @@ function _exifFormat(name, { type, values }) {
     if (name === "UserComment") {
       const body = values.slice(8);
       const code = String.fromCharCode(...values.slice(0, 8)).replace(/\0/g, "");
-      const text = code === "UNICODE" ? new TextDecoder("utf-16").decode(body) : new TextDecoder("utf-8").decode(body);
+      const text = code === "UNICODE" ? _exifUtf16(body, le) : new TextDecoder("utf-8").decode(body);
       return text.replace(/\0+/g, "").trim();
     }
     const printable = values.length <= 64 && Array.from(values).every((b) => b >= 32 && b < 127);

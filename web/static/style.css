@@ -882,6 +882,62 @@ main > section:last-child #chat-messages {
   gap: 20px;
 }
 
+/* About page tabs: General / Interaction / Configuration */
+.about-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.about-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: -1px;
+  padding: 8px 18px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+.about-tab:hover {
+  color: var(--text);
+}
+.about-tab.active {
+  color: var(--accent);
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom: 1px solid var(--surface);
+}
+.about-tab:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.about-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.about-panel[hidden] {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .about-tab {
+    flex: 1;
+    padding: 8px 6px;
+    letter-spacing: 1px;
+  }
+}
+
 .about-section {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -4497,7 +4553,7 @@ body.tih-page main {
   display: flex;
   gap: 6px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 4px 4px 8px; /* room for the focus ring inside the scroll box */
   scroll-snap-type: x proximity;
 }
 
@@ -4521,10 +4577,16 @@ body.tih-page main {
   background: var(--surface2);
 }
 
-.ev-photo-strip-item:hover,
+.ev-photo-strip-item:hover {
+  opacity: 1;
+}
+
+/* Keyboard focus gets its own ring, offset outside the active border, so it
+   shows on the active thumbnail too. */
 .ev-photo-strip-item:focus-visible {
   opacity: 1;
-  outline: none;
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 .ev-photo-strip-item.is-active {
@@ -4580,6 +4642,20 @@ body.tih-page main {
 .ev-photo-meta-note {
   font-size: 12px;
   margin: 10px 0 0;
+}
+
+.ev-photo-meta-retry {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--accent);
+  font: inherit;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.ev-photo-meta-retry:hover,
+.ev-photo-meta-retry:focus-visible {
+  border-color: var(--accent);
 }
 
 @media (max-width: 820px) {
