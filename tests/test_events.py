@@ -256,6 +256,15 @@ class EventStoreTests(unittest.TestCase):
         self.assertLess(len(huge), 140)
         self.assertLessEqual(len(EventStore.serialize_exif(huge)), 64 * 1024)
         self.assertEqual(EventStore.clean_exif(EventStore.serialize_exif(huge)), huge)
+        # The limit is in UTF-8 bytes, so multi-byte text can't blow past it.
+        emoji: dict = EventStore.clean_exif(json.dumps({f"T{i}": "\U0001F600" * 493 for i in range(130)}, ensure_ascii=False, separators=(",", ":")), limit_input=False)
+        self.assertGreater(len(emoji), 0)
+        self.assertLessEqual(len(EventStore.serialize_exif(emoji).encode("utf-8")), 64 * 1024)
+        self.assertEqual(EventStore.clean_exif(EventStore.serialize_exif(emoji)), emoji)
+        over: str = json.dumps({f"T{i}": "\u00e9" * 400 for i in range(100)}, ensure_ascii=False)
+        self.assertLess(len(over), 64 * 1024)
+        self.assertGreater(len(over.encode("utf-8")), 64 * 1024)
+        self.assertEqual(EventStore.clean_exif(over), {}, "upload limit is in bytes too")
 
     def test_photo_exif_round_trip(self) -> None:
         ev: dict = self._create(start=_iso(-1), end=_iso(1))

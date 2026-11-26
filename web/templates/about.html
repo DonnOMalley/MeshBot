@@ -22,7 +22,7 @@
           <button type="button" class="about-tab" role="tab" id="about-tab-configuration" aria-controls="about-panel-configuration" data-tab="configuration">Configuration</button>
         </div>
 
-        <div class="about-panel" role="tabpanel" id="about-panel-general" aria-labelledby="about-tab-general" data-tab="general">
+        <div class="about-panel" role="tabpanel" tabindex="0" id="about-panel-general" aria-labelledby="about-tab-general" data-tab="general">
           <!-- Bot Info -->
           <section class="about-section">
             <div class="about-section-header">About {{ bot_name }}</div>
@@ -70,7 +70,7 @@
           </section>
         </div>
 
-        <div class="about-panel" role="tabpanel" id="about-panel-interaction" aria-labelledby="about-tab-interaction" data-tab="interaction" hidden>
+        <div class="about-panel" role="tabpanel" tabindex="0" id="about-panel-interaction" aria-labelledby="about-tab-interaction" data-tab="interaction" hidden>
           <!-- Command Reference -->
           <section class="about-section">
             <div class="about-section-header">Command Reference</div>
@@ -256,7 +256,7 @@
           </section>
         </div>
 
-        <div class="about-panel" role="tabpanel" id="about-panel-configuration" aria-labelledby="about-tab-configuration" data-tab="configuration" hidden>
+        <div class="about-panel" role="tabpanel" tabindex="0" id="about-panel-configuration" aria-labelledby="about-tab-configuration" data-tab="configuration" hidden>
           <!-- Configuration Reference -->
           <section class="about-section">
             <div class="about-section-header">Configuration Reference</div>

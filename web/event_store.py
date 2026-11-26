@@ -407,7 +407,7 @@ class EventStore:
         Keeps at most a bounded number of short string/number values, and drops
         every GPS tag even if a client sends one. Anything malformed → ``{}``.
         Tags are kept in order until the stored form (see :meth:`serialize_exif`)
-        would grow past the size limit, so whatever is accepted on upload is
+        would grow past the size limit in UTF-8 bytes, so whatever is accepted on upload is
         read back unchanged.
 
         Args:
@@ -418,13 +418,13 @@ class EventStore:
         """
         result: dict[str, str] = {}
         parsed: object = None
-        if raw and (not limit_input or len(raw) <= _EVENTS_EXIF_MAX_BYTES):
+        if raw and (not limit_input or len(raw.encode("utf-8")) <= _EVENTS_EXIF_MAX_BYTES):
             try:
                 parsed = json.loads(raw)
             except ValueError:
                 parsed = None
         if isinstance(parsed, dict):
-            size: int = 2  # the enclosing {}
+            size: int = 2  # the enclosing {}, counted in UTF-8 bytes like everything else
             for key, value in parsed.items():
                 if len(result) >= _EVENTS_EXIF_MAX_TAGS:
                     break
@@ -434,7 +434,7 @@ class EventStore:
                 text: str = str(value).strip()[:_EVENTS_EXIF_VALUE_MAX_LEN]
                 if not name or not text or name.lower().startswith("gps"):
                     continue
-                entry: int = len(EventStore.serialize_exif({name: text})) - 2 + (1 if result else 0)
+                entry: int = len(EventStore.serialize_exif({name: text}).encode("utf-8")) - 2 + (1 if result else 0)
                 if name in result or size + entry > _EVENTS_EXIF_MAX_BYTES:
                     continue
                 result[name] = text

@@ -926,6 +926,11 @@ main > section:last-child #chat-messages {
   flex-direction: column;
   gap: 20px;
 }
+.about-panel:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
 .about-panel[hidden] {
   display: none;
 }
