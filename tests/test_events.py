@@ -861,16 +861,18 @@ class JoyPageTests(_EventsServerCase):
         self.assertNotIn("leaflet.js", html)
         self.assertIn('id="dash-history"', html)
 
-    def test_dashboard_two_by_two_layout_with_now_banner(self) -> None:
+    def test_dashboard_joy_hero_layout_with_now_banner(self) -> None:
         html: str = self.client.get("/").get_data(as_text=True)
         self.assertIn('id="dash-now-banner" aria-label="Happening now" hidden', html, "banner starts hidden")
         order: list[int] = [html.index(f'id="{i}"') for i in ("dash-now-banner", "dash-joy", "dash-events", "dash-chat", "dash-history")]
-        self.assertEqual(order, sorted(order), "banner, then Joy | Events, then Chat | History")
+        self.assertEqual(order, sorted(order), "banner, then Joy beside Coming up, then Chat | History")
+        for title in ('href="/events" class="home-section-title"', 'href="/chat" class="home-section-title"', 'href="/history" class="home-section-title"'):
+            self.assertIn(title, html, "each section title opens its full page")
         self.assertNotIn("dash-left", html)
         self.assertNotIn("dash-right", html)
 
     def test_dashboard_joy_title_links_to_page(self) -> None:
-        self.assertIn('<a href="/joy" class="panel-header-text panel-title-link"', self.client.get("/").get_data(as_text=True))
+        self.assertIn('<a href="/joy" class="home-joy-title"', self.client.get("/").get_data(as_text=True))
 
     def test_lists(self) -> None:
         self._write("affirmations.json", [f"Affirmation {i}" for i in range(10)])

@@ -11,42 +11,41 @@
     {% set active_page = 'dashboard' %} {% include "partials/_header.html" %}
 
     <main>
-      <!-- Happening-now banner: full width above Joy + Events; hidden when nothing is on -->
-      <section class="dash-now-banner" id="dash-now-banner" aria-label="Happening now" hidden>
+      <!-- Happening-now banner: full width at the top; hidden when nothing is on -->
+      <section class="home-now" id="dash-now-banner" aria-label="Happening now" hidden>
         <!-- populated by dashboard.js -->
       </section>
 
-      <!-- Two columns, two rows: Joy | Events over Chat History | Today in History -->
-      <div class="dash-grid">
-        <!-- Top left: Joy panel (Affirmation + Zen Quote + Joke) -->
-        <div class="dash-joy panel" id="dash-joy">
-          <div class="panel-header">
-            <a href="/joy" class="panel-header-text panel-title-link" title="Open Joy">&#10024; Joy</a>
-            <button type="button" class="dash-joy-refresh" id="dash-joy-refresh"
-                    title="Get a new affirmation, quote and joke" aria-label="Refresh Joy">&#x21bb;</button>
+      <!-- Top: Joy as the page's headline, upcoming events in a rail beside it -->
+      <div class="home-top">
+        <section class="home-joy" id="dash-joy" aria-labelledby="home-joy-title">
+          <div class="home-joy-head">
+            <a href="/joy" class="home-joy-title" id="home-joy-title" title="Open Joy">&#10024; Joy</a>
+            <button type="button" class="dash-joy-refresh home-joy-refresh" id="dash-joy-refresh"
+                    title="Get a new affirmation, quote and joke" aria-label="Get a new affirmation, quote and joke">&#x21bb;</button>
           </div>
-          <div class="dash-joy-body scroll-box" id="dash-joy-body">
+          <div class="home-joy-body" id="dash-joy-body" aria-live="polite">
             <!-- populated by dashboard.js -->
           </div>
-        </div>
+        </section>
 
-        <!-- Top right: Events panel (agenda of what's coming up) -->
-        <div class="dash-events panel" id="dash-events">
-          <div class="panel-header">
-            <a href="/events" class="panel-header-text panel-title-link" title="Open Events">&#127881; Events</a>
+        <section class="home-events" id="dash-events" aria-labelledby="home-events-title">
+          <div class="home-section-head">
+            <a href="/events" class="home-section-title" id="home-events-title" title="Open Events">&#127881; Coming up</a>
             <button type="button" class="dash-joy-refresh" id="dash-events-refresh"
-                    title="Refresh upcoming events" aria-label="Refresh Events">&#x21bb;</button>
+                    title="Refresh upcoming events" aria-label="Refresh upcoming events">&#x21bb;</button>
           </div>
-          <div class="dash-events-body scroll-box" id="dash-events-body">
-            <p class="dash-events-empty">Loading&hellip;</p>
+          <div class="home-events-body" id="dash-events-body">
+            <p class="home-empty">Loading events&hellip;</p>
           </div>
-        </div>
+        </section>
+      </div>
 
-        <!-- Bottom left: Chat History -->
-        <div class="dash-chat panel" id="dash-chat">
-          <div class="panel-header">
-            <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
-            <a href="/chat" class="panel-header-text panel-title-link" title="Open Chat">Chat History</a>
+      <!-- Bottom: the reading panels, quieter than the top -->
+      <div class="home-bottom">
+        <section class="home-panel" id="dash-chat" aria-labelledby="home-chat-title">
+          <div class="home-section-head">
+            <a href="/chat" class="home-section-title" id="home-chat-title" title="Open Chat">&#128172; Chat history</a>
           </div>
           <div id="channel-tabs" class="tabs">
             <span class="tab-empty">No channel history found.</span>
@@ -54,17 +53,16 @@
           <div id="chat-messages" class="scroll-box messages">
             <p class="empty">Select a channel tab above.</p>
           </div>
-        </div>
+        </section>
 
-        <!-- Bottom right: Today in History -->
-        <div class="dash-history panel" id="dash-history">
-          <div class="panel-header">
-            <a href="/history" class="panel-header-text panel-title-link" id="dash-history-title" title="Open History">&#128197; Today in History</a>
+        <section class="home-panel" id="dash-history" aria-labelledby="dash-history-title">
+          <div class="home-section-head">
+            <a href="/history" class="home-section-title" id="dash-history-title" title="Open History">&#128197; Today in history</a>
           </div>
-          <div class="dash-history-body scroll-box" id="dash-history-body">
+          <div class="home-history-body scroll-box" id="dash-history-body">
             <!-- populated by dashboard.js -->
           </div>
-        </div>
+        </section>
       </div>
     </main>
 

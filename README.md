@@ -171,7 +171,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 | Page      | Path        | Description                                                                                                                                |
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dashboard | `/`         | Panel titles open their full pages. A full-width banner shows any event happening now (thumbnail, click to open it). Below, two columns: the Joy panel (affirmation, quote and joke) and an Events panel listing the next dates in the coming 30 days (repeats included, each linking to its details and photo upload) on top; channel chat history and Today in History underneath. |
+| Dashboard | `/`         | A full-width banner shows any event happening now (picture, click to open it). Joy leads the page: the affirmation in large type with the quote and joke beneath, and a Coming up rail of upcoming events with pictures beside it (repeats included, each opening its details). Chat history and Today in History sit below. Section titles open their full pages. |
 | Mesh      | `/mesh`     | Mesh dashboard: channel chat history, node counts (known, heard in the last hour / 24h, direct, on the map), the bot's own node, and a mini-map. The **Mesh** menu also holds Nodes, Map and Chat. |
 | Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
