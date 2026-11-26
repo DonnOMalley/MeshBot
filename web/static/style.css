@@ -3947,6 +3947,15 @@ body.tih-page main {
   background: var(--surface2);
 }
 
+.ev-camera-video {
+  display: block;
+  width: 100%;
+  max-height: calc(100vh - 220px);
+  background: #000;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
 .ev-auth-dialog {
   width: min(400px, calc(100vw - 24px));
 }
