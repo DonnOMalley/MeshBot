@@ -21,6 +21,7 @@ from common.constants import (
     _EVENTS_LOCATION_ONLINE,
     _EVENTS_LOCATION_PHYSICAL,
     _EVENTS_NAME_MAX_LEN,
+    _EVENTS_RECURRENCE_LABELS,
     _EVENTS_STATUS_ACTIVE,
     _EVENTS_STATUS_PAST,
     _EVENTS_STATUS_UPCOMING,
@@ -40,12 +41,6 @@ _RECURRENCE_RULES: dict[str, str] = {
     "biweekly": "FREQ=WEEKLY;INTERVAL=2",
     "monthly": "FREQ=MONTHLY",
     "yearly": "FREQ=YEARLY",
-}
-_RECURRENCE_LABELS: dict[str, str] = {
-    "weekly": "Weekly",
-    "biweekly": "Every other week",
-    "monthly": "Monthly",
-    "yearly": "Yearly",
 }
 # Safety cap when walking a series (about 40 years of weekly dates).
 _MAX_OCCURRENCES: int = 2100
@@ -284,7 +279,8 @@ def build_ics(event: dict, page_url: str) -> str:
 def upcoming_occurrences(events: list[dict], now: datetime, days: int = 30, limit: int = 8) -> list[dict]:
     """The next dates across *events*: those happening at *now* plus those
     starting within *days*. Repeats are expanded; happening-now first, then
-    earliest first, at most *limit*.
+    earliest first. Every happening-now date is returned; *limit* caps only
+    the upcoming ones, so live events never crowd out what's next.
 
     All-day dates are given as ``first_day``/``last_day`` in the event's own
     time zone so they read the same for every viewer.
@@ -307,6 +303,7 @@ def upcoming_occurrences(events: list[dict], now: datetime, days: int = 30, limi
                 "all_day": bool(event.get("all_day")),
                 "status": _EVENTS_STATUS_ACTIVE if occ_start <= now else _EVENTS_STATUS_UPCOMING,
                 "recurrence": event.get("recurrence", "") or "",
+                "recurrence_label": _EVENTS_RECURRENCE_LABELS.get(str(event.get("recurrence", "") or ""), ""),
                 "location": {"type": location.get("type", ""), "address": location.get("address", "")},
                 "has_image": bool(event.get("has_image")),
                 "updated_at": event.get("updated_at", ""),
@@ -320,7 +317,9 @@ def upcoming_occurrences(events: list[dict], now: datetime, days: int = 30, limi
                     item["last_day"] = (occ_end - timedelta(microseconds=1)).astimezone(zone).date().isoformat()
             found.append(item)
     found.sort(key=lambda o: (o["status"] != _EVENTS_STATUS_ACTIVE, o["start"]))
-    return found[:limit]
+    active: list[dict] = [o for o in found if o["status"] == _EVENTS_STATUS_ACTIVE]
+    upcoming: list[dict] = [o for o in found if o["status"] != _EVENTS_STATUS_ACTIVE]
+    return active + upcoming[:limit]
 
 
 class EventStoreError(Exception):

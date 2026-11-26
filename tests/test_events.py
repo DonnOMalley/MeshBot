@@ -809,6 +809,22 @@ class UpcomingAgendaTests(_EventsServerCase):
         self.assertEqual(len(self._upcoming(days=365, limit=3)), 3)
         self.assertEqual(len(self._upcoming(days=365)), 8, "default limit is 8")
 
+    def test_limit_counts_only_upcoming(self) -> None:
+        for n in range(3):
+            self._post("/api/events", _fields(name=f"Now {n}", start=_iso(-1), end=_iso(1)))
+        for n in range(3):
+            self._post("/api/events", _fields(name=f"Next {n}", start=_iso(5 + n), end=_iso(6 + n)))
+        items = self._upcoming(limit=2)
+        self.assertEqual([i["status"] for i in items], ["active"] * 3 + ["upcoming"] * 2,
+                         "every happening-now date, plus up to `limit` upcoming ones")
+
+    def test_recurrence_label(self) -> None:
+        self._post("/api/events", _fields(name="Net", start=_iso(2), end=_iso(3), recurrence="biweekly"))
+        self._post("/api/events", _fields(name="Once", start=_iso(4), end=_iso(5)))
+        items: dict = {i["name"]: i for i in self._upcoming()}
+        self.assertEqual(items["Net"]["recurrence_label"], "Every other week")
+        self.assertEqual(items["Once"]["recurrence_label"], "")
+
     def test_pending_submissions_never_listed(self) -> None:
         self._visitor().post("/api/events", data=_fields(name="Pending"), content_type="multipart/form-data")
         self.assertEqual(self._upcoming(), [])

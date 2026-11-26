@@ -15,13 +15,14 @@ async function _fetchUpcomingEvents() {
   const body = document.getElementById("dash-events-body");
   if (!body) return;
   try {
-    const res = await fetch(`/api/events/upcoming?days=${_DASH_EVENTS_DAYS}&limit=50`, { cache: "no-store" });
+    // The server returns every happening-now date plus up to `limit` upcoming ones.
+    const res = await fetch(`/api/events/upcoming?days=${_DASH_EVENTS_DAYS}&limit=${_DASH_EVENTS_LIMIT}`, { cache: "no-store" });
     if (!res.ok) throw new Error("load failed");
     const data = await res.json();
     const items = data.events || [];
     // Happening-now events go in the banner; the panel lists only what's next.
     _renderNowBanner(items.filter((o) => o.status === "active"));
-    _renderUpcomingEvents(items.filter((o) => o.status !== "active").slice(0, _DASH_EVENTS_LIMIT));
+    _renderUpcomingEvents(items.filter((o) => o.status !== "active"));
   } catch (_) {
     if (!body.querySelector(".home-ev-list")) body.innerHTML = '<p class="home-empty">Events couldn’t load. They’ll retry in a minute, or use the refresh button.</p>';
   }
@@ -105,9 +106,6 @@ function _renderNowBanner(active) {
   banner.hidden = false;
 }
 
-// Matches the Events page wording (event_store._RECURRENCE_LABELS).
-const _DASH_REPEATS = { weekly: "Weekly", biweekly: "Every other week", monthly: "Monthly", yearly: "Yearly" };
-
 // The rail beside Joy: one picture card per upcoming date, soonest first.
 function _renderUpcomingEvents(items) {
   const body = document.getElementById("dash-events-body");
@@ -119,7 +117,7 @@ function _renderUpcomingEvents(items) {
     .map((o) => {
       const day = _dashDayLabel(o.all_day ? _dashDay(o.first_day) : new Date(o.start));
       const where = _dashWhere(o);
-      const repeats = o.recurrence ? _DASH_REPEATS[o.recurrence] || "Repeats" : "";
+      const repeats = o.recurrence ? o.recurrence_label || "Repeats" : "";
       const pic = o.has_image
         ? `<img class="home-ev-pic" src="${_dashThumbSrc(o)}" alt="" loading="lazy" />`
         : `<span class="home-ev-pic home-ev-pic-blank" aria-hidden="true">&#127881;</span>`;
@@ -129,7 +127,7 @@ function _renderUpcomingEvents(items) {
           <span class="home-ev-when">${_escapeHtml(day)}, ${_escapeHtml(_dashWhen(o))}</span>
           <span class="home-ev-name">${_escapeHtml(o.name)}</span>
           ${where ? `<span class="home-ev-where">${_escapeHtml(where)}</span>` : ""}
-          ${repeats ? `<span class="home-ev-where">&#x21bb; ${repeats}</span>` : ""}
+          ${repeats ? `<span class="home-ev-where">&#x21bb; ${_escapeHtml(repeats)}</span>` : ""}
         </span>
       </a></li>`;
     })

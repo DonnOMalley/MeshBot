@@ -156,5 +156,7 @@ function meshDashboardInit() {
 
 function meshDashboardRefresh() {
   _fetchMeshStats();
+  // Re-fetch so the panel recovers if /api/settings failed at page load.
+  _fetchBotInfo();
   if (_meshTilesOk) _fetchMapNodes();
 }

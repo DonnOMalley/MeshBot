@@ -568,6 +568,13 @@ _EVENTS_LOCATION_ONLINE: str = "online"
 _EVENTS_STATUS_UPCOMING: str = "upcoming"
 _EVENTS_STATUS_ACTIVE: str = "active"
 _EVENTS_STATUS_PAST: str = "past"
+# Display wording for each repeat choice (sent to the browser as recurrence_label).
+_EVENTS_RECURRENCE_LABELS: dict[str, str] = {
+    "weekly": "Weekly",
+    "biweekly": "Every other week",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+}
 _EVENTS_PASSCODE_CONFIG_KEY: str = "EventsPasscode"
 _EVENTS_SESSION_EDITOR_KEY: str = "events_editor"
 _EVENTS_AUTH_MAX_FAILURES: int = 5
