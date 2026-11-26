@@ -21,15 +21,25 @@
     <img src="/images/dashboard%20icon.png" class="nav-icon" alt="" />
     Dashboard
   </a>
-  <a href="/nodes" class="nav-link{% if active_page == 'nodes' %} active{% endif %}">
-    <img src="/images/nodes%20icon.png" class="nav-icon" alt="" />
-    Nodes
-  </a>
-  <a href="/map" class="nav-link{% if active_page == 'map' %} active{% endif %}">&#129517; Map</a>
-  <a href="/chat" class="nav-link{% if active_page == 'chat' %} active{% endif %}">
-    <img src="/images/chat%20icon.png" class="nav-icon" alt="" />
-    Chat
-  </a>
+  {% set _mesh_active = active_page in ['mesh', 'nodes', 'map', 'chat'] %}
+  <div class="nav-dropdown nav-dropdown-left{% if _mesh_active %} mesh-active{% endif %}">
+    <button class="nav-dropdown-trigger{% if _mesh_active %} active{% endif %}" aria-haspopup="true">&#128225; Mesh <span class="nav-caret">&#9662;</span></button>
+    <div class="nav-dropdown-menu" role="menu">
+      <a href="/mesh" class="nav-dropdown-item{% if active_page == 'mesh' %} active{% endif %}" role="menuitem">
+        <img src="/images/dashboard%20icon.png" class="nav-icon" alt="" />
+        Dashboard
+      </a>
+      <a href="/nodes" class="nav-dropdown-item{% if active_page == 'nodes' %} active{% endif %}" role="menuitem">
+        <img src="/images/nodes%20icon.png" class="nav-icon" alt="" />
+        Nodes
+      </a>
+      <a href="/map" class="nav-dropdown-item{% if active_page == 'map' %} active{% endif %}" role="menuitem">&#129517; Map</a>
+      <a href="/chat" class="nav-dropdown-item{% if active_page == 'chat' %} active{% endif %}" role="menuitem">
+        <img src="/images/chat%20icon.png" class="nav-icon" alt="" />
+        Chat
+      </a>
+    </div>
+  </div>
   <a href="/joy" class="nav-link{% if active_page == 'joy' %} active{% endif %}">&#10024; Joy</a>
   <a href="/history" class="nav-link{% if active_page == 'history' %} active{% endif %}">&#128197; History</a>
   <a href="/events" class="nav-link{% if active_page == 'events' %} active{% endif %}">&#127881; Events</a>

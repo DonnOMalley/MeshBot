@@ -5,101 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ bot_name }} Dashboard</title>
     <link rel="stylesheet" href="/static/style.css" />
-    <link rel="stylesheet" href="/static/leaflet.css" />
     <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
-  <body class="dashboard-page">
+  <body class="dashboard-page home-dashboard">
     {% set active_page = 'dashboard' %} {% include "partials/_header.html" %}
 
     <main>
-      <!-- Left column: Chat History -->
-      <div class="dash-left panel">
-        <div class="panel-header">
-          <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
-          <a href="/chat" class="panel-header-text panel-title-link" title="Open Chat">Chat History</a>
-        </div>
-        <div id="channel-tabs" class="tabs">
-          <span class="tab-empty">No channel history found.</span>
-        </div>
-        <div id="chat-messages" class="scroll-box messages">
-          <p class="empty">Select a channel tab above.</p>
-        </div>
-      </div>
+      <!-- Happening-now banner: full width above Joy + Events; hidden when nothing is on -->
+      <section class="dash-now-banner" id="dash-now-banner" aria-label="Happening now" hidden>
+        <!-- populated by dashboard.js -->
+      </section>
 
-      <!-- Right column -->
-      <div class="dash-right">
-        <!-- Top row: Joy + upcoming Events side by side -->
-        <div class="dash-top-row">
-          <!-- Joy panel: Affirmation + Zen Quote + Joke -->
-          <div class="dash-joy panel" id="dash-joy">
-            <div class="panel-header">
-              <a href="/joy" class="panel-header-text panel-title-link" title="Open Joy">&#10024; Joy</a>
-              <button type="button" class="dash-joy-refresh" id="dash-joy-refresh"
-                      title="Get a new affirmation, quote and joke" aria-label="Refresh Joy">&#x21bb;</button>
-            </div>
-            <div class="dash-joy-body" id="dash-joy-body">
-              <!-- populated by dashboard.js -->
-            </div>
+      <!-- Two columns, two rows: Joy | Events over Chat History | Today in History -->
+      <div class="dash-grid">
+        <!-- Top left: Joy panel (Affirmation + Zen Quote + Joke) -->
+        <div class="dash-joy panel" id="dash-joy">
+          <div class="panel-header">
+            <a href="/joy" class="panel-header-text panel-title-link" title="Open Joy">&#10024; Joy</a>
+            <button type="button" class="dash-joy-refresh" id="dash-joy-refresh"
+                    title="Get a new affirmation, quote and joke" aria-label="Refresh Joy">&#x21bb;</button>
           </div>
-
-          <!-- Events panel: agenda of what's coming up -->
-          <div class="dash-events panel" id="dash-events">
-            <div class="panel-header">
-              <a href="/events" class="panel-header-text panel-title-link" title="Open Events">&#127881; Events</a>
-              <button type="button" class="dash-joy-refresh" id="dash-events-refresh"
-                      title="Refresh upcoming events" aria-label="Refresh Events">&#x21bb;</button>
-            </div>
-            <div class="dash-events-body scroll-box" id="dash-events-body">
-              <p class="dash-events-empty">Loading&hellip;</p>
-            </div>
+          <div class="dash-joy-body scroll-box" id="dash-joy-body">
+            <!-- populated by dashboard.js -->
           </div>
         </div>
 
-        <!-- Bottom row: Today in History + Map side by side -->
-        <div class="dash-bottom-row">
-          <!-- Today in History panel -->
-          <div class="dash-history panel" id="dash-history">
-            <div class="panel-header">
-              <a href="/history" class="panel-header-text panel-title-link" id="dash-history-title" title="Open History">&#128197; Today in History</a>
-            </div>
-            <div class="dash-history-body scroll-box" id="dash-history-body">
-              <!-- populated by dashboard.js -->
-            </div>
+        <!-- Top right: Events panel (agenda of what's coming up) -->
+        <div class="dash-events panel" id="dash-events">
+          <div class="panel-header">
+            <a href="/events" class="panel-header-text panel-title-link" title="Open Events">&#127881; Events</a>
+            <button type="button" class="dash-joy-refresh" id="dash-events-refresh"
+                    title="Refresh upcoming events" aria-label="Refresh Events">&#x21bb;</button>
           </div>
+          <div class="dash-events-body scroll-box" id="dash-events-body">
+            <p class="dash-events-empty">Loading&hellip;</p>
+          </div>
+        </div>
 
-          <!-- Map / Bot Info panel -->
-          <div class="dash-map-wrap panel" id="dash-map-outer">
-            <div class="panel-header" id="dash-map-header">
-              <img src="/images/nodes%20icon.png" class="panel-icon" alt="" />
-              <a href="/map" class="panel-header-text panel-title-link" id="dash-map-title" title="Open Map">Map</a>
-            </div>
+        <!-- Bottom left: Chat History -->
+        <div class="dash-chat panel" id="dash-chat">
+          <div class="panel-header">
+            <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
+            <a href="/chat" class="panel-header-text panel-title-link" title="Open Chat">Chat History</a>
+          </div>
+          <div id="channel-tabs" class="tabs">
+            <span class="tab-empty">No channel history found.</span>
+          </div>
+          <div id="chat-messages" class="scroll-box messages">
+            <p class="empty">Select a channel tab above.</p>
+          </div>
+        </div>
 
-            <a href="/map" id="dash-map-link-wrap" class="dash-map-anchor" title="Click to Open Map">
-              <div id="dash-map"></div>
-            </a>
-
-            <!-- Bot info fallback (shown when tiles are unavailable) -->
-            <div id="dash-bot-info" class="dash-bot-info" style="display: none">
-              <div class="dbi-name" id="dbi-long-name"></div>
-              <div class="dbi-sub" id="dbi-sub"></div>
-              <div class="dbi-grid" id="dbi-grid"></div>
-            </div>
+        <!-- Bottom right: Today in History -->
+        <div class="dash-history panel" id="dash-history">
+          <div class="panel-header">
+            <a href="/history" class="panel-header-text panel-title-link" id="dash-history-title" title="Open History">&#128197; Today in History</a>
+          </div>
+          <div class="dash-history-body scroll-box" id="dash-history-body">
+            <!-- populated by dashboard.js -->
           </div>
         </div>
       </div>
     </main>
 
     <script src="/static/app.js"></script>
-    <script src="/static/leaflet.js"></script>
     <script src="/static/dashboard.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         fetchChannels();
         dashboardInit();
-        setInterval(() => {
-          fetchChannels();
-          dashboardRefresh();
-        }, REFRESH_INTERVAL_MS);
+        setInterval(fetchChannels, REFRESH_INTERVAL_MS);
       });
     </script>
   </body>

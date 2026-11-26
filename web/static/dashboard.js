@@ -1,11 +1,6 @@
-// dashboard.js — Joy panel + Today in History + mini-map with bot-info fallback
+// dashboard.js — Happening-now banner + Joy panel + upcoming Events + Today in History
 
 "use strict";
-
-let _dashMap = null;
-let _dashMapLayerGroup = null;
-let _dashTilesOk = true;
-let _dashTileErrorFired = false;
 
 // Month name lookup for the TIH panel header
 const _MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -22,7 +17,9 @@ async function _fetchUpcomingEvents() {
     const res = await fetch(`/api/events/upcoming?days=${_DASH_EVENTS_DAYS}&limit=8`, { cache: "no-store" });
     if (!res.ok) throw new Error("load failed");
     const data = await res.json();
-    _renderUpcomingEvents(data.events || []);
+    const items = data.events || [];
+    _renderNowBanner(items.filter((o) => o.status === "active"));
+    _renderUpcomingEvents(items);
   } catch (_) {
     if (!body.querySelector(".dash-ev-group")) body.innerHTML = '<p class="dash-events-empty">Couldn’t load events.</p>';
   }
@@ -65,6 +62,47 @@ function _dashWhen(o) {
   return o.status === "active" ? `Until ${endText}` : `${_dashTime(s)} – ${endText}`;
 }
 
+function _dashEventHref(o) {
+  return `/events?id=${encodeURIComponent(o.id)}`;
+}
+
+function _dashThumbSrc(o) {
+  return `/events/${encodeURIComponent(o.id)}/image/cover_thumb?v=${encodeURIComponent(o.updated_at || "")}`;
+}
+
+function _dashWhere(o) {
+  const loc = o.location || {};
+  return loc.type === "online" ? "Online" : loc.address || "";
+}
+
+// Full-width banner above Joy + Events: one clickable card per event that is
+// on right now (thumbnail when it has a picture). Hidden when nothing is on.
+function _renderNowBanner(active) {
+  const banner = document.getElementById("dash-now-banner");
+  if (!banner) return;
+  if (!active.length) {
+    banner.hidden = true;
+    banner.innerHTML = "";
+    return;
+  }
+  banner.innerHTML = active
+    .map((o) => {
+      const thumb = o.has_image ? `<img class="dash-now-thumb" src="${_dashThumbSrc(o)}" alt="" />` : "";
+      const meta = [_dashWhen(o), _dashWhere(o)].filter(Boolean).join(" · ");
+      return `<a class="dash-now-item" href="${_dashEventHref(o)}" title="Open ${_escapeHtml(o.name)}">
+        ${thumb}
+        <span class="dash-now-text">
+          <span class="dash-now-label">&#127881; Happening now</span>
+          <span class="dash-now-name">${_escapeHtml(o.name)}</span>
+          <span class="dash-now-meta">${_escapeHtml(meta)}</span>
+        </span>
+        <span class="dash-now-open" aria-hidden="true">Open &rarr;</span>
+      </a>`;
+    })
+    .join("");
+  banner.hidden = false;
+}
+
 function _renderUpcomingEvents(items) {
   const body = document.getElementById("dash-events-body");
   if (!items.length) {
@@ -85,13 +123,11 @@ function _renderUpcomingEvents(items) {
         <div class="dash-ev-day">${g.now ? "&#127881; " : ""}${_escapeHtml(g.label)}</div>
         <ul class="dash-ev-list">${g.rows
           .map((o) => {
-            const loc = o.location || {};
-            const where = loc.type === "online" ? "Online" : loc.address || "";
-            const meta = [_dashWhen(o), where].filter(Boolean).join(" · ") + (o.recurrence ? " · ↻" : "");
-            const href = `/events?id=${encodeURIComponent(o.id)}`;
+            const meta = [_dashWhen(o), _dashWhere(o)].filter(Boolean).join(" · ") + (o.recurrence ? " · ↻" : "");
+            const href = _dashEventHref(o);
             // Small thumbnail (half the Events page's) when the event has a picture.
             const thumb = o.has_image
-              ? `<a class="dash-ev-thumb" href="${href}" tabindex="-1" aria-hidden="true"><img src="/events/${encodeURIComponent(o.id)}/image/cover_thumb?v=${encodeURIComponent(o.updated_at || "")}" alt="" loading="lazy" /></a>`
+              ? `<a class="dash-ev-thumb" href="${href}" tabindex="-1" aria-hidden="true"><img src="${_dashThumbSrc(o)}" alt="" loading="lazy" /></a>`
               : "";
             return `<li>${thumb}<div class="dash-ev-text"><a class="dash-ev-link" href="${href}">${_escapeHtml(o.name)}</a><span class="dash-ev-meta">${_escapeHtml(meta)}</span></div></li>`;
           })
@@ -174,108 +210,6 @@ function _escapeHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// ── Mini-map ───────────────────────────────────────────────────────────────
-
-function _initMiniMap() {
-  const el = document.getElementById("dash-map");
-  if (!el || _dashMap) return;
-
-  _dashMap = L.map("dash-map", {
-    zoomControl: false,
-    attributionControl: false,
-    dragging: false,
-    scrollWheelZoom: false,
-    doubleClickZoom: false,
-    boxZoom: false,
-    keyboard: false,
-    tap: false
-  });
-
-  const tileLayer = L.tileLayer("/tiles/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    errorTileUrl: ""
-  });
-
-  tileLayer.on("tileerror", () => {
-    if (!_dashTileErrorFired) {
-      _dashTileErrorFired = true;
-      _dashTilesOk = false;
-      _showBotInfo();
-    }
-  });
-
-  tileLayer.addTo(_dashMap);
-  _dashMapLayerGroup = L.layerGroup().addTo(_dashMap);
-
-  _dashMap.setView([0, 0], 2);
-
-  // Invalidate size after layout fully settles, then fetch nodes
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (_dashMap) {
-        _dashMap.invalidateSize();
-        _fetchAndRenderMapNodes();
-      }
-    });
-  });
-
-  // Watch for future container resizes (e.g. window resize)
-  if (typeof ResizeObserver !== "undefined") {
-    new ResizeObserver(() => {
-      if (_dashMap) _dashMap.invalidateSize();
-    }).observe(el);
-  }
-}
-
-async function _fetchAndRenderMapNodes() {
-  try {
-    const res = await fetch("/api/map-nodes");
-    if (!res.ok) return;
-    const data = await res.json();
-    _renderMapNodes(data);
-  } catch (_) {}
-}
-
-function _renderMapNodes(data) {
-  if (!_dashMap || !_dashMapLayerGroup) return;
-
-  _dashMapLayerGroup.clearLayers();
-
-  const nodes = data.nodes || [];
-  const positioned = data.positioned_count ?? nodes.length;
-  const total = data.total_count ?? nodes.length;
-
-  const titleEl = document.getElementById("dash-map-title");
-  if (titleEl) {
-    titleEl.textContent = `Map — ${positioned} of ${total} nodes`;
-  }
-
-  if (!nodes.length) return;
-
-  const bounds = [];
-
-  nodes.forEach((node) => {
-    const lat = node.latitude;
-    const lng = node.longitude;
-    if (lat == null || lng == null) return;
-
-    const marker = L.circleMarker([lat, lng], {
-      radius: 6,
-      color: "#c0392b",
-      fillColor: "#e74c3c",
-      fillOpacity: 0.9,
-      weight: 1.5
-    });
-
-    marker.addTo(_dashMapLayerGroup);
-    bounds.push([lat, lng]);
-  });
-
-  if (bounds.length) {
-    _dashMap.fitBounds(bounds, { padding: [8, 8], maxZoom: 14 });
-  }
-}
-
 // ── Today in History panel ────────────────────────────────────────────────
 
 async function _fetchTodayInHistory() {
@@ -319,58 +253,6 @@ function _renderTodayInHistory(data) {
     .join("");
 }
 
-// ── Bot info fallback ──────────────────────────────────────────────────────
-
-function _showBotInfo() {
-  const mapAnchor = document.getElementById("dash-map-link-wrap");
-  const botInfo = document.getElementById("dash-bot-info");
-  if (mapAnchor) mapAnchor.style.display = "none";
-  if (botInfo) botInfo.style.display = "";
-  _fetchBotInfo();
-}
-
-async function _fetchBotInfo() {
-  try {
-    const res = await fetch("/api/settings");
-    if (!res.ok) return;
-    const data = await res.json();
-    _renderBotInfo(data);
-  } catch (_) {}
-}
-
-function _renderBotInfo(data) {
-  const user = data.user || {};
-  const lora = data.lora || {};
-  const channels = data.channels || [];
-
-  const longNameEl = document.getElementById("dbi-long-name");
-  const subEl = document.getElementById("dbi-sub");
-  const gridEl = document.getElementById("dbi-grid");
-
-  if (longNameEl) longNameEl.textContent = user.long_name || "Unknown";
-
-  if (subEl) {
-    const sub = [user.short_name, user.node_id].filter(Boolean).join(" — ");
-    subEl.textContent = sub;
-  }
-
-  if (gridEl) {
-    const rows = [];
-
-    if (user.hw_model) rows.push(["Hardware", user.hw_model]);
-    if (user.role) rows.push(["Role", user.role]);
-    if (lora.modem_preset) rows.push(["Modem Preset", lora.modem_preset]);
-    if (lora.hop_limit != null) rows.push(["Hop Limit", lora.hop_limit]);
-
-    if (channels.length) {
-      const chList = channels.map((ch) => `${ch.name} (${ch.index})`).join(", ");
-      rows.push(["Channels", chList]);
-    }
-
-    gridEl.innerHTML = rows.map(([k, v]) => `<div class="dbi-row"><span class="dbi-key">${_escapeHtml(k)}</span><span class="dbi-val">${_escapeHtml(String(v))}</span></div>`).join("");
-  }
-}
-
 // ── Public API ─────────────────────────────────────────────────────────────
 
 function dashboardInit() {
@@ -382,17 +264,4 @@ function dashboardInit() {
   const joyRefreshBtn = document.getElementById("dash-joy-refresh");
   if (joyRefreshBtn) joyRefreshBtn.addEventListener("click", _onJoyRefreshClick);
   _fetchTodayInHistory();
-  // Defer map init until all resources are loaded so the container has its
-  // final dimensions before Leaflet measures it.
-  if (document.readyState === "complete") {
-    _initMiniMap();
-  } else {
-    window.addEventListener("load", _initMiniMap, { once: true });
-  }
-}
-
-function dashboardRefresh() {
-  if (_dashTilesOk) {
-    _fetchAndRenderMapNodes();
-  }
 }

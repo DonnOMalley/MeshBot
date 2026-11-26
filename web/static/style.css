@@ -85,7 +85,7 @@ nav {
   flex-shrink: 0;
 }
 
-/* ── Admin dropdown ──────────────────────────────────────────────────── */
+/* ── Nav dropdowns (Mesh, Administration) ──────────────────────────────────────────────────── */
 .nav-dropdown {
   position: relative;
   display: inline-flex;
@@ -129,6 +129,10 @@ nav {
   background: var(--surface2);
   border: 1px solid var(--border);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.nav-dropdown-left .nav-dropdown-menu {
+  right: auto;
+  left: 0;
 }
 .nav-dropdown:hover .nav-dropdown-menu,
 .nav-dropdown:focus-within .nav-dropdown-menu {
@@ -1632,7 +1636,7 @@ main > section:last-child #chat-messages {
     width: 16px;
     height: 16px;
   }
-  /* Administration: a section heading with its pages listed below it. */
+  /* Mesh / Administration: a section heading with its pages listed below it. */
   body.nav-open .nav-dropdown {
     flex-direction: column;
     border-top: 1px solid var(--border);
@@ -2573,10 +2577,9 @@ body.map-page main.map-main {
   font-weight: 700;
   padding: 2px 6px;
   white-space: nowrap;
-  -webkit-backdrop-filter: blur(2px);
-  -moz-backdrop-filter: blur(2px);
-  -ms-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
+  /* No backdrop-filter here: there is one label per node, and a blur on each
+     one gives every label its own GPU compositing layer. With hundreds of
+     nodes that used up all GPU/system memory and crashed the browser. */
   cursor: default;
 }
 
@@ -2708,6 +2711,7 @@ body.dashboard-page main {
   grid-template-rows: 1fr;
   gap: 12px;
   padding: 12px;
+  width: 100%;
   max-width: none;
   overflow: hidden;
 }
@@ -2899,7 +2903,7 @@ body.dashboard-page main {
   overflow-wrap: anywhere;
 }
 
-/* ── Map / bot-info panel ────────────────────────────────────────── */
+/* ── Bottom row ──────────────────────────────────────────────────── */
 
 .dash-bottom-row {
   flex: 1;
@@ -2912,7 +2916,8 @@ body.dashboard-page main {
 /* ── Today in History panel ─────────────────────────────────────── */
 
 .dash-history {
-  flex: 0 0 38%;
+  flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -3079,6 +3084,59 @@ body.dashboard-page main {
   color: var(--text);
 }
 
+/* ── Mesh dashboard: stats + bot node ────────────────────────────── */
+
+.mesh-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  padding: 12px;
+}
+
+.mesh-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
+.mesh-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--mono);
+  line-height: 1.1;
+}
+
+.mesh-stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.mesh-dashboard-page .dash-bot-info {
+  padding: 12px 14px;
+}
+
+.mesh-dashboard-page .dbi-val {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mesh-map-offline {
+  padding: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.mesh-map-offline a {
+  color: var(--accent);
+}
+
 /* ── Responsive: single column on narrow screens ─────────────────── */
 
 @media (max-width: 768px) {
@@ -3089,8 +3147,10 @@ body.dashboard-page main {
     overflow-x: hidden;
   }
 
+  /* Stack the columns; a fixed grid-row would add a hidden second column. */
   .dash-left,
   .dash-right {
+    grid-row: auto;
     min-height: 0;
   }
 
@@ -3115,6 +3175,176 @@ body.dashboard-page main {
   }
 
   .dash-map-wrap {
+    flex: 0 0 auto;
+    height: 50vh;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Main dashboard (/) — happening-now banner over a 2×2 grid:
+   Joy | Events on top, Chat History | Today in History below.
+   Scoped to .home-dashboard so the /mesh dashboard keeps its layout.
+   ══════════════════════════════════════════════════════════════════ */
+
+body.home-dashboard main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  width: 100%;
+  max-width: none;
+  overflow: hidden;
+}
+
+.dash-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 12px;
+}
+
+/* Every quadrant: header on top, body fills and scrolls. */
+.dash-grid > .panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-dashboard .dash-joy-body.scroll-box,
+.home-dashboard .dash-events-body.scroll-box,
+.home-dashboard #chat-messages.scroll-box,
+.home-dashboard .dash-history-body.scroll-box {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.home-dashboard .dash-joy-body {
+  gap: 14px;
+  padding: 12px 16px;
+}
+
+.home-dashboard .joy-text {
+  font-size: 14px;
+}
+
+.home-dashboard .dash-history-body .tih-event {
+  font-size: 13px;
+}
+
+/* ── Happening-now banner ────────────────────────────────────────── */
+
+.dash-now-banner {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.dash-now-banner[hidden] {
+  display: none;
+}
+
+.dash-now-item {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+  transition: filter 0.15s;
+}
+
+.dash-now-item:hover,
+.dash-now-item:focus-visible {
+  filter: brightness(1.15);
+}
+
+.dash-now-thumb {
+  flex: 0 0 auto;
+  display: block;
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--surface2);
+}
+
+.dash-now-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-now-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.dash-now-name {
+  font-size: 18px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.dash-now-meta {
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.dash-now-open {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+@media (max-width: 768px) {
+  body.home-dashboard main {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .dash-grid {
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+  }
+
+  .home-dashboard .dash-events,
+  .home-dashboard .dash-history {
+    height: 40vh;
+  }
+
+  .home-dashboard .dash-chat {
+    height: 60vh;
+  }
+
+  .dash-now-banner {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .dash-now-open {
     display: none;
   }
 }
@@ -3747,6 +3977,43 @@ body.tih-page main {
   border-color: var(--accent);
 }
 
+.ev-passcode-wrap {
+  position: relative;
+}
+
+.ev-passcode-reveal {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.ev-passcode-reveal:hover,
+.ev-passcode-reveal:focus-visible,
+.ev-passcode-reveal.is-showing {
+  opacity: 1;
+}
+
+/* Diagonal slash over the eye while the passcode is hidden. */
+.ev-passcode-reveal:not(.is-showing)::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 2px;
+  background: var(--text);
+  transform: translate(-50%, -50%) rotate(-45deg);
+  border-radius: 1px;
+}
+
 .ev-detail-title {
   font-size: 20px;
   margin: 0;
@@ -3808,43 +4075,6 @@ body.tih-page main {
 
 .ev-upload {
   display: flex;
-.ev-passcode-wrap {
-  position: relative;
-}
-
-.ev-passcode-reveal {
-  position: absolute;
-  top: 50%;
-  right: 4px;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  padding: 2px 6px;
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.55;
-}
-
-.ev-passcode-reveal:hover,
-.ev-passcode-reveal:focus-visible,
-.ev-passcode-reveal.is-showing {
-  opacity: 1;
-}
-
-/* Diagonal slash over the eye while the passcode is hidden. */
-.ev-passcode-reveal:not(.is-showing)::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 18px;
-  height: 2px;
-  background: var(--text);
-  transform: translate(-50%, -50%) rotate(-45deg);
-  border-radius: 1px;
-}
-
   flex-direction: column;
   gap: 8px;
   padding: 12px;

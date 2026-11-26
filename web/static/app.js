@@ -299,6 +299,7 @@ function renderMessages(messages) {
 function refreshAll() {
   if (document.getElementById("node-tbody")) fetchNodes();
   if (_activeChannel) fetchHistory(_activeChannel);
+  if (typeof meshDashboardRefresh === "function") meshDashboardRefresh();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

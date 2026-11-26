@@ -839,10 +839,35 @@ class JoyPageTests(_EventsServerCase):
         self.assertIn('src="/static/joy.js"', html)
         nav: list = [h for h in ("/chat", "/joy", "/history") if f'href="{h}"' in html]
         self.assertEqual(nav, ["/chat", "/joy", "/history"])
-        self.assertLess(html.index('href="/chat" class="nav-link'), html.index('href="/joy" class="nav-link'))
+        self.assertLess(html.index('href="/chat" class="nav-dropdown-item'), html.index('href="/joy" class="nav-link'))
         self.assertLess(html.index('href="/joy" class="nav-link'), html.index('href="/history" class="nav-link'))
         self.assertIn('href="/joy" class="nav-link active"', html)
         self.assertIn('href="/events" class="joy-upcoming-link"', html, "link to upcoming events")
+
+    def test_mesh_menu_and_dashboard(self) -> None:
+        html: str = self.client.get("/mesh").get_data(as_text=True)
+        self.assertIn('src="/static/mesh.js"', html)
+        self.assertIn('id="dash-map"', html)
+        start: int = html.index("&#128225; Mesh")
+        menu: str = html[start:html.index("</div>", start)]
+        self.assertEqual([h for h in ("/mesh", "/nodes", "/map", "/chat") if f'href="{h}"' in menu], ["/mesh", "/nodes", "/map", "/chat"])
+        self.assertIn('href="/mesh" class="nav-dropdown-item active"', html)
+        for page in ("/nodes", "/map", "/chat"):
+            self.assertIn("nav-dropdown-trigger active\" aria-haspopup=\"true\">&#128225; Mesh", self.client.get(page).get_data(as_text=True))
+
+    def test_dashboard_has_no_map(self) -> None:
+        html: str = self.client.get("/").get_data(as_text=True)
+        self.assertNotIn('id="dash-map"', html)
+        self.assertNotIn("leaflet.js", html)
+        self.assertIn('id="dash-history"', html)
+
+    def test_dashboard_two_by_two_layout_with_now_banner(self) -> None:
+        html: str = self.client.get("/").get_data(as_text=True)
+        self.assertIn('id="dash-now-banner" aria-label="Happening now" hidden', html, "banner starts hidden")
+        order: list[int] = [html.index(f'id="{i}"') for i in ("dash-now-banner", "dash-joy", "dash-events", "dash-chat", "dash-history")]
+        self.assertEqual(order, sorted(order), "banner, then Joy | Events, then Chat | History")
+        self.assertNotIn("dash-left", html)
+        self.assertNotIn("dash-right", html)
 
     def test_dashboard_joy_title_links_to_page(self) -> None:
         self.assertIn('<a href="/joy" class="panel-header-text panel-title-link"', self.client.get("/").get_data(as_text=True))
