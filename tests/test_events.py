@@ -178,7 +178,9 @@ class EventStoreTests(unittest.TestCase):
     def test_images_encrypted_and_paths_validated(self) -> None:
         ev: dict = self._create()
         self.store.save_cover(ev["id"], PNG, JPEG)
-        img_path: str = os.path.join(self.dir, "images", ev["id"], "cover.img")
+        folder: str = os.path.join(self.dir, "images", ev["id"])
+        self.assertEqual(sorted(os.listdir(folder)), ["cover.png.enc", "cover_thumb.jpg.enc"])
+        img_path: str = os.path.join(folder, "cover.png.enc")
         with open(img_path, "rb") as f:
             self.assertFalse(f.read().startswith(b"\x89PNG"))
         self.assertEqual(self.store.read_image(ev["id"], "cover"), PNG)
@@ -187,8 +189,53 @@ class EventStoreTests(unittest.TestCase):
         self.assertIsNone(self.store.read_image("../x", "cover"))
         with self.assertRaises(ValueError):
             self.store.save_image("../evil", "cover", PNG)
+        with self.assertRaises(ValueError):
+            self.store.save_image(ev["id"], "cover", b"not an image")
         self.store.delete(ev["id"])
-        self.assertFalse(os.path.exists(os.path.dirname(img_path)))
+        self.assertFalse(os.path.exists(folder))
+
+    def test_image_type_change_replaces_old_file(self) -> None:
+        ev: dict = self._create()
+        self.store.save_cover(ev["id"], PNG, JPEG)
+        self.store.save_cover(ev["id"], JPEG, PNG)
+        folder: str = os.path.join(self.dir, "images", ev["id"])
+        self.assertEqual(sorted(os.listdir(folder)), ["cover.jpg.enc", "cover_thumb.png.enc"])
+        self.assertEqual(self.store.read_image(ev["id"], "cover"), JPEG)
+        self.store.remove_cover(ev["id"])
+        self.assertEqual(os.listdir(folder), [])
+
+    def test_plain_images_open_directly(self) -> None:
+        plain: EventStore = EventStore(self.dir, None)
+        ev: dict = self._create()
+        plain.save_cover(ev["id"], PNG, JPEG)
+        path: str = os.path.join(self.dir, "images", ev["id"], "cover.png")
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), PNG)
+        self.assertEqual(plain.read_image(ev["id"], "cover_thumb"), JPEG)
+        # Turning encryption on later still reads the plain files.
+        self.assertEqual(self.store.read_image(ev["id"], "cover"), PNG)
+
+    def test_legacy_img_files_renamed(self) -> None:
+        ev: dict = self._create()
+        folder: str = os.path.join(self.dir, "images", ev["id"])
+        os.makedirs(folder, exist_ok=True)
+        encrypted: bytes = Fernet(self.key).encrypt(PNG)
+        with open(os.path.join(folder, "cover.img"), "wb") as f:
+            f.write(encrypted)
+        with open(os.path.join(folder, "cover_thumb.img"), "wb") as f:
+            f.write(JPEG)  # written before a key was configured
+        with open(os.path.join(folder, "abcdef0123456789.img"), "wb") as f:
+            f.write(Fernet(Fernet.generate_key()).encrypt(JPEG))  # unreadable: left alone
+        store: EventStore = EventStore(self.dir, self.key)
+        self.assertEqual(
+            sorted(os.listdir(folder)),
+            ["abcdef0123456789.img", "cover.png.enc", "cover_thumb.jpg.enc"],
+        )
+        with open(os.path.join(folder, "cover.png.enc"), "rb") as f:
+            self.assertEqual(f.read(), encrypted, "renamed, not re-encrypted")
+        self.assertEqual(store.read_image(ev["id"], "cover"), PNG)
+        self.assertEqual(store.read_image(ev["id"], "cover_thumb"), JPEG)
+        self.assertIsNone(store.read_image(ev["id"], "abcdef0123456789"))
 
     def test_add_photo(self) -> None:
         ev: dict = self._create(start=_iso(-1), end=_iso(1))

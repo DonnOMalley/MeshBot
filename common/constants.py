@@ -555,7 +555,17 @@ _EVENTS_HISTORY_FILE: str = "events_history.json"
 _EVENTS_IMAGES_SUBDIR: str = "images"
 _EVENTS_COVER_NAME: str = "cover"
 _EVENTS_THUMB_SUFFIX: str = "_thumb"
-_EVENTS_IMAGE_EXT: str = ".img"
+# File extension for each accepted image type, picked from the image's own bytes.
+_EVENTS_IMAGE_EXTENSIONS: dict[str, str] = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+}
+# Added after the image extension when the file is encrypted (cover.jpg.enc).
+_EVENTS_ENCRYPTED_EXT: str = ".enc"
+# Older versions saved every image as <name>.img; these are renamed on startup.
+_EVENTS_LEGACY_IMAGE_EXT: str = ".img"
 _EVENTS_MAX_UPLOAD_BYTES: int = 40 * 1024 * 1024
 _EVENTS_MAX_IMAGE_BYTES: int = 15 * 1024 * 1024
 _EVENTS_MAX_PHOTOS_PER_UPLOAD: int = 20

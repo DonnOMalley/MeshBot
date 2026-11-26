@@ -12,23 +12,36 @@
     {% set active_page = 'mesh' %} {% include "partials/_header.html" %}
 
     <main>
-      <!-- Left column: Chat History -->
-      <div class="dash-left panel">
-        <div class="panel-header">
-          <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
-          <a href="/chat" class="panel-header-text panel-title-link" title="Open Chat">Chat History</a>
+      <!-- Left column: the bot's own node above Chat History -->
+      <div class="dash-left">
+        <div class="panel" id="mesh-bot-node">
+          <div class="panel-header">
+            <span class="panel-header-text">&#128225; Bot Node</span>
+          </div>
+          <div class="dash-bot-info">
+            <div class="dbi-name" id="dbi-long-name"></div>
+            <div class="dbi-sub" id="dbi-sub"></div>
+            <div class="dbi-grid" id="dbi-grid"></div>
+          </div>
         </div>
-        <div id="channel-tabs" class="tabs">
-          <span class="tab-empty">No channel history found.</span>
-        </div>
-        <div id="chat-messages" class="scroll-box messages">
-          <p class="empty">Select a channel tab above.</p>
+
+        <div class="panel mesh-chat-panel">
+          <div class="panel-header">
+            <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
+            <a href="/chat" class="panel-header-text panel-title-link" title="Open Chat">Chat History</a>
+          </div>
+          <div id="channel-tabs" class="tabs">
+            <span class="tab-empty">No channel history found.</span>
+          </div>
+          <div id="chat-messages" class="scroll-box messages">
+            <p class="empty">Select a channel tab above.</p>
+          </div>
         </div>
       </div>
 
       <!-- Right column -->
       <div class="dash-right">
-        <!-- Top row: mesh stats + the bot's own node -->
+        <!-- Top row: mesh stats, full width, only as tall as its content -->
         <div class="dash-top-row">
           <div class="panel" id="mesh-stats">
             <div class="panel-header">
@@ -37,17 +50,6 @@
             </div>
             <div class="mesh-stats-grid" id="mesh-stats-grid">
               <!-- populated by mesh.js -->
-            </div>
-          </div>
-
-          <div class="panel" id="mesh-bot-node">
-            <div class="panel-header">
-              <span class="panel-header-text">&#128225; Bot Node</span>
-            </div>
-            <div class="dash-bot-info">
-              <div class="dbi-name" id="dbi-long-name"></div>
-              <div class="dbi-sub" id="dbi-sub"></div>
-              <div class="dbi-grid" id="dbi-grid"></div>
             </div>
           </div>
         </div>

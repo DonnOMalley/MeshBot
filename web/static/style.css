@@ -3033,7 +3033,26 @@ body.dashboard-page main {
   color: var(--muted);
 }
 
+/* Left column holds two panels: Bot Node (content height) above Chat
+   History (fills the rest). */
+.mesh-dashboard-page .dash-left {
+  gap: 12px;
+}
+
+.mesh-dashboard-page #mesh-bot-node {
+  flex-shrink: 0;
+}
+
+.mesh-dashboard-page .mesh-chat-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .mesh-dashboard-page .dash-bot-info {
+  flex: none;
+  max-height: 40vh;
   padding: 12px 14px;
 }
 
@@ -3087,6 +3106,17 @@ body.dashboard-page main {
   .dash-map-wrap {
     flex: 0 0 auto;
     height: 50vh;
+  }
+
+  /* Mesh: Bot Node sits above Chat, so give the chat panel the fixed
+     height instead of the whole column. */
+  .mesh-dashboard-page .dash-left {
+    height: auto;
+  }
+
+  .mesh-dashboard-page .mesh-chat-panel {
+    flex: 0 0 auto;
+    height: 60vh;
   }
 }
 
