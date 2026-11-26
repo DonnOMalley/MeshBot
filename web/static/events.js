@@ -43,6 +43,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("ev-new-btn").addEventListener("click", () => _evOpenForm(null));
   document.getElementById("ev-auth-btn").addEventListener("click", _evAuthButtonClick);
   document.getElementById("ev-auth-form").addEventListener("submit", _evSubmitSignIn);
+  document.getElementById("ev-auth-reveal").addEventListener("click", () => {
+    const input = document.getElementById("ev-auth-passcode");
+    _evShowPasscode(input.type === "password");
+    input.focus();
+  });
   document.getElementById("ev-auth-dialog").addEventListener("close", () => {
     _evAfterSignIn = null;
   });
@@ -139,6 +144,7 @@ function _evRequireSignIn(action, message) {
   }
   const form = document.getElementById("ev-auth-form");
   form.reset();
+  _evShowPasscode(false); // always start hidden
   const err = document.getElementById("ev-auth-error");
   err.hidden = !message;
   err.textContent = message || "";
@@ -146,6 +152,18 @@ function _evRequireSignIn(action, message) {
   if (!dlg.open) dlg.showModal();
   _evAfterSignIn = action;
   form.elements.passcode.focus();
+}
+
+// Eye button on the sign-in passcode: show (true) or hide (false) what's typed.
+function _evShowPasscode(show) {
+  const input = document.getElementById("ev-auth-passcode");
+  const btn = document.getElementById("ev-auth-reveal");
+  input.type = show ? "text" : "password";
+  const label = show ? "Hide passcode" : "Show passcode";
+  btn.setAttribute("aria-pressed", String(show));
+  btn.setAttribute("aria-label", label);
+  btn.title = label;
+  btn.classList.toggle("is-showing", show);
 }
 
 async function _evSubmitSignIn(e) {

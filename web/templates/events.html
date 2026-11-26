@@ -214,10 +214,13 @@
         <button type="button" class="ev-dialog-close" data-close aria-label="Close">&times;</button>
         <h2 class="ev-form-title">&#128274; Organizer sign-in</h2>
         <p class="ev-muted">Enter the organizer passcode to add, edit or delete events. You stay signed in until you close the browser or sign out.</p>
-        <label class="ev-field">
-          <span>Passcode</span>
-          <input type="password" name="passcode" autocomplete="current-password" required />
-        </label>
+        <div class="ev-field">
+          <label for="ev-auth-passcode">Passcode</label>
+          <div class="ev-passcode-wrap">
+            <input type="password" id="ev-auth-passcode" name="passcode" autocomplete="current-password" required />
+            <button type="button" id="ev-auth-reveal" class="ev-passcode-reveal" aria-label="Show passcode" aria-pressed="false" title="Show passcode">&#128065;</button>
+          </div>
+        </div>
         <p id="ev-auth-error" class="ev-form-error" hidden></p>
         <div class="ev-form-actions">
           <span class="ev-spacer"></span>
