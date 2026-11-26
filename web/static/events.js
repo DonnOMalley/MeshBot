@@ -1008,11 +1008,19 @@ async function _evStartCamera() {
     const track = stream.getVideoTracks()[0];
     const inUse = track && track.getSettings ? track.getSettings().deviceId : "";
     if (inUse) _evCamDeviceId = inUse;
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    if (session !== _evCamSession) return;
-    _evCamDeviceIds = devices.filter((d) => d.kind === "videoinput" && d.deviceId).map((d) => d.deviceId);
+    // Listing cameras only drives Switch camera. If it fails, keep the
+    // working stream and hide the button rather than restarting the camera.
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      if (session !== _evCamSession) return;
+      _evCamDeviceIds = devices.filter((d) => d.kind === "videoinput" && d.deviceId).map((d) => d.deviceId);
+    } catch (_) {
+      if (session !== _evCamSession) return;
+      _evCamDeviceIds = [];
+    }
     document.getElementById("ev-camera-switch").hidden = _evCamDeviceIds.length < 2;
   } catch (err) {
+    // Only a failed getUserMedia() reaches here.
     if (session !== _evCamSession) return;
     const denied = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
     // The remembered camera may have been unplugged; fall back to the default once.
