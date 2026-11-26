@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ bot_name }} Dashboard</title>
     <link rel="stylesheet" href="/static/style.css" />
-    <link rel="stylesheet" href="/static/leaflet.css" />
     <link rel="icon" type="image/png" href="/images/logo.png" />
   </head>
   <body class="dashboard-page">
@@ -55,7 +54,7 @@
           </div>
         </div>
 
-        <!-- Bottom row: Today in History + Map side by side -->
+        <!-- Bottom row: Today in History fills the remaining space -->
         <div class="dash-bottom-row">
           <!-- Today in History panel -->
           <div class="dash-history panel" id="dash-history">
@@ -66,40 +65,17 @@
               <!-- populated by dashboard.js -->
             </div>
           </div>
-
-          <!-- Map / Bot Info panel -->
-          <div class="dash-map-wrap panel" id="dash-map-outer">
-            <div class="panel-header" id="dash-map-header">
-              <img src="/images/nodes%20icon.png" class="panel-icon" alt="" />
-              <a href="/map" class="panel-header-text panel-title-link" id="dash-map-title" title="Open Map">Map</a>
-            </div>
-
-            <a href="/map" id="dash-map-link-wrap" class="dash-map-anchor" title="Click to Open Map">
-              <div id="dash-map"></div>
-            </a>
-
-            <!-- Bot info fallback (shown when tiles are unavailable) -->
-            <div id="dash-bot-info" class="dash-bot-info" style="display: none">
-              <div class="dbi-name" id="dbi-long-name"></div>
-              <div class="dbi-sub" id="dbi-sub"></div>
-              <div class="dbi-grid" id="dbi-grid"></div>
-            </div>
-          </div>
         </div>
       </div>
     </main>
 
     <script src="/static/app.js"></script>
-    <script src="/static/leaflet.js"></script>
     <script src="/static/dashboard.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         fetchChannels();
         dashboardInit();
-        setInterval(() => {
-          fetchChannels();
-          dashboardRefresh();
-        }, REFRESH_INTERVAL_MS);
+        setInterval(fetchChannels, REFRESH_INTERVAL_MS);
       });
     </script>
   </body>

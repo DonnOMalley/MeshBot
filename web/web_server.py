@@ -820,6 +820,10 @@ class WebServer:
         def index():
             return render_template("index.html", bot_name=self._bot_name, bot_description=self._bot_description)
 
+        @self._app.route("/mesh")
+        def mesh_dashboard():
+            return render_template("mesh.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
         @self._app.route("/nodes")
         def nodes():
             return render_template("nodes.html", bot_name=self._bot_name, bot_description=self._bot_description)

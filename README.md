@@ -171,7 +171,8 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 | Page      | Path        | Description                                                                                                                                |
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dashboard | `/`         | Panel titles open their full pages. Channel chat history; the Joy panel (affirmation, quote and joke) beside an Events panel listing what's happening now and the next dates in the coming 30 days (repeats included, each linking to its details and photo upload); Today in History and a mini-map. |
+| Dashboard | `/`         | Panel titles open their full pages. Channel chat history; the Joy panel (affirmation, quote and joke) beside an Events panel listing what's happening now and the next dates in the coming 30 days (repeats included, each linking to its details and photo upload); and Today in History filling the space below. |
+| Mesh      | `/mesh`     | Mesh dashboard: channel chat history, node counts (known, heard in the last hour / 24h, direct, on the map), the bot's own node, and a mini-map. The **Mesh** menu also holds Nodes, Map and Chat. |
 | Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
 | Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                                                                |
@@ -337,6 +338,7 @@ web/
         chat.js                 Page init for /chat
         console.js              Page init for /console (terminal polling)
         events.js               Events page (calendar, agenda, form, photo uploads)
+        mesh.js                 Mesh dashboard (/mesh): node stats, bot node, mini-map
         nodes.js                Page init for /nodes
         style.css               Dashboard styles
     templates/
@@ -347,6 +349,7 @@ web/
         console.html            Console terminal page
         events.html             Events page
         index.html              Dashboard page
+        mesh.html               Mesh dashboard page
         nodes.html              Nodes full-page view
 ```
 

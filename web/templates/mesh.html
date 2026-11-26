@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ bot_name }} Mesh Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/leaflet.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="dashboard-page mesh-dashboard-page">
+    {% set active_page = 'mesh' %} {% include "partials/_header.html" %}
+
+    <main>
+      <!-- Left column: Chat History -->
+      <div class="dash-left panel">
+        <div class="panel-header">
+          <img src="/images/chat%20icon.png" class="panel-icon" alt="" />
+          <a href="/chat" class="panel-header-text panel-title-link" title="Open Chat">Chat History</a>
+        </div>
+        <div id="channel-tabs" class="tabs">
+          <span class="tab-empty">No channel history found.</span>
+        </div>
+        <div id="chat-messages" class="scroll-box messages">
+          <p class="empty">Select a channel tab above.</p>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="dash-right">
+        <!-- Top row: mesh stats + the bot's own node -->
+        <div class="dash-top-row">
+          <div class="panel" id="mesh-stats">
+            <div class="panel-header">
+              <img src="/images/nodes%20icon.png" class="panel-icon" alt="" />
+              <a href="/nodes" class="panel-header-text panel-title-link" title="Open Nodes">Nodes</a>
+            </div>
+            <div class="mesh-stats-grid" id="mesh-stats-grid">
+              <!-- populated by mesh.js -->
+            </div>
+          </div>
+
+          <div class="panel" id="mesh-bot-node">
+            <div class="panel-header">
+              <span class="panel-header-text">&#128225; Bot Node</span>
+            </div>
+            <div class="dash-bot-info">
+              <div class="dbi-name" id="dbi-long-name"></div>
+              <div class="dbi-sub" id="dbi-sub"></div>
+              <div class="dbi-grid" id="dbi-grid"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom row: Map fills the remaining space -->
+        <div class="dash-bottom-row">
+          <div class="dash-map-wrap panel" id="dash-map-outer">
+            <div class="panel-header" id="dash-map-header">
+              <a href="/map" class="panel-header-text panel-title-link" id="dash-map-title" title="Open Map">&#129517; Map</a>
+            </div>
+            <a href="/map" id="dash-map-link-wrap" class="dash-map-anchor" title="Click to Open Map">
+              <div id="dash-map"></div>
+            </a>
+            <p id="dash-map-offline" class="mesh-map-offline" style="display: none">
+              Map tiles are unavailable right now.<br /><a href="/map">Open the Map page &rarr;</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="/static/app.js"></script>
+    <script src="/static/leaflet.js"></script>
+    <script src="/static/mesh.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        fetchChannels();
+        meshDashboardInit();
+        setInterval(() => {
+          fetchChannels();
+          meshDashboardRefresh();
+        }, REFRESH_INTERVAL_MS);
+      });
+    </script>
+  </body>
+</html>

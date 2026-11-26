@@ -306,8 +306,11 @@ function _fitBounds(latLngs) {
 
 // ── Refresh hook ──────────────────────────────────────────────────────────────
 
-const _origRefreshAll = typeof refreshAll === "function" ? refreshAll : null;
-function refreshAll() {
+// Assigned rather than declared: a `function refreshAll` declaration is hoisted,
+// so the line capturing app.js's version would capture this one instead and
+// the header Refresh button would recurse until the stack overflowed.
+const _origRefreshAll = typeof window.refreshAll === "function" ? window.refreshAll : null;
+window.refreshAll = function () {
   if (_origRefreshAll) _origRefreshAll();
   fetchMapNodes();
-}
+};
