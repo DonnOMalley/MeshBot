@@ -370,6 +370,13 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 
 ## Release Notes
 
+### v0.10.3 — 2026-11-26
+
+**Mobile layout fixes**
+
+- **Event pop-ups** no longer slide under the phone's address bar. They leave a gap above the top edge, size themselves to the part of the screen you can actually see, and on phones the **×** close button is larger and stays pinned to the top while you scroll through a long event.
+- **Mesh dashboard** on phones: Chat History is no longer squeezed down to a single line. Panels now stack as Chat History (most of the screen), Nodes, Map, then Bot Node details last. The desktop layout is unchanged.
+
 ### v0.10.2 — 2026-11-26
 
 **Event photo downloads (organizers only)**
