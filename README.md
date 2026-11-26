@@ -236,6 +236,7 @@ The **Events** page (`/events`, next to History in the menu) lists community eve
 - The event form has: name, description, start and end (tick **All-day event** to pick dates only; the event then runs from midnight at the start of the first day to midnight after the last day, shows as "All day", lands on the same dates in every time zone, and is exported to calendars as an all-day entry), in-person address or online link, website, a picture, and organizer contact (name, Signal handle, phone, and whether the phone accepts texts). Events without a picture use a default image.
 - While an event is happening (between its start and end), its details show **Take a photo** (opens the device camera) and **Upload photos** (pick files). Photos are resized in the browser to 1600 px with a 400 px thumbnail. Before resizing, the browser reads the original file's details (name, type, size, dimensions, modified time) and its EXIF tags (camera, lens, exposure, ISO, dates and so on) and saves them with the photo. **GPS location is never read or sent**, and the server drops any GPS tag it receives anyway.
 - **Photo viewer:** clicking a photo in an event's details opens it large in a pop-up on top of the event, with a strip of all the event's photos underneath. Use the ‹ › buttons, the arrow keys, a swipe, or click any thumbnail in the strip to switch photos. **Full size ↗** opens the photo in its own tab. A **Photo details** panel shows who uploaded it and when, the stored copy's size, the original file's details, and every EXIF tag saved with it. Photos uploaded before v0.10.0 have no saved details.
+- **Downloading photos (organizers only):** when signed in, the photo viewer shows **⬇ Download** to save the current photo at full size, and the event's Photos section shows **⬇ Download all (.zip)** to get every participant photo in one ZIP file. Both are hidden from visitors, and the server refuses the downloads unless you're signed in.
 - **Repeats:** an event can repeat **Weekly**, **Every other week**, **Monthly** (same day of the month; the 31st skips shorter months) or **Yearly** (Feb 29 only in leap years), with an optional **Until** date. Each date appears on the calendar and agenda, keeps its local time across daylight saving (the event's time zone is stored), and counts as "Happening now" for photo uploads and the dashboard. Editing changes the whole series; to drop one date (say a holiday week), an organizer opens that date and uses **Delete this date only** — it disappears everywhere (calendar, dashboard, Joy page, photo uploads, `.ics` file) and can be brought back with **Restore** in the event's details. (Google's add-to-calendar link can't carry skipped dates; the `.ics` file does.) A repeating event moves to the history file only after its last date. Google Calendar and the `.ics` file get the full series; the Outlook links add the next date only.
 - Share a single event with `/events?id=<event id>` (the **Copy link** button).
 - **Add to calendar** (on published events that haven't ended) offers Google Calendar, Outlook.com and Outlook for work or school (each opens that calendar's new-event page already filled in), plus an `.ics` file for Apple Calendar / iPhone and any other calendar app (`/events/<event id>/calendar.ics`). The calendar entry includes the description, meeting link or address, website and a link back to the event page.
@@ -369,6 +370,14 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 
 ## Release Notes
 
+### v0.10.2 — 2026-11-26
+
+**Event photo downloads (organizers only)**
+
+- Signed-in organizers get a **⬇ Download all (.zip)** button in an event's Photos section. It downloads every participant photo at full size in one ZIP (`<Event-Name>-photos.zip`), numbered in upload order and named for the uploader (`001-Sam-Smith-<photo id>.jpg`). The event's own picture isn't included.
+- The photo viewer has a **⬇ Download** link beside **Full size ↗** that saves the photo being viewed as `<Event-Name>-001-Sam-Smith-<photo id>.jpg`.
+- Both are hidden unless you're signed in with the organizer passcode, and appear or disappear straight away when you sign in or out. The server refuses `/events/<event id>/photos.zip` and `/events/<event id>/photos/<photo id>/download` with a 403 unless the session is signed in. Viewing photos is unchanged for everyone.
+
 ### v0.10.1 — 2026-11-26
 
 - The **About** page is split into three tabs: **General** (about the bot and the release notes), **Interaction** (command reference, web dashboard guide and usage notes) and **Configuration** (configuration reference). The tab is kept in the address (`/about#interaction`), so links and reloads open the same tab; arrow keys move between tabs.
@@ -442,6 +451,7 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 - Month calendar or agenda view (your choice is remembered). Click a day to list its events, or an event to see its details: map links for addresses, meeting links, website, and organizer call/text/Signal links.
 - Create, edit and delete events with a name, description, times, in-person address or online link, website, picture and organizer contact details. Events without a picture use a default image.
 - While an event is happening, participants can take or upload photos. Images are resized in the browser, which also strips EXIF location data.
+- Signed-in organizers can download one photo or all of an event's photos as a ZIP file.
 - Events and images are stored in `data/Events/` and encrypted with the same `EncryptionKey` as the chat logs. Events move to the history file once they end.
 - **Organizer passcode** (`EventsPasscode` in `meshbot.config`, applied without a restart) protects adding, editing and deleting. Wrong guesses are rate-limited, and changing the passcode signs everyone out.
 - **Visitor submissions**: anyone can submit an upcoming event for review (5 per hour per address). Organizers see a review bar to approve or reject submissions. Unapproved submissions are deleted when they end.

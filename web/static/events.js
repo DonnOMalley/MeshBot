@@ -118,6 +118,8 @@ function _evApplyAuth() {
   newBtn.hidden = !_evAuth.enabled;
   newBtn.textContent = _evAuth.editor ? "＋ New Event" : "＋ Submit an Event";
   document.querySelectorAll("[data-editor-only]").forEach((el) => (el.hidden = !_evAuth.enabled));
+  // Photo downloads are for signed-in organizers only (the server checks too).
+  document.querySelectorAll("[data-organizer-only]").forEach((el) => (el.hidden = !_evAuth.editor));
 }
 
 async function _evAuthButtonClick() {
@@ -688,7 +690,13 @@ function _evRenderDetail(ev) {
 
   // Photos
   const photos = ev.photos || [];
-  const photoSection = _el("section", { class: "ev-photos" }, [_el("h3", {}, `Photos (${photos.length})`)]);
+  const photoHeader = _el("div", { class: "ev-photos-header" }, [_el("h3", {}, `Photos (${photos.length})`)]);
+  if (photos.length) {
+    const zip = _el("a", { class: "ev-secondary-btn ev-photos-zip", href: `/events/${ev.id}/photos.zip`, "data-organizer-only": "", title: "Download every photo of this event as one ZIP file" }, "⬇ Download all (.zip)");
+    zip.hidden = !_evAuth.editor;
+    photoHeader.appendChild(zip);
+  }
+  const photoSection = _el("section", { class: "ev-photos" }, [photoHeader]);
   if (ev.status === "active" && _evIsApproved(ev)) photoSection.appendChild(_evUploadBox(ev));
   else if (ev.status === "upcoming") photoSection.appendChild(_el("p", { class: "ev-muted" }, "Participants can add photos here while the event is happening."));
   if (photos.length) {
@@ -1229,6 +1237,9 @@ function _evShowPhoto(index) {
   document.getElementById("ev-photo-caption").textContent = p.uploader ? `📷 ${p.uploader}` : "📷 Anonymous";
   document.getElementById("ev-photo-counter").textContent = photos.length > 1 ? `${index + 1} of ${photos.length}` : "";
   document.getElementById("ev-photo-open").href = main.src;
+  const download = document.getElementById("ev-photo-download");
+  download.href = `/events/${ev.id}/photos/${p.id}/download`;
+  download.hidden = !_evAuth.editor;
   document.querySelectorAll("#ev-photo-strip .ev-photo-strip-item").forEach((btn, i) => {
     const active = i === index;
     btn.classList.toggle("is-active", active);
