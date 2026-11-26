@@ -9,12 +9,14 @@ import os
 import random
 import re
 import secrets
+import tempfile
 import threading
 import time
+import zipfile
 from datetime import datetime, timezone
 from typing import cast
 
-from flask import Flask, Response, abort, jsonify, render_template, request, send_from_directory, session
+from flask import Flask, Response, abort, jsonify, render_template, request, send_file, send_from_directory, session
 from google.protobuf.json_format import MessageToDict
 from meshtastic import channel_pb2
 from meshtastic.mesh_interface import MeshInterface
@@ -98,6 +100,7 @@ from common.constants import (
     _EVENTS_SUBMIT_LIMITED,
     _EVENTS_SUBMIT_MAX_PER_WINDOW,
     _EVENTS_SUBMIT_WINDOW_SECONDS,
+    _EVENTS_IMAGE_EXTENSIONS,
     _EVENTS_MAX_IMAGE_BYTES,
     _EVENTS_MAX_PHOTOS_PER_UPLOAD,
     _EVENTS_MAX_UPLOAD_BYTES,
@@ -747,6 +750,16 @@ class WebServer:
         """The 403 returned when an organizer-only request is not signed in."""
         message: str = _EVENTS_AUTH_REQUIRED if self._events_passcode() else _EVENTS_AUTH_DISABLED
         return jsonify({"error": message, "auth_required": True}), 403
+
+    @staticmethod
+    def _filename_part(text: str, fallback: str, max_len: int = 60) -> str:
+        """*text* reduced to letters, digits and dashes for use in a download file name."""
+        return re.sub(r"[^A-Za-z0-9]+", "-", str(text or "")).strip("-")[:max_len].strip("-") or fallback
+
+    def _photo_download_name(self, photo: dict, number: int, mime: str) -> str:
+        """File name for one participant photo: ``<number>-<uploader>-<id>.<ext>``."""
+        uploader: str = self._filename_part(photo.get("uploader", ""), "Anonymous", 30)
+        return f"{number:03d}-{uploader}-{photo.get('id', '')}{_EVENTS_IMAGE_EXTENSIONS[mime]}"
 
     def _read_upload(self, field: str) -> tuple[bytes | None, str | None]:
         """Reads one uploaded image from the current multipart request.
@@ -1445,6 +1458,70 @@ class WebServer:
                 return jsonify({"error": "Photo not found."}), 404
             response: Response = jsonify({"exif": self._event_store.read_photo_exif(event_id, photo_id)})
             response.headers["Cache-Control"] = "private, max-age=300"
+            return response
+
+        @self._app.route("/events/<event_id>/photos/<photo_id>/download")
+        def event_photo_download(event_id: str, photo_id: str):
+            """One participant photo, full size, as a file download. Organizers only."""
+            if not self._is_events_editor():
+                return self._events_auth_error()
+            if not (EventStore.is_valid_id(event_id) and EventStore.is_valid_id(photo_id)):
+                abort(404)
+            try:
+                event: dict | None = self._visible_event(event_id)
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc)}), 503
+            photos: list[dict] = (event or {}).get("photos", [])
+            number: int = next((i + 1 for i, p in enumerate(photos) if p.get("id") == photo_id), 0)
+            data: bytes | None = self._event_store.read_image(event_id, photo_id) if number else None
+            mime: str | None = EventStore.detect_image_type(data) if data else None
+            if event is None or data is None or mime is None:
+                abort(404)
+            event_part: str = self._filename_part(event.get("name", ""), "event")
+            filename: str = f"{event_part}-{self._photo_download_name(photos[number - 1], number, mime)}"
+            response: Response = Response(data, mimetype=mime)
+            response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            return response
+
+        @self._app.route("/events/<event_id>/photos.zip")
+        def event_photos_zip(event_id: str):
+            """Every participant photo of an event, full size, in one ZIP file. Organizers only."""
+            if not self._is_events_editor():
+                return self._events_auth_error()
+            if not EventStore.is_valid_id(event_id):
+                abort(404)
+            try:
+                event: dict | None = self._visible_event(event_id)
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc)}), 503
+            if event is None:
+                abort(404)
+            # Built on disk past 32 MB: an event can hold many photos of up to 15 MB each.
+            # Photos are already compressed, so they are stored without recompressing.
+            spool = tempfile.SpooledTemporaryFile(max_size=32 * 1024 * 1024)
+            count: int = 0
+            with zipfile.ZipFile(spool, "w", compression=zipfile.ZIP_STORED) as archive:
+                for number, photo in enumerate(event.get("photos", []), start=1):
+                    photo_id: str = str(photo.get("id", ""))
+                    data: bytes | None = self._event_store.read_image(event_id, photo_id)
+                    mime: str | None = EventStore.detect_image_type(data) if data else None
+                    if data is None or mime is None:
+                        continue
+                    when: datetime | None = EventStore.parse_time(str(photo.get("uploaded_at", "")))
+                    info = zipfile.ZipInfo(self._photo_download_name(photo, number, mime))
+                    if when is not None:
+                        info.date_time = when.astimezone().timetuple()[:6]
+                    archive.writestr(info, data)
+                    count += 1
+            if count == 0:
+                spool.close()
+                return jsonify({"error": "This event has no photos to download."}), 404
+            spool.seek(0)
+            event_part: str = self._filename_part(event.get("name", ""), "event")
+            response: Response = send_file(spool, mimetype="application/zip", as_attachment=True, download_name=f"{event_part}-photos.zip")
+            response.headers["Cache-Control"] = "no-store"
             return response
 
         @self._app.route("/events/<event_id>/image/<name>")

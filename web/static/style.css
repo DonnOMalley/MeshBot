@@ -4398,6 +4398,24 @@ body.tih-page main {
   gap: 10px;
 }
 
+.ev-photos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ev-photos-zip {
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.ev-photos-zip[hidden],
+#ev-photo-download[hidden] {
+  display: none !important;
+}
+
 .ev-photos h3 {
   font-size: 13px;
   text-transform: uppercase;

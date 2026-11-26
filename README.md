@@ -369,6 +369,14 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 
 ## Release Notes
 
+### v0.10.2 — 2026-11-26
+
+**Event photo downloads (organizers only)**
+
+- Signed-in organizers get a **⬇ Download all (.zip)** button in an event's Photos section. It downloads every participant photo at full size in one ZIP (`<Event-Name>-photos.zip`), numbered in upload order and named for the uploader (`001-Sam-Smith-<photo id>.jpg`). The event's own picture isn't included.
+- The photo viewer has a **⬇ Download** link beside **Full size ↗** that saves the photo being viewed as `<Event-Name>-001-Sam-Smith-<photo id>.jpg`.
+- Both are hidden unless you're signed in with the organizer passcode, and appear or disappear straight away when you sign in or out. The server refuses `/events/<event id>/photos.zip` and `/events/<event id>/photos/<photo id>/download` with a 403 unless the session is signed in. Viewing photos is unchanged for everyone.
+
 ### v0.10.1 — 2026-11-26
 
 - The **About** page is split into three tabs: **General** (about the bot and the release notes), **Interaction** (command reference, web dashboard guide and usage notes) and **Configuration** (configuration reference). The tab is kept in the address (`/about#interaction`), so links and reloads open the same tab; arrow keys move between tabs.

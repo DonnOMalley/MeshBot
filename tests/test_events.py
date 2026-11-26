@@ -484,6 +484,62 @@ class EventsApiTests(_EventsServerCase):
             self.assertNotIn("Secret Picnic", f.read())
 
 
+class PhotoDownloadTests(_EventsServerCase):
+    """Downloading one photo, or every photo of an event as a ZIP. Organizers only."""
+
+    def _event_with_photos(self) -> tuple[dict, list[dict]]:
+        ev: dict = self._post("/api/events", _fields(name="Mesh Meetup!", start=_iso(-1), end=_iso(1)), {"image": PNG}).get_json()
+        first = self._post(f"/api/events/{ev['id']}/photos", {"uploader": "Sam Smith"}, {"photo": [JPEG], "thumb": [JPEG]}).get_json()["added"]
+        second = self._post(f"/api/events/{ev['id']}/photos", {}, {"photo": [PNG], "thumb": [PNG]}).get_json()["added"]
+        return ev, first + second
+
+    def test_single_photo_download(self) -> None:
+        ev, photos = self._event_with_photos()
+        res = self.client.get(f"/events/{ev['id']}/photos/{photos[0]['id']}/download")
+        self.assertEqual((res.status_code, res.mimetype, res.data), (200, "image/jpeg", JPEG))
+        self.assertEqual(res.headers["Content-Disposition"], f'attachment; filename="Mesh-Meetup-001-Sam-Smith-{photos[0]["id"]}.jpg"')
+        res = self.client.get(f"/events/{ev['id']}/photos/{photos[1]['id']}/download")
+        self.assertIn(f'-002-Anonymous-{photos[1]["id"]}.png"', res.headers["Content-Disposition"])
+        # The cover is not a participant photo; unknown and malformed IDs are 404.
+        self.assertEqual(self.client.get(f"/events/{ev['id']}/photos/cover/download").status_code, 404)
+        self.assertEqual(self.client.get(f"/events/{ev['id']}/photos/{'0' * 16}/download").status_code, 404)
+
+    def test_zip_download(self) -> None:
+        import zipfile
+
+        ev, photos = self._event_with_photos()
+        res = self.client.get(f"/events/{ev['id']}/photos.zip")
+        self.assertEqual((res.status_code, res.mimetype), (200, "application/zip"))
+        self.assertIn('filename=Mesh-Meetup-photos.zip', res.headers["Content-Disposition"])
+        with zipfile.ZipFile(io.BytesIO(res.data)) as archive:
+            names: list[str] = archive.namelist()
+            self.assertEqual(names, [f"001-Sam-Smith-{photos[0]['id']}.jpg", f"002-Anonymous-{photos[1]['id']}.png"])
+            self.assertEqual(archive.read(names[0]), JPEG)
+            self.assertEqual(archive.read(names[1]), PNG)
+        res.close()
+
+    def test_zip_with_no_photos(self) -> None:
+        ev: dict = self._post("/api/events", _fields()).get_json()
+        self.assertEqual(self.client.get(f"/events/{ev['id']}/photos.zip").status_code, 404)
+
+    def test_visitors_cannot_download(self) -> None:
+        ev, photos = self._event_with_photos()
+        visitor = self._visitor()
+        for url in (f"/events/{ev['id']}/photos/{photos[0]['id']}/download", f"/events/{ev['id']}/photos.zip"):
+            res = visitor.get(url)
+            self.assertEqual(res.status_code, 403, url)
+            self.assertTrue(res.get_json()["auth_required"])
+        # Viewing still works for everyone.
+        self.assertEqual(visitor.get(f"/events/{ev['id']}/image/{photos[0]['id']}").status_code, 200)
+        # Signing out takes the download away again.
+        self.client.delete("/api/events/auth")
+        self.assertEqual(self.client.get(f"/events/{ev['id']}/photos.zip").status_code, 403)
+
+    def test_download_buttons_are_organizer_only(self) -> None:
+        html: str = self.client.get("/events").get_data(as_text=True)
+        self.assertRegex(html, r'id="ev-photo-download"[^>]*data-organizer-only[^>]*hidden')
+
+
 class EventsAuthTests(_EventsServerCase):
     """Organizer passcode protection. Inherits the API tests' setup (signed in)."""
 
