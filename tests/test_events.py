@@ -861,6 +861,14 @@ class JoyPageTests(_EventsServerCase):
         self.assertNotIn("leaflet.js", html)
         self.assertIn('id="dash-history"', html)
 
+    def test_dashboard_two_by_two_layout_with_now_banner(self) -> None:
+        html: str = self.client.get("/").get_data(as_text=True)
+        self.assertIn('id="dash-now-banner" aria-label="Happening now" hidden', html, "banner starts hidden")
+        order: list[int] = [html.index(f'id="{i}"') for i in ("dash-now-banner", "dash-joy", "dash-events", "dash-chat", "dash-history")]
+        self.assertEqual(order, sorted(order), "banner, then Joy | Events, then Chat | History")
+        self.assertNotIn("dash-left", html)
+        self.assertNotIn("dash-right", html)
+
     def test_dashboard_joy_title_links_to_page(self) -> None:
         self.assertIn('<a href="/joy" class="panel-header-text panel-title-link"', self.client.get("/").get_data(as_text=True))
 

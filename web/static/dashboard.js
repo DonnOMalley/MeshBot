@@ -1,4 +1,4 @@
-// dashboard.js — Joy panel + upcoming Events + Today in History
+// dashboard.js — Happening-now banner + Joy panel + upcoming Events + Today in History
 
 "use strict";
 
@@ -17,7 +17,9 @@ async function _fetchUpcomingEvents() {
     const res = await fetch(`/api/events/upcoming?days=${_DASH_EVENTS_DAYS}&limit=8`, { cache: "no-store" });
     if (!res.ok) throw new Error("load failed");
     const data = await res.json();
-    _renderUpcomingEvents(data.events || []);
+    const items = data.events || [];
+    _renderNowBanner(items.filter((o) => o.status === "active"));
+    _renderUpcomingEvents(items);
   } catch (_) {
     if (!body.querySelector(".dash-ev-group")) body.innerHTML = '<p class="dash-events-empty">Couldn’t load events.</p>';
   }
@@ -60,6 +62,47 @@ function _dashWhen(o) {
   return o.status === "active" ? `Until ${endText}` : `${_dashTime(s)} – ${endText}`;
 }
 
+function _dashEventHref(o) {
+  return `/events?id=${encodeURIComponent(o.id)}`;
+}
+
+function _dashThumbSrc(o) {
+  return `/events/${encodeURIComponent(o.id)}/image/cover_thumb?v=${encodeURIComponent(o.updated_at || "")}`;
+}
+
+function _dashWhere(o) {
+  const loc = o.location || {};
+  return loc.type === "online" ? "Online" : loc.address || "";
+}
+
+// Full-width banner above Joy + Events: one clickable card per event that is
+// on right now (thumbnail when it has a picture). Hidden when nothing is on.
+function _renderNowBanner(active) {
+  const banner = document.getElementById("dash-now-banner");
+  if (!banner) return;
+  if (!active.length) {
+    banner.hidden = true;
+    banner.innerHTML = "";
+    return;
+  }
+  banner.innerHTML = active
+    .map((o) => {
+      const thumb = o.has_image ? `<img class="dash-now-thumb" src="${_dashThumbSrc(o)}" alt="" />` : "";
+      const meta = [_dashWhen(o), _dashWhere(o)].filter(Boolean).join(" · ");
+      return `<a class="dash-now-item" href="${_dashEventHref(o)}" title="Open ${_escapeHtml(o.name)}">
+        ${thumb}
+        <span class="dash-now-text">
+          <span class="dash-now-label">&#127881; Happening now</span>
+          <span class="dash-now-name">${_escapeHtml(o.name)}</span>
+          <span class="dash-now-meta">${_escapeHtml(meta)}</span>
+        </span>
+        <span class="dash-now-open" aria-hidden="true">Open &rarr;</span>
+      </a>`;
+    })
+    .join("");
+  banner.hidden = false;
+}
+
 function _renderUpcomingEvents(items) {
   const body = document.getElementById("dash-events-body");
   if (!items.length) {
@@ -80,13 +123,11 @@ function _renderUpcomingEvents(items) {
         <div class="dash-ev-day">${g.now ? "&#127881; " : ""}${_escapeHtml(g.label)}</div>
         <ul class="dash-ev-list">${g.rows
           .map((o) => {
-            const loc = o.location || {};
-            const where = loc.type === "online" ? "Online" : loc.address || "";
-            const meta = [_dashWhen(o), where].filter(Boolean).join(" · ") + (o.recurrence ? " · ↻" : "");
-            const href = `/events?id=${encodeURIComponent(o.id)}`;
+            const meta = [_dashWhen(o), _dashWhere(o)].filter(Boolean).join(" · ") + (o.recurrence ? " · ↻" : "");
+            const href = _dashEventHref(o);
             // Small thumbnail (half the Events page's) when the event has a picture.
             const thumb = o.has_image
-              ? `<a class="dash-ev-thumb" href="${href}" tabindex="-1" aria-hidden="true"><img src="/events/${encodeURIComponent(o.id)}/image/cover_thumb?v=${encodeURIComponent(o.updated_at || "")}" alt="" loading="lazy" /></a>`
+              ? `<a class="dash-ev-thumb" href="${href}" tabindex="-1" aria-hidden="true"><img src="${_dashThumbSrc(o)}" alt="" loading="lazy" /></a>`
               : "";
             return `<li>${thumb}<div class="dash-ev-text"><a class="dash-ev-link" href="${href}">${_escapeHtml(o.name)}</a><span class="dash-ev-meta">${_escapeHtml(meta)}</span></div></li>`;
           })
