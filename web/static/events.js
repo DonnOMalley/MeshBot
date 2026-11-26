@@ -958,7 +958,12 @@ async function _evUploadPhotos(eventId, files, uploader, status) {
 
 let _evCamStream = null;
 let _evCamOnPhoto = null;
-let _evCamFacing = "user";
+// Bumped on every start/stop; a camera request that finishes under an older
+// session is stale and its stream is stopped instead of shown.
+let _evCamSession = 0;
+// Cameras found on this computer, and the one in use ("" = browser default).
+let _evCamDeviceIds = [];
+let _evCamDeviceId = "";
 
 // getUserMedia needs a secure page (HTTPS or localhost). Touch devices keep
 // <input capture>, which opens the phone's own camera app.
@@ -971,6 +976,7 @@ function _evCanUseLiveCamera() {
 }
 
 function _evStopCamera() {
+  _evCamSession++;
   if (_evCamStream) _evCamStream.getTracks().forEach((t) => t.stop());
   _evCamStream = null;
   const video = document.getElementById("ev-camera-video");
@@ -982,25 +988,46 @@ async function _evStartCamera() {
   const snap = document.getElementById("ev-camera-snap");
   const error = document.getElementById("ev-camera-error");
   _evStopCamera();
+  const session = _evCamSession;
   snap.disabled = true;
   error.hidden = true;
+  // Desktop webcams often all face the user (or report no facing), so pick
+  // a specific camera by device ID once we know them.
+  const size = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+  const constraints = _evCamDeviceId ? { deviceId: { exact: _evCamDeviceId }, ...size } : { facingMode: "user", ...size };
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: _evCamFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false,
-    });
-    // The dialog may have been closed while the browser was asking permission.
-    if (!document.getElementById("ev-camera-dialog").open) {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false });
+    // Stale: the dialog closed or another start began while we waited.
+    if (session !== _evCamSession || !document.getElementById("ev-camera-dialog").open) {
       stream.getTracks().forEach((t) => t.stop());
       return;
     }
     _evCamStream = stream;
     video.srcObject = stream;
     snap.disabled = false;
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    document.getElementById("ev-camera-switch").hidden = devices.filter((d) => d.kind === "videoinput").length < 2;
+    const track = stream.getVideoTracks()[0];
+    const inUse = track && track.getSettings ? track.getSettings().deviceId : "";
+    if (inUse) _evCamDeviceId = inUse;
+    // Listing cameras only drives Switch camera. If it fails, keep the
+    // working stream and hide the button rather than restarting the camera.
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      if (session !== _evCamSession) return;
+      _evCamDeviceIds = devices.filter((d) => d.kind === "videoinput" && d.deviceId).map((d) => d.deviceId);
+    } catch (_) {
+      if (session !== _evCamSession) return;
+      _evCamDeviceIds = [];
+    }
+    document.getElementById("ev-camera-switch").hidden = _evCamDeviceIds.length < 2;
   } catch (err) {
+    // Only a failed getUserMedia() reaches here.
+    if (session !== _evCamSession) return;
     const denied = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
+    // The remembered camera may have been unplugged; fall back to the default once.
+    if (_evCamDeviceId && !denied) {
+      _evCamDeviceId = "";
+      return _evStartCamera();
+    }
     error.textContent = denied
       ? "Camera access was blocked. Allow the camera for this site in your browser, or use “Upload photos”."
       : "No camera is available" + (err && err.message ? ` (${err.message})` : "") + ". You can use “Upload photos” instead.";
@@ -1023,7 +1050,9 @@ function _evInitCamera() {
     _evCamOnPhoto = null;
   });
   document.getElementById("ev-camera-switch").addEventListener("click", () => {
-    _evCamFacing = _evCamFacing === "user" ? "environment" : "user";
+    if (_evCamDeviceIds.length < 2) return;
+    const next = (_evCamDeviceIds.indexOf(_evCamDeviceId) + 1) % _evCamDeviceIds.length;
+    _evCamDeviceId = _evCamDeviceIds[next];
     _evStartCamera();
   });
   document.getElementById("ev-camera-snap").addEventListener("click", () => {

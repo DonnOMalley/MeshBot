@@ -209,10 +209,10 @@
     </dialog>
 
     <!-- Live camera (desktops/laptops, where <input capture> opens a file picker) -->
-    <dialog id="ev-camera-dialog" class="ev-dialog ev-camera-dialog">
+    <dialog id="ev-camera-dialog" class="ev-dialog ev-camera-dialog" aria-labelledby="ev-camera-title">
       <div class="ev-dialog-inner">
         <button type="button" class="ev-dialog-close" data-close aria-label="Close">&times;</button>
-        <h2 class="ev-form-title">&#128247; Take a photo</h2>
+        <h2 id="ev-camera-title" class="ev-form-title">&#128247; Take a photo</h2>
         <video id="ev-camera-video" class="ev-camera-video" autoplay playsinline muted></video>
         <p id="ev-camera-error" class="ev-form-error" hidden></p>
         <div class="ev-form-actions">
