@@ -52,6 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
     _evAfterSignIn = null;
   });
 
+  _evInitCamera();
   document.querySelectorAll("dialog [data-close]").forEach((btn) => btn.addEventListener("click", () => btn.closest("dialog").close()));
   document.querySelectorAll("dialog.ev-dialog").forEach((dlg) => {
     // Click on the backdrop closes the dialog.
@@ -887,11 +888,29 @@ function _evUploadBox(ev) {
   };
   camera.addEventListener("change", onPick(camera));
   files.addEventListener("change", onPick(files));
+  // Phones open their camera from <input capture>; desktop browsers ignore
+  // capture and show a file picker, so there we open the camera ourselves.
+  let takePhoto;
+  if (_evCanUseLiveCamera()) {
+    takePhoto = _el("button", { type: "button", class: "ev-primary-btn" }, "📷 Take a photo");
+    takePhoto.addEventListener("click", () =>
+      _evOpenCamera(async (file) => {
+        try {
+          localStorage.setItem(_EV_UPLOADER_KEY, nameInput.value.trim());
+        } catch (_) {
+          /* storage unavailable */
+        }
+        await _evUploadPhotos(ev.id, [file], nameInput.value.trim(), status);
+      })
+    );
+  } else {
+    takePhoto = _el("label", { class: "ev-primary-btn" }, ["📷 Take a photo", camera]);
+  }
   return _el("div", { class: "ev-upload" }, [
     _el("p", { class: "ev-upload-intro" }, "📸 This event is happening now — share your photos!"),
     nameInput,
     _el("div", { class: "ev-upload-buttons" }, [
-      _el("label", { class: "ev-primary-btn" }, ["📷 Take a photo", camera]),
+      takePhoto,
       _el("label", { class: "ev-secondary-btn" }, ["🖼 Upload photos", files]),
     ]),
     status,
@@ -933,6 +952,97 @@ async function _evUploadPhotos(eventId, files, uploader, status) {
       fresh.classList.toggle("ev-error-text", isError);
     }
   }
+}
+
+// ── Live camera (desktops/laptops) ──────────────────────────────────────────
+
+let _evCamStream = null;
+let _evCamOnPhoto = null;
+let _evCamFacing = "user";
+
+// getUserMedia needs a secure page (HTTPS or localhost). Touch devices keep
+// <input capture>, which opens the phone's own camera app.
+function _evCanUseLiveCamera() {
+  return (
+    window.isSecureContext &&
+    !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
+    !window.matchMedia("(pointer: coarse)").matches
+  );
+}
+
+function _evStopCamera() {
+  if (_evCamStream) _evCamStream.getTracks().forEach((t) => t.stop());
+  _evCamStream = null;
+  const video = document.getElementById("ev-camera-video");
+  if (video) video.srcObject = null;
+}
+
+async function _evStartCamera() {
+  const video = document.getElementById("ev-camera-video");
+  const snap = document.getElementById("ev-camera-snap");
+  const error = document.getElementById("ev-camera-error");
+  _evStopCamera();
+  snap.disabled = true;
+  error.hidden = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: _evCamFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+    // The dialog may have been closed while the browser was asking permission.
+    if (!document.getElementById("ev-camera-dialog").open) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    _evCamStream = stream;
+    video.srcObject = stream;
+    snap.disabled = false;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    document.getElementById("ev-camera-switch").hidden = devices.filter((d) => d.kind === "videoinput").length < 2;
+  } catch (err) {
+    const denied = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
+    error.textContent = denied
+      ? "Camera access was blocked. Allow the camera for this site in your browser, or use “Upload photos”."
+      : "No camera is available" + (err && err.message ? ` (${err.message})` : "") + ". You can use “Upload photos” instead.";
+    error.hidden = false;
+  }
+}
+
+function _evOpenCamera(onPhoto) {
+  _evCamOnPhoto = onPhoto;
+  const dlg = document.getElementById("ev-camera-dialog");
+  if (!dlg.open) dlg.showModal();
+  _evStartCamera();
+}
+
+function _evInitCamera() {
+  const dlg = document.getElementById("ev-camera-dialog");
+  if (!dlg) return;
+  dlg.addEventListener("close", () => {
+    _evStopCamera();
+    _evCamOnPhoto = null;
+  });
+  document.getElementById("ev-camera-switch").addEventListener("click", () => {
+    _evCamFacing = _evCamFacing === "user" ? "environment" : "user";
+    _evStartCamera();
+  });
+  document.getElementById("ev-camera-snap").addEventListener("click", () => {
+    const video = document.getElementById("ev-camera-video");
+    if (!_evCamStream || !video.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const onPhoto = _evCamOnPhoto;
+    canvas.toBlob(
+      (blob) => {
+        dlg.close();
+        if (blob && onPhoto) onPhoto(new File([blob], "photo.jpg", { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      0.92
+    );
+  });
 }
 
 // ── Image preparation (resize in the browser; also strips GPS/EXIF data) ────
