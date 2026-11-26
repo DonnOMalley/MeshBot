@@ -2,25 +2,24 @@
 
 "use strict";
 
-const _JOY_QUOTES = 10;
-const _JOY_JOKES = 5;
 const _JOY_THUMBS = 6; // photo thumbnails shown per past event
 const _JOY_EVENTS_REFRESH_MS = 60_000;
 
 document.addEventListener("DOMContentLoaded", () => {
   const label = document.getElementById("refresh-label");
   if (label) label.textContent = "";
-  document.getElementById("joy-quotes-refresh").addEventListener("click", (e) => _joySpin(e.currentTarget, () => _joyLoadLists("quotes")));
-  document.getElementById("joy-jokes-refresh").addEventListener("click", (e) => _joySpin(e.currentTarget, () => _joyLoadLists("jokes")));
-  _joyLoadLists("all");
+  ["affirmation", "quote", "joke"].forEach((kind) => {
+    document.getElementById(_JOY_PANELS[kind].button).addEventListener("click", (e) => _joySpin(e.currentTarget, () => _joyLoadRandom(kind)));
+  });
+  _joyLoadRandom("all");
   _joyLoadPastEvents();
   // Keep the "happening now" banner (and past list) current.
   setInterval(_joyLoadPastEvents, _JOY_EVENTS_REFRESH_MS);
 });
 
-// Header "Refresh" button: new quotes and jokes, and reload past events.
+// Header "Refresh" button: a new random affirmation, quote and joke, and reload past events.
 function refreshAll() {
-  _joyLoadLists("all");
+  _joyLoadRandom("all");
   _joyLoadPastEvents();
 }
 
@@ -39,24 +38,64 @@ async function _joySpin(btn, load) {
 
 // ── Affirmations, quotes, jokes ─────────────────────────────────────────────
 
-// which: "all", "quotes" or "jokes" (only that panel is redrawn).
-async function _joyLoadLists(which) {
+// Each panel shows one random item; its 🎲 button swaps in another.
+const _JOY_PANELS = {
+  affirmation: {
+    list: "joy-affirmations-list",
+    button: "joy-affirmations-random",
+    pick: (data) => data.affirmation,
+    key: (a) => a,
+    render: (a) => [_joyEl("p", "joy-line", a)],
+    empty: "No affirmations yet.",
+  },
+  quote: {
+    list: "joy-quotes-list",
+    button: "joy-quotes-random",
+    pick: (data) => data.zen_quote,
+    key: (q) => q.quote,
+    render: (q) => [_joyEl("p", "joy-line joy-quote", `“${q.quote}”`), q.author ? _joyEl("p", "joy-author", `— ${q.author}`) : null],
+    empty: "No quotes yet.",
+  },
+  joke: {
+    list: "joy-jokes-list",
+    button: "joy-jokes-random",
+    pick: (data) => data.joke,
+    key: (j) => j,
+    render: (j) => [_joyEl("p", "joy-line joy-joke", j)],
+    empty: "No jokes yet.",
+  },
+};
+const _JOY_SHOWN = {}; // kind -> key of the item currently on screen
+const _JOY_RETRIES = 3; // re-rolls to avoid showing the same item twice in a row
+
+async function _joyFetchRandom() {
+  const res = await fetch("/api/joy", { cache: "no-store" });
+  if (!res.ok) throw new Error("load failed");
+  return res.json();
+}
+
+// kind: "all", "affirmation", "quote" or "joke" (only that panel is redrawn).
+async function _joyLoadRandom(kind) {
+  const kinds = kind === "all" ? Object.keys(_JOY_PANELS) : [kind];
   try {
-    const res = await fetch(`/api/joy/lists?quotes=${_JOY_QUOTES}&jokes=${_JOY_JOKES}`, { cache: "no-store" });
-    if (!res.ok) throw new Error("load failed");
-    const data = await res.json();
-    if (which === "all") _joyFill("joy-affirmations-list", data.affirmations || [], (a) => [_joyEl("p", "joy-line", a)], "No affirmations yet.");
-    if (which === "all" || which === "quotes")
-      _joyFill(
-        "joy-quotes-list",
-        data.quotes || [],
-        (q) => [_joyEl("p", "joy-line joy-quote", `“${q.quote}”`), q.author ? _joyEl("p", "joy-author", `— ${q.author}`) : null],
-        "No quotes yet."
-      );
-    if (which === "all" || which === "jokes") _joyFill("joy-jokes-list", data.jokes || [], (j) => [_joyEl("p", "joy-line joy-joke", j)], "No jokes yet.");
+    let data = await _joyFetchRandom();
+    if (kind !== "all") {
+      const panel = _JOY_PANELS[kind];
+      for (let i = 0; i < _JOY_RETRIES; i++) {
+        const item = panel.pick(data);
+        if (!item || panel.key(item) !== _JOY_SHOWN[kind]) break;
+        data = await _joyFetchRandom();
+      }
+    }
+    kinds.forEach((k) => {
+      const panel = _JOY_PANELS[k];
+      const item = panel.pick(data);
+      _JOY_SHOWN[k] = item ? panel.key(item) : undefined;
+      _joyFill(panel.list, item ? [item] : [], panel.render, panel.empty);
+    });
   } catch (_) {
-    ["joy-affirmations-list", "joy-quotes-list", "joy-jokes-list"].forEach((id) => {
-      const list = document.getElementById(id);
+    kinds.forEach((k) => {
+      const list = document.getElementById(_JOY_PANELS[k].list);
       if (!list.querySelector(".joy-line")) list.innerHTML = '<li class="joy-empty">Couldn’t load.</li>';
     });
   }
