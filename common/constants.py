@@ -564,8 +564,6 @@ _EVENTS_IMAGE_EXTENSIONS: dict[str, str] = {
 }
 # Added after the image extension when the file is encrypted (cover.jpg.enc).
 _EVENTS_ENCRYPTED_EXT: str = ".enc"
-# Older versions saved every image as <name>.img; these are renamed on startup.
-_EVENTS_LEGACY_IMAGE_EXT: str = ".img"
 # EXIF read from the original photo in the browser, stored beside the photo as
 # <photo id>_exif.json (+ .enc). GPS tags are never stored.
 _EVENTS_EXIF_SUFFIX: str = "_exif.json"

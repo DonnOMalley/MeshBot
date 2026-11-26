@@ -1138,7 +1138,8 @@ function _evFmtBytes(n) {
 // ── Photo viewer (large photo, carousel strip, EXIF details) ────────────────
 
 let _evViewer = null; // { ev, photos, index }
-const _evExifCache = new Map();
+const _evExifCache = new Map(); // successful lookups only, so failures are retried
+let _evMetaRender = 0; // bumped on every _evShowPhoto so late replies from older renders are ignored
 // Facts about the original file (see _evOriginalMetadata), listed before the EXIF tags.
 const _EV_FILE_FACTS = ["File name", "File type", "File size", "Original dimensions", "File modified"];
 
@@ -1250,9 +1251,20 @@ function _evShowPhoto(index) {
   meta.after(loading);
 
   const key = `${ev.id}/${p.id}`;
+  const render = ++_evMetaRender;
+  const current = () => render === _evMetaRender && _evViewer && _evViewer.photos[_evViewer.index] === p;
+  const failed = () => {
+    loading.remove();
+    if (!current()) return; // moved on meanwhile
+    const retry = _el("button", { type: "button", class: "ev-photo-meta-retry" }, "Try again");
+    retry.addEventListener("click", () => current() && _evShowPhoto(index));
+    const note = _el("p", { class: "ev-muted ev-photo-meta-note" }, "Couldn't load the camera details. ");
+    note.appendChild(retry);
+    meta.after(note);
+  };
   const done = (exif) => {
     loading.remove();
-    if (!_evViewer || _evViewer.photos[_evViewer.index] !== p) return; // moved on meanwhile
+    if (!current()) return; // moved on meanwhile
     const entries = Object.entries(exif || {});
     if (!entries.length) {
       meta.after(_el("p", { class: "ev-muted ev-photo-meta-note" }, "No details were saved from the original file. Photos uploaded before v0.10.0 don't have any."));
@@ -1277,12 +1289,16 @@ function _evShowPhoto(index) {
     return;
   }
   fetch(`/api/events/${ev.id}/photos/${p.id}/exif`)
-    .then((res) => (res.ok ? res.json() : { exif: {} }))
-    .then((data) => {
-      _evExifCache.set(key, data.exif || {});
-      done(data.exif);
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
     })
-    .catch(() => done({}));
+    .then((data) => {
+      const exif = (data && data.exif) || {};
+      _evExifCache.set(key, exif);
+      done(exif);
+    })
+    .catch(failed);
 }
 
 // ── Create / edit form ──────────────────────────────────────────────────────

@@ -182,7 +182,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                                                               |
 | Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window.                                    |
 | Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                                                   |
-| About     | `/about`    | Bot information: name, description, version, and links.                                                                                    |
+| About     | `/about`    | General (bot info, release notes), Interaction (commands, dashboard guide, usage notes) and Configuration tabs.                            |
 
 ### Node table
 
@@ -368,6 +368,17 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 ---
 
 ## Release Notes
+
+### v0.10.1 — 2026-11-26
+
+- The **About** page is split into three tabs: **General** (about the bot and the release notes), **Interaction** (command reference, web dashboard guide and usage notes) and **Configuration** (configuration reference). The tab is kept in the address (`/about#interaction`), so links and reloads open the same tab; arrow keys move between tabs.
+- Removed the one-time `.img` image rename from v0.9.1 now that all images use their real file type. Startup no longer scans the event image folders, and `.img` files are no longer read.
+- Photo viewer fixes:
+  - Large EXIF sets that were accepted on upload no longer vanish when read back. EXIF is stored as compact JSON and the size limit is applied to that stored form.
+  - Flipping quickly between photos (A → B → A) no longer shows the details twice.
+  - A failed details request (a brief server error, say) shows **Try again** instead of "No details were saved", and it isn't remembered for the rest of the visit.
+  - EXIF is now read from PNGs that keep it after the image data, and Unicode UserComments from big-endian (Motorola) files decode correctly.
+  - The keyboard focus ring now shows on the selected thumbnail in the photo strip.
 
 ### v0.10.0 — 2026-11-26
 

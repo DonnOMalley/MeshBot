@@ -41,7 +41,7 @@ vm.runInContext(fs.readFileSync(process.argv[2], "utf8") + "\\nthis.exifRead = e
 """
 
 
-def _tiff(little: bool) -> bytes:
+def _tiff(little: bool, user_comment: bytes = b"ASCII\0\0\0Hello mesh") -> bytes:
     """A TIFF/EXIF block: IFD0 → Exif IFD and GPS IFD."""
     e: str = "<" if little else ">"
     # (tag, type, count, raw value bytes)
@@ -80,7 +80,7 @@ def _tiff(little: bool) -> bytes:
         (0xA405, 3, short(75)),
         (0xA432, 5, rational((24, 1), (70, 1), (28, 10), (4, 1))),
         (0xA434, 2, ascii_("RF24-70mm F2.8 L IS USM")),
-        (0x9286, 7, b"ASCII\0\0\0Hello mesh"),
+        (0x9286, 7, user_comment),
     ]
     gps = [
         (0x0001, 2, ascii_("N")),
@@ -123,12 +123,15 @@ def _jpeg(tiff: bytes) -> bytes:
     return b"\xff\xd8" + b"\xff\xe1" + struct.pack(">H", len(app1) + 2) + app1 + b"\xff\xda\x00\x02" + b"\x00" * 8 + b"\xff\xd9"
 
 
-def _png(tiff: bytes) -> bytes:
+def _png(tiff: bytes, after_idat: bool = False) -> bytes:
     def chunk(kind: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
 
     ihdr: bytes = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"eXIf", tiff) + chunk(b"IEND", b"")
+    idat: bytes = chunk(b"IDAT", zlib.compress(b"\0\0\0\0"))
+    exif: bytes = chunk(b"eXIf", tiff)
+    middle: bytes = idat + exif if after_idat else exif + idat
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + middle + chunk(b"IEND", b"")
 
 
 def _webp(tiff: bytes) -> bytes:
@@ -194,6 +197,21 @@ class ExifJsTests(unittest.TestCase):
             self.assertEqual(result[name], expected, name)
             self.assertFalse(any(k.lower().startswith("gps") or "0x000" in k for k in result[name]), name)
         self.assertEqual(result["labels"], ["Focal length in 35mm film", "Date time original", "ISO", "X resolution", "File name"])
+
+    def test_png_exif_after_image_data(self) -> None:
+        result: dict = self._run({"late.png": _png(_tiff(True), after_idat=True)})
+        self.assertEqual(result["late.png"]["Model"], "EOS R6")
+
+    def test_unicode_user_comment_byte_order(self) -> None:
+        text: str = "Héllo mesh"
+        result: dict = self._run({
+            "le.jpg": _jpeg(_tiff(True, b"UNICODE\0" + text.encode("utf-16-le"))),
+            "be.jpg": _jpeg(_tiff(False, b"UNICODE\0" + text.encode("utf-16-be"))),
+            "bom_be_in_le.jpg": _jpeg(_tiff(True, b"UNICODE\0" + b"\xfe\xff" + text.encode("utf-16-be"))),
+            "bom_le_in_be.jpg": _jpeg(_tiff(False, b"UNICODE\0" + b"\xff\xfe" + text.encode("utf-16-le"))),
+        })
+        for name in ("le.jpg", "be.jpg", "bom_be_in_le.jpg", "bom_le_in_be.jpg"):
+            self.assertEqual(result[name]["UserComment"], text, name)
 
     def test_files_without_exif_or_garbage(self) -> None:
         truncated: bytes = _jpeg(_tiff(True))[:60]

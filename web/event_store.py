@@ -24,7 +24,6 @@ from common.constants import (
     _EVENTS_EXIF_VALUE_MAX_LEN,
     _EVENTS_IMAGE_EXTENSIONS,
     _EVENTS_IMAGES_SUBDIR,
-    _EVENTS_LEGACY_IMAGE_EXT,
     _EVENTS_LOCATION_ONLINE,
     _EVENTS_LOCATION_PHYSICAL,
     _EVENTS_NAME_MAX_LEN,
@@ -349,8 +348,7 @@ class EventStore:
     per image under ``images/<event_id>/``, encrypted with the same key. Each
     image has a small ``_thumb`` companion produced by the browser. The file
     extension comes from the image's own bytes (``cover.jpg``, ``<id>_thumb.webp``);
-    encrypted files get ``.enc`` on the end (``cover.jpg.enc``). Files saved by
-    older versions as ``<name>.img`` are renamed when the store is created.
+    encrypted files get ``.enc`` on the end (``cover.jpg.enc``).
 
     Thread-safe: every public method holds a single lock.
     """
@@ -377,7 +375,6 @@ class EventStore:
         self._fernet = Fernet(key) if key else None
         self._lock = threading.RLock()
         os.makedirs(self._images_dir, exist_ok=True)
-        self._migrate_legacy_images()
     # endregion Constructor
 
     # region Public Functions
@@ -404,20 +401,30 @@ class EventStore:
         return result
 
     @staticmethod
-    def clean_exif(raw: str | None) -> dict[str, str]:
+    def clean_exif(raw: str | None, limit_input: bool = True) -> dict[str, str]:
         """Validates EXIF sent by the browser as a JSON object of tag name → text.
 
         Keeps at most a bounded number of short string/number values, and drops
         every GPS tag even if a client sends one. Anything malformed → ``{}``.
+        Tags are kept in order until the stored form (see :meth:`serialize_exif`)
+        would grow past the size limit in UTF-8 bytes, so whatever is accepted on upload is
+        read back unchanged.
+
+        Args:
+            raw: JSON text from the browser or from disk.
+            limit_input: Reject *raw* outright when it is longer than the size
+                limit. Pass False for files already on disk, which may have been
+                written in a roomier format by an older version.
         """
         result: dict[str, str] = {}
         parsed: object = None
-        if raw and len(raw) <= _EVENTS_EXIF_MAX_BYTES:
+        if raw and (not limit_input or len(raw.encode("utf-8")) <= _EVENTS_EXIF_MAX_BYTES):
             try:
                 parsed = json.loads(raw)
             except ValueError:
                 parsed = None
         if isinstance(parsed, dict):
+            size: int = 2  # the enclosing {}, counted in UTF-8 bytes like everything else
             for key, value in parsed.items():
                 if len(result) >= _EVENTS_EXIF_MAX_TAGS:
                     break
@@ -425,9 +432,19 @@ class EventStore:
                     continue
                 name: str = key.strip()[:_EVENTS_EXIF_KEY_MAX_LEN]
                 text: str = str(value).strip()[:_EVENTS_EXIF_VALUE_MAX_LEN]
-                if name and text and not name.lower().startswith("gps"):
-                    result[name] = text
+                if not name or not text or name.lower().startswith("gps"):
+                    continue
+                entry: int = len(EventStore.serialize_exif({name: text}).encode("utf-8")) - 2 + (1 if result else 0)
+                if name in result or size + entry > _EVENTS_EXIF_MAX_BYTES:
+                    continue
+                result[name] = text
+                size += entry
         return result
+
+    @staticmethod
+    def serialize_exif(exif: dict[str, str]) -> str:
+        """The compact JSON form EXIF is stored in; never longer than clean_exif allows."""
+        return json.dumps(exif, ensure_ascii=False, separators=(",", ":"))
 
     @staticmethod
     def parse_time(value: str) -> datetime | None:
@@ -771,7 +788,7 @@ class EventStore:
                     self.save_image(event_id, photo_id, full)
                     self.save_image(event_id, photo_id + _EVENTS_THUMB_SUFFIX, thumb)
                     if exif:
-                        self._write_atomic(self._exif_path(event_id, photo_id), self._encode(json.dumps(exif, ensure_ascii=False)))
+                        self._write_atomic(self._exif_path(event_id, photo_id), self._encode(EventStore.serialize_exif(exif)))
                     result = {
                         "id": photo_id,
                         "uploader": uploader.strip()[:_EVENTS_UPLOADER_MAX_LEN],
@@ -850,7 +867,7 @@ class EventStore:
                             raw = self._fernet.decrypt(raw)
                         except InvalidToken:
                             continue
-                    result = EventStore.clean_exif(raw.decode("utf-8", errors="replace"))
+                    result = EventStore.clean_exif(raw.decode("utf-8", errors="replace"), limit_input=False)
                     break
         return result
     # endregion Public Functions
@@ -879,25 +896,24 @@ class EventStore:
         return self._fernet.encrypt(data) if self._fernet is not None else data
 
     def _existing_image_paths(self, event_id: str, name: str) -> list[str]:
-        """Every file on disk holding image *name*: any type, encrypted or not, or legacy ``.img``."""
+        """Every file on disk holding image *name*: any type, encrypted or not."""
         folder: str = self._event_image_dir(event_id)
         candidates: list[str] = []
         for ext in _EVENTS_IMAGE_EXTENSIONS.values():
             candidates.append(os.path.join(folder, name + ext + _EVENTS_ENCRYPTED_EXT))
             candidates.append(os.path.join(folder, name + ext))
-        candidates.append(os.path.join(folder, name + _EVENTS_LEGACY_IMAGE_EXT))
         return [p for p in candidates if os.path.isfile(p)]
 
     def _read_image_file(self, path: str) -> bytes | None:
         """Reads one image file, decrypting it when it is encrypted.
 
-        Plain files (and legacy ``.img`` files written before a key was set)
-        are returned as-is if they hold a recognisable image.
+        Plain files (written before a key was set) are returned as-is if they
+        hold a recognisable image.
         """
         with open(path, "rb") as f:
             raw: bytes = f.read()
         result: bytes | None = None
-        if self._fernet is not None and not path.endswith(tuple(_EVENTS_IMAGE_EXTENSIONS.values())):
+        if self._fernet is not None and path.endswith(_EVENTS_ENCRYPTED_EXT):
             try:
                 result = self._fernet.decrypt(raw)
             except InvalidToken:
@@ -905,46 +921,6 @@ class EventStore:
         if result is None and EventStore.detect_image_type(raw) is not None:
             result = raw
         return result
-
-    def _migrate_legacy_images(self) -> None:
-        """Renames ``<name>.img`` files from older versions to their real type.
-
-        Encrypted files are renamed without re-encrypting. A file whose type
-        cannot be worked out (e.g. it was encrypted with a different key) is
-        left as ``.img`` and still served if it becomes readable later.
-        """
-        with self._lock:
-            for event_id in os.listdir(self._images_dir):
-                folder: str = self._event_image_dir(event_id)
-                if not (EventStore.is_valid_id(event_id) and os.path.isdir(folder)):
-                    continue
-                for filename in os.listdir(folder):
-                    name, ext = os.path.splitext(filename)
-                    if ext != _EVENTS_LEGACY_IMAGE_EXT or not EventStore.is_valid_image_name(name):
-                        continue
-                    old_path: str = os.path.join(folder, filename)
-                    try:
-                        with open(old_path, "rb") as f:
-                            raw: bytes = f.read()
-                        data: bytes | None = None
-                        encrypted: bool = False
-                        if self._fernet is not None:
-                            try:
-                                data = self._fernet.decrypt(raw)
-                                encrypted = True
-                            except InvalidToken:
-                                pass
-                        if data is None:
-                            data = raw
-                        mime: str | None = EventStore.detect_image_type(data)
-                        if mime is None:
-                            continue
-                        if encrypted:
-                            os.replace(old_path, self._image_path(event_id, name, mime))
-                        else:
-                            self.save_image(event_id, name, data)
-                    except OSError:
-                        continue
 
     @staticmethod
     def _write_atomic(path: str, payload: bytes) -> None:

@@ -215,28 +215,6 @@ class EventStoreTests(unittest.TestCase):
         # Turning encryption on later still reads the plain files.
         self.assertEqual(self.store.read_image(ev["id"], "cover"), PNG)
 
-    def test_legacy_img_files_renamed(self) -> None:
-        ev: dict = self._create()
-        folder: str = os.path.join(self.dir, "images", ev["id"])
-        os.makedirs(folder, exist_ok=True)
-        encrypted: bytes = Fernet(self.key).encrypt(PNG)
-        with open(os.path.join(folder, "cover.img"), "wb") as f:
-            f.write(encrypted)
-        with open(os.path.join(folder, "cover_thumb.img"), "wb") as f:
-            f.write(JPEG)  # written before a key was configured
-        with open(os.path.join(folder, "abcdef0123456789.img"), "wb") as f:
-            f.write(Fernet(Fernet.generate_key()).encrypt(JPEG))  # unreadable: left alone
-        store: EventStore = EventStore(self.dir, self.key)
-        self.assertEqual(
-            sorted(os.listdir(folder)),
-            ["abcdef0123456789.img", "cover.png.enc", "cover_thumb.jpg.enc"],
-        )
-        with open(os.path.join(folder, "cover.png.enc"), "rb") as f:
-            self.assertEqual(f.read(), encrypted, "renamed, not re-encrypted")
-        self.assertEqual(store.read_image(ev["id"], "cover"), PNG)
-        self.assertEqual(store.read_image(ev["id"], "cover_thumb"), JPEG)
-        self.assertIsNone(store.read_image(ev["id"], "abcdef0123456789"))
-
     def test_add_photo(self) -> None:
         ev: dict = self._create(start=_iso(-1), end=_iso(1))
         photo: dict = self.store.add_photo(ev["id"], "  Sam  ", JPEG, JPEG)
@@ -262,6 +240,31 @@ class EventStoreTests(unittest.TestCase):
             self.assertNotIn(dropped, cleaned)
         many: dict = EventStore.clean_exif(json.dumps({f"T{i}": "v" for i in range(400)}))
         self.assertEqual(len(many), 250)
+
+    def test_large_exif_survives_round_trip(self) -> None:
+        # Fits the upload limit as compact JSON; must not be lost on readback.
+        big: dict = {f"T{i}": "v" * 493 for i in range(130)}
+        raw: str = json.dumps(big, separators=(",", ":"))
+        self.assertLessEqual(len(raw), 64 * 1024)
+        cleaned: dict = EventStore.clean_exif(raw)
+        self.assertEqual(cleaned, big)
+        ev: dict = self._create(start=_iso(-1), end=_iso(1))
+        photo: dict = self.store.add_photo(ev["id"], "Sam", JPEG, JPEG, cleaned)
+        self.assertEqual(self.store.read_photo_exif(ev["id"], photo["id"]), big)
+        # Too much to store: tags are kept until the stored form hits the limit.
+        huge: dict = EventStore.clean_exif(json.dumps({f"T{i}": "v" * 499 for i in range(140)}, separators=(",", ":")), limit_input=False)
+        self.assertLess(len(huge), 140)
+        self.assertLessEqual(len(EventStore.serialize_exif(huge)), 64 * 1024)
+        self.assertEqual(EventStore.clean_exif(EventStore.serialize_exif(huge)), huge)
+        # The limit is in UTF-8 bytes, so multi-byte text can't blow past it.
+        emoji: dict = EventStore.clean_exif(json.dumps({f"T{i}": "\U0001F600" * 493 for i in range(130)}, ensure_ascii=False, separators=(",", ":")), limit_input=False)
+        self.assertGreater(len(emoji), 0)
+        self.assertLessEqual(len(EventStore.serialize_exif(emoji).encode("utf-8")), 64 * 1024)
+        self.assertEqual(EventStore.clean_exif(EventStore.serialize_exif(emoji)), emoji)
+        over: str = json.dumps({f"T{i}": "\u00e9" * 400 for i in range(100)}, ensure_ascii=False)
+        self.assertLess(len(over), 64 * 1024)
+        self.assertGreater(len(over.encode("utf-8")), 64 * 1024)
+        self.assertEqual(EventStore.clean_exif(over), {}, "upload limit is in bytes too")
 
     def test_photo_exif_round_trip(self) -> None:
         ev: dict = self._create(start=_iso(-1), end=_iso(1))
