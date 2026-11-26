@@ -359,13 +359,95 @@ web/
 
 Node records are stored in `data/nodes.json`. Chat history is stored per-channel as `data/<channel_name>.txt`. Favourites are stored in `data/favorites.json`.
 
-Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`.
+Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`, named for their real type (`cover.jpg`, `<photo id>_thumb.png`, ...). With an `EncryptionKey` the files are encrypted and end in `.enc` (`cover.jpg.enc`); without one they open directly in any image viewer.
 
 When an `EncryptionKey` is provided, all of these files (including event pictures and photos) are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.
 
 ---
 
 ## Release Notes
+
+### v0.9.1 — 2026-11-26
+
+- Event pictures and participant photos are saved with their real file type, worked out from the image itself: `cover.jpg`, `<photo id>_thumb.png`, and so on, instead of `.img` for everything. Encrypted images end in `.enc` (`cover.jpg.enc`), so you can tell what each file is; without an `EncryptionKey` they open directly from disk.
+- Images saved by older versions as `.img` are renamed automatically when the bot (or web reload) starts. Encrypted files are renamed, not re-encrypted. A file that can't be read with the current key keeps its `.img` name.
+- Replacing a picture with one of a different type (JPEG to PNG, say) removes the old file.
+
+### v0.9.0 — 2026-11-26
+
+**Events, grown up**
+
+- **Repeating events**: weekly, every other week, monthly or yearly, with an optional "Until" date. Repeats keep their local time across daylight saving; monthly on the 31st skips shorter months and Feb 29 only falls in leap years. Every date shows on the calendar, agenda, dashboard and Joy page, and a series moves to history only after its last date.
+- **Delete a single date** of a repeating event ("Delete this date only"). Skipped dates disappear everywhere, including the `.ics` file, and can be restored from the event's details.
+- **All-day events**: an "All-day event" checkbox switches to date-only inputs. All-day events show on the same dates in every time zone and export as true all-day entries.
+- **Add to calendar** on event details: Google Calendar, Outlook.com and Outlook (work or school) open pre-filled; Apple Calendar and other apps download a standard `.ics` file from `/events/<id>/calendar.ics`. Repeating events export the full series to Google and `.ics`.
+- **Live camera capture on desktop**: "Take a photo" opens a camera dialog with live preview, capture and camera switching on laptops and tablets. Phones and plain-HTTP pages keep the native camera button.
+- Show/hide eye button on the organizer passcode box.
+- History and Events pages open on today's date (a shared `/events?id=` link still opens that event).
+
+**Joy page** (`/joy`)
+
+- New page with an affirmation, a quote and a joke, each with its own 🎲 button for another one.
+- **Past Events & Photos**: finished events (and repeating ones that have photos), newest first, with a thumbnail strip and photo count linking to the album.
+- A **Happening now** banner leads the page while an event is on, with "Share photos" and "Details" buttons.
+
+**Dashboard redesign**
+
+- Joy is the headline: the affirmation in large serif type, then the quote and the joke.
+- A **Coming up** rail beside Joy shows a picture card for each upcoming event date in the next 30 days (up to 8, repeats expanded).
+- A full-width **Happening now** banner appears above everything while an event is on; events in progress show only there.
+- Chat history and Today in History sit below as quieter reading panels; Today in History is now a year/event timeline.
+- Panel titles link to their full pages; the Events panel gets a ↻ refresh button.
+- Short laptop screens scroll instead of clipping; narrow screens stack.
+
+**Mesh menu and `/mesh` dashboard**
+
+- Nodes, Map and Chat are grouped under a new **Mesh** dropdown.
+- New `/mesh` page with node counts, the bot's own node and the mini-map (moved off the main dashboard).
+
+**Fixes**
+
+- Events API returns every happening-now date and applies `limit` only to upcoming ones, so live events can't crowd out the dashboard rail.
+- Recurrence labels come from one place on the server (`recurrence_label`).
+- Mesh page Refresh re-fetches the bot's node info, so it recovers from an initial `/api/settings` failure.
+- Camera dialog no longer leaks streams, cycles through real device IDs, has an accessible name, and doesn't restart in a loop when device listing fails.
+- Fixed a `map.js` refresh recursion.
+
+### v0.8.0 — 2026-11-24
+
+**Events page** (`/events`)
+
+- Month calendar or agenda view (your choice is remembered). Click a day to list its events, or an event to see its details: map links for addresses, meeting links, website, and organizer call/text/Signal links.
+- Create, edit and delete events with a name, description, times, in-person address or online link, website, picture and organizer contact details. Events without a picture use a default image.
+- While an event is happening, participants can take or upload photos. Images are resized in the browser, which also strips EXIF location data.
+- Events and images are stored in `data/Events/` and encrypted with the same `EncryptionKey` as the chat logs. Events move to the history file once they end.
+- **Organizer passcode** (`EventsPasscode` in `meshbot.config`, applied without a restart) protects adding, editing and deleting. Wrong guesses are rate-limited, and changing the passcode signs everyone out.
+- **Visitor submissions**: anyone can submit an upcoming event for review (5 per hour per address). Organizers see a review bar to approve or reject submissions. Unapproved submissions are deleted when they end.
+
+**Dashboard and web UI**
+
+- **Hot reload**: HTML/JS/CSS edits show up on a browser refresh. `reload_web.sh` (SIGUSR1) swaps in new web server code without restarting the radio or monitors; if the new code fails, the previous dashboard keeps serving.
+- On phones the menu moves behind a ☰ hamburger button, with Administration pages under their own heading.
+- The dashboard Joy panel gets a ↻ refresh button and lists events that are happening now.
+- An Events panel sits beside Joy on the dashboard, backed by a new `/api/events/upcoming` endpoint.
+- Today in History lists events newest year first.
+- The History page panel stays full width on days with no events.
+
+**Bot and nodes**
+
+- The node list stays current from all mesh traffic, not just NodeInfo packets: any packet updates last-seen, position packets update location, and hop counts come from the packet.
+- Restarts no longer stamp every remembered node as "seen now"; the radio's own last-heard time is used instead.
+- Stale nodes are pruned hourly while running, not just at launch. The node file is saved at most once a minute (atomically) and flushed on shutdown.
+- CLI flags accept lowercase (`--channel` as well as `--Channel`), and `meshbot.config` keys are case-insensitive with tolerant true/false parsing.
+- The startup message names the joined channel. The check-in interval is now 7 days instead of 6 hours.
+- The bot writes `data/meshbot.pid` so `reload_web.sh` only signals a bot that supports hot reload.
+- Runtime logs, local config backups (`*.bak-*`) and editor swap files are kept out of git.
+
+### v0.7.2 — 2026-03-30
+
+- The hop limit applied to the node on startup is raised from 5 to 7.
+- `!trace` catches traceroute send errors and logs them instead of crashing the command handler.
+- Channel lookup falls back to the primary channel when no channel name is given.
 
 ### v0.7.1 — 2026-03-20
 
