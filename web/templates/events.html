@@ -225,6 +225,30 @@
     </dialog>
 
     <!-- Organizer sign-in -->
+    <!-- Photo viewer: opens on top of the event details -->
+    <dialog id="ev-photo-dialog" class="ev-dialog ev-photo-dialog" aria-labelledby="ev-photo-title">
+      <div class="ev-dialog-inner ev-photo-inner">
+        <button type="button" class="ev-dialog-close" data-close aria-label="Close">&times;</button>
+        <h2 id="ev-photo-title" class="ev-form-title ev-photo-title">Photos</h2>
+        <div class="ev-photo-stage" id="ev-photo-stage">
+          <button type="button" class="ev-photo-nav ev-photo-prev" id="ev-photo-prev" aria-label="Previous photo">&#8249;</button>
+          <img id="ev-photo-main" alt="" />
+          <button type="button" class="ev-photo-nav ev-photo-next" id="ev-photo-next" aria-label="Next photo">&#8250;</button>
+        </div>
+        <div class="ev-photo-caption">
+          <span id="ev-photo-caption"></span>
+          <span class="ev-spacer"></span>
+          <span id="ev-photo-counter" class="ev-muted"></span>
+          <a id="ev-photo-open" class="ev-link" target="_blank" rel="noopener">Full size &#8599;</a>
+        </div>
+        <div class="ev-photo-strip" id="ev-photo-strip" aria-label="All photos"></div>
+        <aside class="ev-photo-meta" aria-label="Photo details">
+          <h3>Photo details</h3>
+          <dl id="ev-photo-meta"></dl>
+        </aside>
+      </div>
+    </dialog>
+
     <dialog id="ev-auth-dialog" class="ev-dialog ev-auth-dialog">
       <form id="ev-auth-form" class="ev-dialog-inner" novalidate>
         <button type="button" class="ev-dialog-close" data-close aria-label="Close">&times;</button>
@@ -246,6 +270,7 @@
       </form>
     </dialog>
 
+    <script src="/static/exif.js"></script>
     <script src="/static/events.js"></script>
   </body>
 </html>

@@ -566,6 +566,13 @@ _EVENTS_IMAGE_EXTENSIONS: dict[str, str] = {
 _EVENTS_ENCRYPTED_EXT: str = ".enc"
 # Older versions saved every image as <name>.img; these are renamed on startup.
 _EVENTS_LEGACY_IMAGE_EXT: str = ".img"
+# EXIF read from the original photo in the browser, stored beside the photo as
+# <photo id>_exif.json (+ .enc). GPS tags are never stored.
+_EVENTS_EXIF_SUFFIX: str = "_exif.json"
+_EVENTS_EXIF_MAX_BYTES: int = 64 * 1024
+_EVENTS_EXIF_MAX_TAGS: int = 250
+_EVENTS_EXIF_KEY_MAX_LEN: int = 64
+_EVENTS_EXIF_VALUE_MAX_LEN: int = 500
 _EVENTS_MAX_UPLOAD_BYTES: int = 40 * 1024 * 1024
 _EVENTS_MAX_IMAGE_BYTES: int = 15 * 1024 * 1024
 _EVENTS_MAX_PHOTOS_PER_UPLOAD: int = 20

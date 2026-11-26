@@ -245,6 +245,41 @@ class EventStoreTests(unittest.TestCase):
         self.assertEqual(self.store.read_image(ev["id"], photo["id"] + "_thumb"), JPEG)
         self.assertIsNone(self.store.add_photo("0" * 16, "x", JPEG, JPEG))
 
+    def test_clean_exif(self) -> None:
+        self.assertEqual(EventStore.clean_exif(None), {})
+        self.assertEqual(EventStore.clean_exif("not json"), {})
+        self.assertEqual(EventStore.clean_exif("[1, 2]"), {})
+        self.assertEqual(EventStore.clean_exif("x" * (64 * 1024 + 1)), {})
+        cleaned: dict = EventStore.clean_exif(json.dumps({
+            "Make": " Canon ", "ISO": 400, "Exposure": 0.5, "Flag": True, "Nested": {"a": 1},
+            "": "blank", "Empty": "  ", "GPSLongitude": "-84.1", "Long": "v" * 600, "K" * 80: "x",
+        }))
+        self.assertEqual(cleaned["Make"], "Canon")
+        self.assertEqual((cleaned["ISO"], cleaned["Exposure"]), ("400", "0.5"))
+        self.assertEqual(len(cleaned["Long"]), 500)
+        self.assertIn("K" * 64, cleaned)
+        for dropped in ("Flag", "Nested", "", "Empty", "GPSLongitude"):
+            self.assertNotIn(dropped, cleaned)
+        many: dict = EventStore.clean_exif(json.dumps({f"T{i}": "v" for i in range(400)}))
+        self.assertEqual(len(many), 250)
+
+    def test_photo_exif_round_trip(self) -> None:
+        ev: dict = self._create(start=_iso(-1), end=_iso(1))
+        photo: dict = self.store.add_photo(ev["id"], "Sam", JPEG, JPEG, {"Model": "Pixel 9"})
+        self.assertEqual(self.store.read_photo_exif(ev["id"], photo["id"]), {"Model": "Pixel 9"})
+        self.assertNotIn("exif", self.store.get(ev["id"])["photos"][0])
+        self.assertEqual(EventStore(self.dir, None).read_photo_exif(ev["id"], photo["id"]), {}, "no key: encrypted EXIF unreadable")
+        self.assertEqual(self.store.read_photo_exif(ev["id"], "../x"), {})
+        plain_dir: str = os.path.join(self.dir, "plain")
+        plain_store: EventStore = EventStore(plain_dir, None)
+        clean, _ = EventStore.validate(_fields(start=_iso(-1), end=_iso(1)))
+        plain_ev: dict = plain_store.create(clean)
+        plain: dict = plain_store.add_photo(plain_ev["id"], "Pat", JPEG, JPEG, {"Make": "Nikon"})
+        with open(os.path.join(plain_dir, "images", plain_ev["id"], plain["id"] + "_exif.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"Make": "Nikon"})
+        # Turning encryption on later still reads the plain file.
+        self.assertEqual(EventStore(plain_dir, self.key).read_photo_exif(plain_ev["id"], plain["id"]), {"Make": "Nikon"})
+
     def test_detect_image_type(self) -> None:
         self.assertEqual(EventStore.detect_image_type(PNG), "image/png")
         self.assertEqual(EventStore.detect_image_type(JPEG), "image/jpeg")
@@ -343,6 +378,38 @@ class EventsApiTests(_EventsServerCase):
         self.assertEqual(res.status_code, 400)
         self.assertEqual(set(res.get_json()["fields"]), {"name", "website"})
         self.assertEqual(self.client.get("/api/events").get_json()["events"], [])
+
+    def test_photo_exif_stored_encrypted_and_served(self) -> None:
+        ev: dict = self._post("/api/events", _fields(start=_iso(-1), end=_iso(1))).get_json()
+        exif: str = json.dumps({"File name": "IMG_1.jpg", "Make": "Canon", "FNumber": "f/2.8", "GPSLatitude": "39.7", "gpsaltitude": "200"})
+        res = self._post(f"/api/events/{ev['id']}/photos", {"uploader": "Sam", "exif": exif}, {"photo": [JPEG], "thumb": [JPEG]})
+        self.assertEqual(res.status_code, 201)
+        photo_id: str = res.get_json()["added"][0]["id"]
+        self.assertNotIn("exif", res.get_json()["added"][0], "EXIF is not part of the event payload")
+
+        folder: str = os.path.join(self.dir, _EVENTS_SUBDIR, "images", ev["id"])
+        with open(os.path.join(folder, photo_id + "_exif.json.enc"), "rb") as f:
+            self.assertNotIn(b"Canon", f.read())
+
+        served = self._visitor().get(f"/api/events/{ev['id']}/photos/{photo_id}/exif")
+        self.assertEqual(served.status_code, 200)
+        self.assertEqual(served.get_json()["exif"], {"File name": "IMG_1.jpg", "Make": "Canon", "FNumber": "f/2.8"})
+
+        # A photo without EXIF, an unknown photo and a bad ID.
+        bare = self._post(f"/api/events/{ev['id']}/photos", {"uploader": "Pat"}, {"photo": [JPEG], "thumb": [JPEG]}).get_json()["added"][0]
+        self.assertEqual(self.client.get(f"/api/events/{ev['id']}/photos/{bare['id']}/exif").get_json(), {"exif": {}})
+        self.assertEqual(self.client.get(f"/api/events/{ev['id']}/photos/{'0' * 16}/exif").status_code, 404)
+        self.assertEqual(self.client.get(f"/api/events/{ev['id']}/photos/..%2Fx/exif").status_code, 404)
+
+        # Deleting the event removes the EXIF with the images.
+        self.assertEqual(self.client.delete(f"/api/events/{ev['id']}").status_code, 200)
+        self.assertFalse(os.path.exists(folder))
+
+    def test_photo_viewer_markup(self) -> None:
+        html: str = self.client.get("/events").get_data(as_text=True)
+        for needle in ('id="ev-photo-dialog"', 'id="ev-photo-strip"', 'id="ev-photo-meta"', 'src="/static/exif.js"'):
+            self.assertIn(needle, html)
+        self.assertLess(html.index('src="/static/exif.js"'), html.index('src="/static/events.js"'))
 
     def test_non_image_upload_rejected(self) -> None:
         res = self._post("/api/events", _fields(), {"image": b"<svg onload=alert(1)></svg>"})

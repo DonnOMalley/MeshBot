@@ -234,7 +234,8 @@ Outgoing messages are prefixed with `[SHORT]` on the mesh (e.g. `[WUSR] Hello me
 The **Events** page (`/events`, next to History in the menu) lists community events on a month calendar or as an agenda; the chosen view is remembered per browser. Click a day to see its events and an event to see its details. Addresses open in maps, and websites, meeting links and links in the description are clickable; a phone number gets a call link and, if it accepts texts, a text link.
 
 - The event form has: name, description, start and end (tick **All-day event** to pick dates only; the event then runs from midnight at the start of the first day to midnight after the last day, shows as "All day", lands on the same dates in every time zone, and is exported to calendars as an all-day entry), in-person address or online link, website, a picture, and organizer contact (name, Signal handle, phone, and whether the phone accepts texts). Events without a picture use a default image.
-- While an event is happening (between its start and end), its details show **Take a photo** (opens the device camera) and **Upload photos** (pick files). Photos are resized in the browser to 1600 px with a 400 px thumbnail; this also strips location (EXIF) data.
+- While an event is happening (between its start and end), its details show **Take a photo** (opens the device camera) and **Upload photos** (pick files). Photos are resized in the browser to 1600 px with a 400 px thumbnail. Before resizing, the browser reads the original file's details (name, type, size, dimensions, modified time) and its EXIF tags (camera, lens, exposure, ISO, dates and so on) and saves them with the photo. **GPS location is never read or sent**, and the server drops any GPS tag it receives anyway.
+- **Photo viewer:** clicking a photo in an event's details opens it large in a pop-up on top of the event, with a strip of all the event's photos underneath. Use the ‹ › buttons, the arrow keys, a swipe, or click any thumbnail in the strip to switch photos. **Full size ↗** opens the photo in its own tab. A **Photo details** panel shows who uploaded it and when, the stored copy's size, the original file's details, and every EXIF tag saved with it. Photos uploaded before v0.10.0 have no saved details.
 - **Repeats:** an event can repeat **Weekly**, **Every other week**, **Monthly** (same day of the month; the 31st skips shorter months) or **Yearly** (Feb 29 only in leap years), with an optional **Until** date. Each date appears on the calendar and agenda, keeps its local time across daylight saving (the event's time zone is stored), and counts as "Happening now" for photo uploads and the dashboard. Editing changes the whole series; to drop one date (say a holiday week), an organizer opens that date and uses **Delete this date only** — it disappears everywhere (calendar, dashboard, Joy page, photo uploads, `.ics` file) and can be brought back with **Restore** in the event's details. (Google's add-to-calendar link can't carry skipped dates; the `.ics` file does.) A repeating event moves to the history file only after its last date. Google Calendar and the `.ics` file get the full series; the Outlook links add the next date only.
 - Share a single event with `/events?id=<event id>` (the **Copy link** button).
 - **Add to calendar** (on published events that haven't ended) offers Google Calendar, Outlook.com and Outlook for work or school (each opens that calendar's new-event page already filled in), plus an `.ics` file for Apple Calendar / iPhone and any other calendar app (`/events/<event id>/calendar.ics`). The calendar entry includes the description, meeting link or address, website and a link back to the event page.
@@ -314,7 +315,8 @@ data/
         events.json             Events that have not ended yet
         events_history.json     Events that have ended (moved here automatically;
                                 unapproved submissions are deleted instead)
-        images/<event id>/      Event picture and participant photos (+ thumbnails)
+        images/<event id>/      Event picture and participant photos (+ thumbnails,
+                                and <photo id>_exif.json with each photo's details)
 messaging/
     bot_commands.py             Built-in command definitions
     bot_lifecycle_messenger.py  Welcome/check-in/signoff messages
@@ -359,13 +361,22 @@ web/
 
 Node records are stored in `data/nodes.json`. Chat history is stored per-channel as `data/<channel_name>.txt`. Favourites are stored in `data/favorites.json`.
 
-Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`, named for their real type (`cover.jpg`, `<photo id>_thumb.png`, ...). With an `EncryptionKey` the files are encrypted and end in `.enc` (`cover.jpg.enc`); without one they open directly in any image viewer.
+Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`, named for their real type (`cover.jpg`, `<photo id>_thumb.png`, ...). With an `EncryptionKey` the files are encrypted and end in `.enc` (`cover.jpg.enc`); without one they open directly in any image viewer. Each participant photo's details (EXIF, never GPS) sit beside it in `<photo id>_exif.json`, encrypted the same way (`.json.enc`).
 
 When an `EncryptionKey` is provided, all of these files (including event pictures and photos) are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.
 
 ---
 
 ## Release Notes
+
+### v0.10.0 — 2026-11-26
+
+**Event photo viewer**
+
+- Clicking a participant photo opens it large in a pop-up on top of the event details (no more new browser tab), with a carousel strip of all the event's photos underneath. Switch photos with the ‹ › buttons, the arrow keys, a swipe on phones, or by clicking any thumbnail. The strip keeps the current photo highlighted and in view. **Full size ↗** still opens the photo in its own tab. Escape or a click outside closes the viewer and leaves the event open.
+- A **Photo details** panel lists the uploader and upload time, the stored copy's size, the original file's name, type, size, dimensions and modified time, and every EXIF tag from the original photo (camera and lens, exposure time, aperture, ISO, focal length, flash, dates and more) in readable form. On phones the panel sits under the photo.
+- EXIF is read in the browser before the photo is resized (resizing removes all metadata) and saved beside the photo as `<photo id>_exif.json`, encrypted when an `EncryptionKey` is set. It loads from `/api/events/<event id>/photos/<photo id>/exif` only when a photo is opened, so event lists don't get heavier. Works for JPEG, PNG and WebP originals.
+- **GPS location is never saved.** The browser never reads the GPS block, and the server drops any GPS tag it receives anyway. Photos uploaded before this version have no saved details.
 
 ### v0.9.1 — 2026-11-26
 
