@@ -23,7 +23,7 @@ async function _fetchUpcomingEvents() {
     _renderNowBanner(items.filter((o) => o.status === "active"));
     _renderUpcomingEvents(items.filter((o) => o.status !== "active").slice(0, _DASH_EVENTS_LIMIT));
   } catch (_) {
-    if (!body.querySelector(".dash-ev-group")) body.innerHTML = '<p class="dash-events-empty">Couldn’t load events.</p>';
+    if (!body.querySelector(".home-ev-list")) body.innerHTML = '<p class="home-empty">Events couldn’t load. They’ll retry in a minute, or use the refresh button.</p>';
   }
 }
 
@@ -77,8 +77,8 @@ function _dashWhere(o) {
   return loc.type === "online" ? "Online" : loc.address || "";
 }
 
-// Full-width banner above Joy + Events: one clickable card per event that is
-// on right now (thumbnail when it has a picture). Hidden when nothing is on.
+// Full-width banner at the top: one clickable card per event that is on
+// right now (with its picture when it has one). Hidden when nothing is on.
 function _renderNowBanner(active) {
   const banner = document.getElementById("dash-now-banner");
   if (!banner) return;
@@ -89,54 +89,51 @@ function _renderNowBanner(active) {
   }
   banner.innerHTML = active
     .map((o) => {
-      const thumb = o.has_image ? `<img class="dash-now-thumb" src="${_dashThumbSrc(o)}" alt="" />` : "";
-      const meta = [_dashWhen(o), _dashWhere(o)].filter(Boolean).join(" · ");
-      return `<a class="dash-now-item" href="${_dashEventHref(o)}" title="Open ${_escapeHtml(o.name)}">
+      const thumb = o.has_image ? `<img class="home-now-thumb" src="${_dashThumbSrc(o)}" alt="" />` : "";
+      const where = _dashWhere(o);
+      return `<a class="home-now-item" href="${_dashEventHref(o)}">
         ${thumb}
-        <span class="dash-now-text">
-          <span class="dash-now-label">&#127881; Happening now</span>
-          <span class="dash-now-name">${_escapeHtml(o.name)}</span>
-          <span class="dash-now-meta">${_escapeHtml(meta)}</span>
+        <span class="home-now-text">
+          <span class="home-now-label">&#127881; Happening now</span>
+          <span class="home-now-name">${_escapeHtml(o.name)}</span>
+          <span class="home-now-meta">${_escapeHtml(_dashWhen(o))}${where ? `<br />${_escapeHtml(where)}` : ""}</span>
         </span>
-        <span class="dash-now-open" aria-hidden="true">Open &rarr;</span>
+        <span class="home-now-open">View event</span>
       </a>`;
     })
     .join("");
   banner.hidden = false;
 }
 
+// Matches the Events page wording (event_store._RECURRENCE_LABELS).
+const _DASH_REPEATS = { weekly: "Weekly", biweekly: "Every other week", monthly: "Monthly", yearly: "Yearly" };
+
+// The rail beside Joy: one picture card per upcoming date, soonest first.
 function _renderUpcomingEvents(items) {
   const body = document.getElementById("dash-events-body");
   if (!items.length) {
-    body.innerHTML = `<p class="dash-events-empty">No events in the next ${_DASH_EVENTS_DAYS} days.<br /><a href="/events">Open the Events page &rarr;</a></p>`;
+    body.innerHTML = `<p class="home-empty">Nothing scheduled in the next ${_DASH_EVENTS_DAYS} days.<br /><a href="/events">Add an event</a></p>`;
     return;
   }
-  // Group by day (happening-now events are shown in the banner instead).
-  const groups = [];
-  items.forEach((o) => {
-    const label = _dashDayLabel(o.all_day ? _dashDay(o.first_day) : new Date(o.start));
-    let group = groups.find((g) => g.label === label);
-    if (!group) groups.push((group = { label, rows: [] }));
-    group.rows.push(o);
-  });
-  body.innerHTML = groups
-    .map(
-      (g) => `<div class="dash-ev-group">
-        <div class="dash-ev-day">${_escapeHtml(g.label)}</div>
-        <ul class="dash-ev-list">${g.rows
-          .map((o) => {
-            const meta = [_dashWhen(o), _dashWhere(o)].filter(Boolean).join(" · ") + (o.recurrence ? " · ↻" : "");
-            const href = _dashEventHref(o);
-            // Small thumbnail (half the Events page's) when the event has a picture.
-            const thumb = o.has_image
-              ? `<a class="dash-ev-thumb" href="${href}" tabindex="-1" aria-hidden="true"><img src="${_dashThumbSrc(o)}" alt="" loading="lazy" /></a>`
-              : "";
-            return `<li>${thumb}<div class="dash-ev-text"><a class="dash-ev-link" href="${href}">${_escapeHtml(o.name)}</a><span class="dash-ev-meta">${_escapeHtml(meta)}</span></div></li>`;
-          })
-          .join("")}</ul>
-      </div>`
-    )
-    .join("");
+  body.innerHTML = `<ul class="home-ev-list">${items
+    .map((o) => {
+      const day = _dashDayLabel(o.all_day ? _dashDay(o.first_day) : new Date(o.start));
+      const where = _dashWhere(o);
+      const repeats = o.recurrence ? _DASH_REPEATS[o.recurrence] || "Repeats" : "";
+      const pic = o.has_image
+        ? `<img class="home-ev-pic" src="${_dashThumbSrc(o)}" alt="" loading="lazy" />`
+        : `<span class="home-ev-pic home-ev-pic-blank" aria-hidden="true">&#127881;</span>`;
+      return `<li><a class="home-ev-card" href="${_dashEventHref(o)}">
+        ${pic}
+        <span class="home-ev-text">
+          <span class="home-ev-when">${_escapeHtml(day)}, ${_escapeHtml(_dashWhen(o))}</span>
+          <span class="home-ev-name">${_escapeHtml(o.name)}</span>
+          ${where ? `<span class="home-ev-where">${_escapeHtml(where)}</span>` : ""}
+          ${repeats ? `<span class="home-ev-where">&#x21bb; ${repeats}</span>` : ""}
+        </span>
+      </a></li>`;
+    })
+    .join("")}</ul>`;
 }
 
 // ── Joy panel ──────────────────────────────────────────────────────────────
@@ -179,33 +176,24 @@ async function _onJoyRefreshClick() {
   }
 }
 
+// Joy reads as the page's headline: the affirmation large, then the quote
+// with its author, then the joke. No labels; the type tells them apart.
 function _renderJoy(data) {
   const body = document.getElementById("dash-joy-body");
   if (!body) return;
 
-  const items = [];
-
+  const parts = [];
   if (data.affirmation) {
-    items.push(_joyItem("Affirmation", data.affirmation));
+    parts.push(`<p class="home-joy-affirmation">${_escapeHtml(data.affirmation)}</p>`);
   }
-
   if (data.zen_quote && data.zen_quote.quote) {
-    const label = data.zen_quote.author ? `"${data.zen_quote.quote}" — ${data.zen_quote.author}` : `"${data.zen_quote.quote}"`;
-    items.push(_joyItem("Quote", label));
+    const author = data.zen_quote.author ? `<figcaption class="home-joy-author">${_escapeHtml(data.zen_quote.author)}</figcaption>` : "";
+    parts.push(`<figure class="home-joy-quote"><blockquote>&ldquo;${_escapeHtml(data.zen_quote.quote)}&rdquo;</blockquote>${author}</figure>`);
   }
-
   if (data.joke) {
-    items.push(_joyItem("Joke", data.joke));
+    parts.push(`<p class="home-joy-joke">${_escapeHtml(data.joke)}</p>`);
   }
-
-  body.innerHTML = items.join("");
-}
-
-function _joyItem(label, text) {
-  return `<div class="joy-item">
-    <span class="joy-label">${label}</span>
-    <span class="joy-text">${_escapeHtml(text)}</span>
-  </div>`;
+  body.innerHTML = parts.length ? parts.join("") : '<p class="home-empty">Joy couldn’t load right now. Try the refresh button.</p>';
 }
 
 function _escapeHtml(str) {
@@ -237,7 +225,7 @@ function _renderTodayInHistory(data) {
 
   if (titleEl && month && day) {
     const monthName = _MONTH_NAMES[month - 1] || "";
-    titleEl.textContent = `\u{1F4C5} Today in History \u2014 ${monthName} ${day}`;
+    titleEl.textContent = `\u{1F4C5} Today in history, ${monthName} ${day}`;
   }
 
   if (!events.length) {
@@ -245,14 +233,13 @@ function _renderTodayInHistory(data) {
     return;
   }
 
-  body.innerHTML = events
+  body.innerHTML = `<ol class="home-tih-list">${events
     .map((e) => {
-      const year = e.year ? `<span class="tih-year">${_escapeHtml(e.year)}</span>` : "";
-      const text = `<span class="tih-text">${_escapeHtml(e.text)}</span>`;
-      const wiki = e.wikipedia ? ` <a class="tih-wiki" href="${_escapeHtml(e.wikipedia)}" target="_blank" rel="noopener">&#128279;</a>` : "";
-      return `<div class="tih-event">${year}${text}${wiki}</div>`;
+      const year = `<span class="home-tih-year">${_escapeHtml(e.year || "")}</span>`;
+      const wiki = e.wikipedia ? ` <a class="home-tih-wiki" href="${_escapeHtml(e.wikipedia)}" target="_blank" rel="noopener" title="Read on Wikipedia">Wikipedia</a>` : "";
+      return `<li>${year}<span class="home-tih-text">${_escapeHtml(e.text)}${wiki}</span></li>`;
     })
-    .join("");
+    .join("")}</ol>`;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
