@@ -17,6 +17,11 @@ from common.constants import (
     _EVENTS_FILE,
     _EVENTS_HISTORY_FILE,
     _EVENTS_ENCRYPTED_EXT,
+    _EVENTS_EXIF_KEY_MAX_LEN,
+    _EVENTS_EXIF_MAX_BYTES,
+    _EVENTS_EXIF_MAX_TAGS,
+    _EVENTS_EXIF_SUFFIX,
+    _EVENTS_EXIF_VALUE_MAX_LEN,
     _EVENTS_IMAGE_EXTENSIONS,
     _EVENTS_IMAGES_SUBDIR,
     _EVENTS_LEGACY_IMAGE_EXT,
@@ -399,6 +404,32 @@ class EventStore:
         return result
 
     @staticmethod
+    def clean_exif(raw: str | None) -> dict[str, str]:
+        """Validates EXIF sent by the browser as a JSON object of tag name → text.
+
+        Keeps at most a bounded number of short string/number values, and drops
+        every GPS tag even if a client sends one. Anything malformed → ``{}``.
+        """
+        result: dict[str, str] = {}
+        parsed: object = None
+        if raw and len(raw) <= _EVENTS_EXIF_MAX_BYTES:
+            try:
+                parsed = json.loads(raw)
+            except ValueError:
+                parsed = None
+        if isinstance(parsed, dict):
+            for key, value in parsed.items():
+                if len(result) >= _EVENTS_EXIF_MAX_TAGS:
+                    break
+                if not isinstance(key, str) or isinstance(value, bool) or not isinstance(value, (str, int, float)):
+                    continue
+                name: str = key.strip()[:_EVENTS_EXIF_KEY_MAX_LEN]
+                text: str = str(value).strip()[:_EVENTS_EXIF_VALUE_MAX_LEN]
+                if name and text and not name.lower().startswith("gps"):
+                    result[name] = text
+        return result
+
+    @staticmethod
     def parse_time(value: str) -> datetime | None:
         """Parses an ISO-8601 timestamp into an aware UTC datetime.
 
@@ -722,8 +753,12 @@ class EventStore:
                 shutil.rmtree(self._event_image_dir(event_id), ignore_errors=True)
         return found
 
-    def add_photo(self, event_id: str, uploader: str, full: bytes, thumb: bytes) -> dict | None:
+    def add_photo(self, event_id: str, uploader: str, full: bytes, thumb: bytes, exif: dict[str, str] | None = None) -> dict | None:
         """Stores a participant photo and records it on the event.
+
+        Args:
+            exif: Already-cleaned EXIF from the original file (see clean_exif),
+                  saved beside the photo when not empty.
 
         Returns the photo record, or None if the event does not exist.
         """
@@ -735,6 +770,8 @@ class EventStore:
                     photo_id: str = secrets.token_hex(8)
                     self.save_image(event_id, photo_id, full)
                     self.save_image(event_id, photo_id + _EVENTS_THUMB_SUFFIX, thumb)
+                    if exif:
+                        self._write_atomic(self._exif_path(event_id, photo_id), self._encode(json.dumps(exif, ensure_ascii=False)))
                     result = {
                         "id": photo_id,
                         "uploader": uploader.strip()[:_EVENTS_UPLOADER_MAX_LEN],
@@ -794,6 +831,28 @@ class EventStore:
                     if result is not None:
                         break
         return result
+
+    def read_photo_exif(self, event_id: str, photo_id: str) -> dict[str, str]:
+        """Returns the stored EXIF of one photo, or ``{}`` if none/unreadable."""
+        result: dict[str, str] = {}
+        if EventStore.is_valid_id(event_id) and EventStore.is_valid_id(photo_id):
+            plain: str = os.path.join(self._event_image_dir(event_id), photo_id + _EVENTS_EXIF_SUFFIX)
+            with self._lock:
+                for path in (plain + _EVENTS_ENCRYPTED_EXT, plain):
+                    if not os.path.isfile(path):
+                        continue
+                    with open(path, "rb") as f:
+                        raw: bytes = f.read()
+                    if path.endswith(_EVENTS_ENCRYPTED_EXT):
+                        if self._fernet is None:
+                            continue
+                        try:
+                            raw = self._fernet.decrypt(raw)
+                        except InvalidToken:
+                            continue
+                    result = EventStore.clean_exif(raw.decode("utf-8", errors="replace"))
+                    break
+        return result
     # endregion Public Functions
 
     # region Protected Functions
@@ -806,6 +865,18 @@ class EventStore:
         if self._fernet is not None:
             filename += _EVENTS_ENCRYPTED_EXT
         return os.path.join(self._event_image_dir(event_id), filename)
+
+    def _exif_path(self, event_id: str, photo_id: str) -> str:
+        """Where a photo's EXIF is stored under the current encryption setting."""
+        filename: str = photo_id + _EVENTS_EXIF_SUFFIX
+        if self._fernet is not None:
+            filename += _EVENTS_ENCRYPTED_EXT
+        return os.path.join(self._event_image_dir(event_id), filename)
+
+    def _encode(self, text: str) -> bytes:
+        """UTF-8 bytes of *text*, encrypted when a key is configured."""
+        data: bytes = text.encode("utf-8")
+        return self._fernet.encrypt(data) if self._fernet is not None else data
 
     def _existing_image_paths(self, event_id: str, name: str) -> list[str]:
         """Every file on disk holding image *name*: any type, encrypted or not, or legacy ``.img``."""

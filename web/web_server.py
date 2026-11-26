@@ -1395,6 +1395,7 @@ class WebServer:
                 return jsonify({"error": "Photos can only be added while the event is happening."}), 409
             photos = request.files.getlist("photo")
             thumbs = request.files.getlist("thumb")
+            exifs: list[str] = request.form.getlist("exif")
             if not photos:
                 return jsonify({"error": "No photos were sent."}), 400
             if len(photos) > _EVENTS_MAX_PHOTOS_PER_UPLOAD:
@@ -1410,7 +1411,8 @@ class WebServer:
                 if len(full) > _EVENTS_MAX_IMAGE_BYTES or EventStore.detect_image_type(full) is None:
                     rejected += 1
                     continue
-                record: dict | None = self._event_store.add_photo(event_id, uploader, full, thumb)
+                exif: dict[str, str] = EventStore.clean_exif(exifs[index] if index < len(exifs) else None)
+                record: dict | None = self._event_store.add_photo(event_id, uploader, full, thumb, exif)
                 if record is not None:
                     added.append(record)
             status_code: int = 201 if added else 400
@@ -1429,6 +1431,20 @@ class WebServer:
             response: Response = Response(build_ics(event, page_url), mimetype="text/calendar")
             response.headers["Content-Disposition"] = f'attachment; filename="{safe_name}.ics"'
             response.headers["Cache-Control"] = "no-store"
+            return response
+
+        @self._app.route("/api/events/<event_id>/photos/<photo_id>/exif")
+        def api_event_photo_exif(event_id: str, photo_id: str):
+            if not (EventStore.is_valid_id(event_id) and EventStore.is_valid_id(photo_id)):
+                abort(404)
+            try:
+                event: dict | None = self._visible_event(event_id)
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc)}), 503
+            if event is None or not any(p.get("id") == photo_id for p in event.get("photos", [])):
+                return jsonify({"error": "Photo not found."}), 404
+            response: Response = jsonify({"exif": self._event_store.read_photo_exif(event_id, photo_id)})
+            response.headers["Cache-Control"] = "private, max-age=300"
             return response
 
         @self._app.route("/events/<event_id>/image/<name>")

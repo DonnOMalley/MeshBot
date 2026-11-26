@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   _evInitCamera();
+  _evInitPhotoViewer();
   document.querySelectorAll("dialog [data-close]").forEach((btn) => btn.addEventListener("click", () => btn.closest("dialog").close()));
   document.querySelectorAll("dialog.ev-dialog").forEach((dlg) => {
     // Click on the backdrop closes the dialog.
@@ -692,14 +693,15 @@ function _evRenderDetail(ev) {
   else if (ev.status === "upcoming") photoSection.appendChild(_el("p", { class: "ev-muted" }, "Participants can add photos here while the event is happening."));
   if (photos.length) {
     const gallery = _el("div", { class: "ev-gallery" });
-    photos
-      .slice()
-      .reverse()
-      .forEach((p) => {
-        const when = new Date(p.uploaded_at);
-        const title = (p.uploader ? p.uploader + " · " : "") + _evFmtDate(when, false) + " " + _evFmtTime(when);
-        gallery.appendChild(_el("a", { href: `/events/${ev.id}/image/${p.id}`, target: "_blank", rel: "noopener", title }, [_el("img", { src: `/events/${ev.id}/image/${p.id}_thumb`, alt: title, loading: "lazy" })]));
-      });
+    const ordered = photos.slice().reverse();
+    ordered.forEach((p, index) => {
+      const title = _evPhotoTitle(p);
+      const item = _el("button", { type: "button", class: "ev-gallery-item", title, "aria-label": `Open photo ${index + 1} of ${ordered.length}: ${title}` }, [
+        _el("img", { src: `/events/${ev.id}/image/${p.id}_thumb`, alt: title, loading: "lazy" }),
+      ]);
+      item.addEventListener("click", () => _evOpenPhotoViewer(ev, ordered, index));
+      gallery.appendChild(item);
+    });
     photoSection.appendChild(gallery);
   } else if (ev.status !== "upcoming") {
     photoSection.appendChild(_el("p", { class: "ev-muted" }, "No photos yet."));
@@ -924,11 +926,13 @@ async function _evUploadPhotos(eventId, files, uploader, status) {
   for (const file of files) {
     status.textContent = `Uploading ${done + failed + 1} of ${files.length}…`;
     try {
-      const { full, thumb } = await _evPrepareImage(file);
+      const { full, thumb, width, height } = await _evPrepareImage(file);
+      const meta = await _evOriginalMetadata(file, width, height);
       const form = new FormData();
       form.append("uploader", uploader);
       form.append("photo", full, "photo.jpg");
       form.append("thumb", thumb, "thumb.jpg");
+      form.append("exif", JSON.stringify(meta));
       const res = await fetch(`/api/events/${eventId}/photos`, { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Upload failed.");
@@ -1110,7 +1114,175 @@ async function _evPrepareImage(file) {
   const img = await _evLoadImage(file);
   const full = await _evScaleToJpeg(img, _EV_FULL_MAX_DIM, 0.85);
   const thumb = await _evScaleToJpeg(img, _EV_THUMB_MAX_DIM, 0.8);
-  return { full, thumb };
+  return { full, thumb, width: img.naturalWidth, height: img.naturalHeight };
+}
+
+// Facts about the original file plus its EXIF (GPS is never read; see exif.js).
+// Resizing drops all metadata from the uploaded copy, so this is sent alongside.
+async function _evOriginalMetadata(file, width, height) {
+  const meta = {};
+  if (file.name) meta["File name"] = file.name;
+  if (file.type) meta["File type"] = file.type;
+  if (file.size) meta["File size"] = _evFmtBytes(file.size);
+  if (width && height) meta["Original dimensions"] = `${width} × ${height} px`;
+  if (file.lastModified) meta["File modified"] = new Date(file.lastModified).toISOString();
+  return Object.assign(meta, typeof exifRead === "function" ? await exifRead(file) : {});
+}
+
+function _evFmtBytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ── Photo viewer (large photo, carousel strip, EXIF details) ────────────────
+
+let _evViewer = null; // { ev, photos, index }
+const _evExifCache = new Map();
+// Facts about the original file (see _evOriginalMetadata), listed before the EXIF tags.
+const _EV_FILE_FACTS = ["File name", "File type", "File size", "Original dimensions", "File modified"];
+
+function _evFmtStamp(iso) {
+  const when = new Date(iso);
+  return isNaN(when) ? iso : _evFmtDate(when, false) + " " + _evFmtTime(when);
+}
+
+function _evPhotoTitle(p) {
+  const when = new Date(p.uploaded_at);
+  return (p.uploader ? p.uploader + " · " : "") + _evFmtDate(when, false) + " " + _evFmtTime(when);
+}
+
+function _evInitPhotoViewer() {
+  const dlg = document.getElementById("ev-photo-dialog");
+  document.getElementById("ev-photo-prev").addEventListener("click", () => _evStepPhoto(-1));
+  document.getElementById("ev-photo-next").addEventListener("click", () => _evStepPhoto(1));
+  dlg.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") _evStepPhoto(-1);
+    else if (e.key === "ArrowRight") _evStepPhoto(1);
+    else return;
+    e.preventDefault();
+  });
+  dlg.addEventListener("close", () => {
+    _evViewer = null;
+    document.getElementById("ev-photo-main").removeAttribute("src");
+  });
+  const main = document.getElementById("ev-photo-main");
+  main.addEventListener("load", () => {
+    const stored = document.getElementById("ev-photo-stored");
+    if (stored) stored.textContent = `${main.naturalWidth} × ${main.naturalHeight} px`;
+  });
+  // Swipe left/right on touch screens.
+  const stage = document.getElementById("ev-photo-stage");
+  let startX = null;
+  stage.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "mouse") startX = e.clientX;
+  });
+  stage.addEventListener("pointerup", (e) => {
+    if (startX === null) return;
+    const dx = e.clientX - startX;
+    startX = null;
+    if (Math.abs(dx) > 40) _evStepPhoto(dx < 0 ? 1 : -1);
+  });
+  stage.addEventListener("pointercancel", () => {
+    startX = null;
+  });
+}
+
+function _evOpenPhotoViewer(ev, photos, index) {
+  _evViewer = { ev, photos, index };
+  document.getElementById("ev-photo-title").textContent = `Photos · ${ev.name}`;
+  const strip = document.getElementById("ev-photo-strip");
+  strip.replaceChildren();
+  photos.forEach((p, i) => {
+    const title = _evPhotoTitle(p);
+    const btn = _el("button", { type: "button", class: "ev-photo-strip-item", title, "aria-label": `Photo ${i + 1}: ${title}` }, [
+      _el("img", { src: `/events/${ev.id}/image/${p.id}_thumb`, alt: "", loading: "lazy" }),
+    ]);
+    btn.addEventListener("click", () => _evShowPhoto(i));
+    strip.appendChild(btn);
+  });
+  const multiple = photos.length > 1;
+  document.getElementById("ev-photo-prev").hidden = !multiple;
+  document.getElementById("ev-photo-next").hidden = !multiple;
+  strip.hidden = !multiple;
+  const dlg = document.getElementById("ev-photo-dialog");
+  if (!dlg.open) dlg.showModal();
+  _evShowPhoto(index);
+}
+
+function _evStepPhoto(delta) {
+  if (!_evViewer || _evViewer.photos.length < 2) return;
+  const n = _evViewer.photos.length;
+  _evShowPhoto((_evViewer.index + delta + n) % n);
+}
+
+function _evShowPhoto(index) {
+  if (!_evViewer) return;
+  _evViewer.index = index;
+  const { ev, photos } = _evViewer;
+  const p = photos[index];
+  const title = _evPhotoTitle(p);
+  const main = document.getElementById("ev-photo-main");
+  main.src = `/events/${ev.id}/image/${p.id}`;
+  main.alt = title;
+  document.getElementById("ev-photo-caption").textContent = p.uploader ? `📷 ${p.uploader}` : "📷 Anonymous";
+  document.getElementById("ev-photo-counter").textContent = photos.length > 1 ? `${index + 1} of ${photos.length}` : "";
+  document.getElementById("ev-photo-open").href = main.src;
+  document.querySelectorAll("#ev-photo-strip .ev-photo-strip-item").forEach((btn, i) => {
+    const active = i === index;
+    btn.classList.toggle("is-active", active);
+    if (active) {
+      btn.setAttribute("aria-current", "true");
+      btn.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    } else btn.removeAttribute("aria-current");
+  });
+
+  const meta = document.getElementById("ev-photo-meta");
+  meta.replaceChildren();
+  const row = (label, value, id) => {
+    meta.appendChild(_el("dt", {}, label));
+    meta.appendChild(_el("dd", id ? { id } : {}, value));
+  };
+  row("Uploaded by", p.uploader || "Anonymous");
+  row("Uploaded", title.replace(/^.* · /, ""));
+  row("Stored copy", "…", "ev-photo-stored");
+  const loading = _el("p", { class: "ev-muted ev-photo-meta-note" }, "Loading camera details…");
+  meta.after(loading);
+
+  const key = `${ev.id}/${p.id}`;
+  const done = (exif) => {
+    loading.remove();
+    if (!_evViewer || _evViewer.photos[_evViewer.index] !== p) return; // moved on meanwhile
+    const entries = Object.entries(exif || {});
+    if (!entries.length) {
+      meta.after(_el("p", { class: "ev-muted ev-photo-meta-note" }, "No details were saved from the original file. Photos uploaded before v0.10.0 don't have any."));
+      return;
+    }
+    const label = (k) => (typeof exifLabel === "function" ? exifLabel(k) : k);
+    const fileFacts = entries.filter(([k]) => _EV_FILE_FACTS.includes(k)).sort((a, b) => _EV_FILE_FACTS.indexOf(a[0]) - _EV_FILE_FACTS.indexOf(b[0]));
+    const camera = entries.filter(([k]) => !_EV_FILE_FACTS.includes(k)).sort((a, b) => label(a[0]).localeCompare(label(b[0])));
+    [
+      ["Original file", fileFacts],
+      ["Camera (EXIF)", camera],
+    ].forEach(([heading, list]) => {
+      if (!list.length) return;
+      meta.appendChild(_el("dt", { class: "ev-photo-meta-heading" }, heading));
+      meta.appendChild(_el("dd", { class: "ev-photo-meta-heading" }, ""));
+      list.forEach(([k, v]) => row(label(k), k === "File modified" ? _evFmtStamp(v) : String(v)));
+    });
+  };
+  document.querySelectorAll(".ev-photo-meta-note").forEach((n) => n !== loading && n.remove());
+  if (_evExifCache.has(key)) {
+    done(_evExifCache.get(key));
+    return;
+  }
+  fetch(`/api/events/${ev.id}/photos/${p.id}/exif`)
+    .then((res) => (res.ok ? res.json() : { exif: {} }))
+    .then((data) => {
+      _evExifCache.set(key, data.exif || {});
+      done(data.exif);
+    })
+    .catch(() => done({}));
 }
 
 // ── Create / edit form ──────────────────────────────────────────────────────
