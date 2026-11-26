@@ -2835,17 +2835,6 @@ body.dashboard-page main {
   margin-bottom: 3px;
 }
 
-.dash-ev-group.is-now {
-  background: var(--accent-dim);
-  border-radius: 4px;
-  padding: 6px 8px;
-  margin: 0 -8px;
-}
-
-.dash-ev-group.is-now .dash-ev-day {
-  color: var(--accent);
-}
-
 .dash-ev-list {
   list-style: none;
   margin: 0;

@@ -5,21 +5,23 @@
 // Month name lookup for the TIH panel header
 const _MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-// ── Events panel: agenda of what's happening now and coming up ─────────────
+// ── Events panel: agenda of what's coming up ───────────────────────────────
 
 const _DASH_EVENTS_REFRESH_MS = 60_000;
 const _DASH_EVENTS_DAYS = 30;
+const _DASH_EVENTS_LIMIT = 8;
 
 async function _fetchUpcomingEvents() {
   const body = document.getElementById("dash-events-body");
   if (!body) return;
   try {
-    const res = await fetch(`/api/events/upcoming?days=${_DASH_EVENTS_DAYS}&limit=8`, { cache: "no-store" });
+    const res = await fetch(`/api/events/upcoming?days=${_DASH_EVENTS_DAYS}&limit=50`, { cache: "no-store" });
     if (!res.ok) throw new Error("load failed");
     const data = await res.json();
     const items = data.events || [];
+    // Happening-now events go in the banner; the panel lists only what's next.
     _renderNowBanner(items.filter((o) => o.status === "active"));
-    _renderUpcomingEvents(items);
+    _renderUpcomingEvents(items.filter((o) => o.status !== "active").slice(0, _DASH_EVENTS_LIMIT));
   } catch (_) {
     if (!body.querySelector(".dash-ev-group")) body.innerHTML = '<p class="dash-events-empty">Couldn’t load events.</p>';
   }
@@ -109,18 +111,18 @@ function _renderUpcomingEvents(items) {
     body.innerHTML = `<p class="dash-events-empty">No events in the next ${_DASH_EVENTS_DAYS} days.<br /><a href="/events">Open the Events page &rarr;</a></p>`;
     return;
   }
-  // Group: happening now first, then by day.
+  // Group by day (happening-now events are shown in the banner instead).
   const groups = [];
   items.forEach((o) => {
-    const label = o.status === "active" ? "Happening now" : _dashDayLabel(o.all_day ? _dashDay(o.first_day) : new Date(o.start));
+    const label = _dashDayLabel(o.all_day ? _dashDay(o.first_day) : new Date(o.start));
     let group = groups.find((g) => g.label === label);
-    if (!group) groups.push((group = { label, now: o.status === "active", rows: [] }));
+    if (!group) groups.push((group = { label, rows: [] }));
     group.rows.push(o);
   });
   body.innerHTML = groups
     .map(
-      (g) => `<div class="dash-ev-group${g.now ? " is-now" : ""}">
-        <div class="dash-ev-day">${g.now ? "&#127881; " : ""}${_escapeHtml(g.label)}</div>
+      (g) => `<div class="dash-ev-group">
+        <div class="dash-ev-day">${_escapeHtml(g.label)}</div>
         <ul class="dash-ev-list">${g.rows
           .map((o) => {
             const meta = [_dashWhen(o), _dashWhere(o)].filter(Boolean).join(" · ") + (o.recurrence ? " · ↻" : "");
