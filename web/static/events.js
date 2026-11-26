@@ -277,11 +277,13 @@ function _evOccurrences(ev, from, to) {
   const duration = ev._end - ev._start;
   const spanDays = ev.all_day ? Math.round(duration / 86400_000) : 0;
   const until = ev.repeat_until || null;
+  const skipped = new Set(ev.skip_dates || []);
   for (let n = 0; n < _EV_MAX_OCCURRENCES; n++) {
     const s = _evShiftStart(ev._start, ev.recurrence, n);
     if (!s) continue;
     if (until && _evKey(s) > until) break;
     if (s >= to) break;
+    if (skipped.has(_evKey(s))) continue; // a single date removed from the series
     const e = ev.all_day ? new Date(s.getFullYear(), s.getMonth(), s.getDate() + spanDays) : new Date(s.getTime() + duration);
     if (overlaps(s, e)) result.push(Object.assign({}, ev, { _start: s, _end: e, _occ: true, status: _evOccStatus(s, e) }));
   }
@@ -295,10 +297,12 @@ function _evNextOccurrence(ev) {
   const duration = ev._end - ev._start;
   const spanDays = ev.all_day ? Math.round(duration / 86400_000) : 0;
   let last = null;
+  const skipped = new Set(ev.skip_dates || []);
   for (let n = 0; n < _EV_MAX_OCCURRENCES; n++) {
     const s = _evShiftStart(ev._start, ev.recurrence, n);
     if (!s) continue;
     if (ev.repeat_until && _evKey(s) > ev.repeat_until) break;
+    if (skipped.has(_evKey(s))) continue;
     const e = ev.all_day ? new Date(s.getFullYear(), s.getMonth(), s.getDate() + spanDays) : new Date(s.getTime() + duration);
     const occ = { _start: s, _end: e };
     if (e > now) {
@@ -597,8 +601,34 @@ function _evRenderDetail(ev) {
   if (_evIsRepeating(ev)) {
     const picked = _evDetailId === ev.id && _evDetailOcc ? Object.assign({}, ev, { _start: new Date(_evDetailOcc.start), _end: new Date(_evDetailOcc.end) }) : _evNextOccurrence(ev);
     const upcomingLabel = picked._end <= new Date() ? "Last" : picked._start <= new Date() ? "Now" : "When";
-    addRow(upcomingLabel, _evFmtRange(picked));
+    const whenParts = [_el("span", {}, _evFmtRange(picked))];
+    if (picked !== ev) {
+      // Organizers can remove just this one date from the series.
+      const skipBtn = _el("button", { type: "button", class: "ev-skip-btn", "data-editor-only": "" }, "🗑 Delete this date only");
+      skipBtn.hidden = !_evAuth.enabled;
+      skipBtn.addEventListener("click", () => _evRequireSignIn(() => _evSkipDate(ev, picked)));
+      whenParts.push(skipBtn);
+    }
+    addRow(upcomingLabel, whenParts);
     addRow("Repeats", "↻ " + _evRepeatText(ev));
+    const skips = (ev.skip_dates || []).slice().sort();
+    if (skips.length) {
+      addRow(
+        "Skipped",
+        _el(
+          "span",
+          { class: "ev-skips" },
+          skips.map((day) => {
+            const chip = _el("span", { class: "ev-skip-chip" }, [_el("span", { class: "ev-skip-day" }, "not on " + _evFmtDate(_evDateFromKey(day), true))]);
+            const restore = _el("button", { type: "button", class: "ev-link-btn ev-restore-btn", "data-editor-only": "" }, "Restore");
+            restore.hidden = !_evAuth.enabled;
+            restore.addEventListener("click", () => _evRequireSignIn(() => _evRestoreDate(ev, day)));
+            chip.appendChild(restore);
+            return chip;
+          })
+        )
+      );
+    }
   } else {
     addRow("When", _evFmtRange(ev));
   }
@@ -1178,9 +1208,47 @@ async function _evSubmitForm(e) {
   }
 }
 
+// ── Remove / restore a single date of a repeating event ─────────────────────
+
+async function _evSkipDate(ev, occ) {
+  const day = _evKey(occ._start);
+  const label = _evFmtDate(occ._start, true);
+  if (!confirm(`Remove ${label} from “${ev.name}”?\n\nOnly this date is removed; the other dates stay. You can restore it later from the event's details.`)) return;
+  await _evSkipRequest(ev, `/api/events/${ev.id}/skip`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: day }) }, `${label} was removed from “${ev.name}”.`);
+}
+
+async function _evRestoreDate(ev, day) {
+  const label = _evFmtDate(_evDateFromKey(day), true);
+  await _evSkipRequest(ev, `/api/events/${ev.id}/skip/${day}`, { method: "DELETE" }, `${label} is back on “${ev.name}”.`);
+}
+
+async function _evSkipRequest(ev, url, options, doneMessage) {
+  try {
+    const res = await fetch(url, options);
+    const result = await res.json().catch(() => ({}));
+    if (res.status === 403 && result.auth_required) {
+      _evAuth.editor = false;
+      _evApplyAuth();
+      _evRequireSignIn(null, result.error);
+      return;
+    }
+    if (!res.ok) throw new Error(result.error || "Could not change the event.");
+    await _evLoad();
+    // Show the event again (its next date, now that this one may be gone).
+    _evDetailOcc = null;
+    const fresh = _evFind(ev.id);
+    if (fresh && document.getElementById("ev-detail-dialog").open) _evRenderDetail(fresh);
+    _evShowNotice("✓ " + doneMessage);
+  } catch (err) {
+    _evShowNotice("⚠ " + err.message);
+  }
+}
+
 async function _evDeleteEvent() {
   if (!_evEditing) return;
-  if (!confirm(`Delete “${_evEditing.name}” and all of its photos? This cannot be undone.`)) return;
+  const whole = _evIsRepeating(_evEditing) ? " — every date of this repeating event —" : "";
+  const tip = _evIsRepeating(_evEditing) ? "\n\nTo remove just one date, open that date and use “Delete this date only” instead." : "";
+  if (!confirm(`Delete “${_evEditing.name}”${whole} and all of its photos? This cannot be undone.${tip}`)) return;
   try {
     const res = await fetch(`/api/events/${_evEditing.id}`, { method: "DELETE" });
     const result = await res.json().catch(() => ({}));

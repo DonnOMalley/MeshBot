@@ -88,7 +88,12 @@ function _renderUpcomingEvents(items) {
             const loc = o.location || {};
             const where = loc.type === "online" ? "Online" : loc.address || "";
             const meta = [_dashWhen(o), where].filter(Boolean).join(" · ") + (o.recurrence ? " · ↻" : "");
-            return `<li><a class="dash-ev-link" href="/events?id=${encodeURIComponent(o.id)}">${_escapeHtml(o.name)}</a><span class="dash-ev-meta">${_escapeHtml(meta)}</span></li>`;
+            const href = `/events?id=${encodeURIComponent(o.id)}`;
+            // Small thumbnail (half the Events page's) when the event has a picture.
+            const thumb = o.has_image
+              ? `<a class="dash-ev-thumb" href="${href}" tabindex="-1" aria-hidden="true"><img src="/events/${encodeURIComponent(o.id)}/image/cover_thumb?v=${encodeURIComponent(o.updated_at || "")}" alt="" loading="lazy" /></a>`
+              : "";
+            return `<li>${thumb}<div class="dash-ev-text"><a class="dash-ev-link" href="${href}">${_escapeHtml(o.name)}</a><span class="dash-ev-meta">${_escapeHtml(meta)}</span></div></li>`;
           })
           .join("")}</ul>
       </div>`

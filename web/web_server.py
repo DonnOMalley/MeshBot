@@ -1319,6 +1319,32 @@ class WebServer:
                 return jsonify({"error": "Event not found."}), 404
             return jsonify(event)
 
+        def skip_date_response(event_id: str, day_text: str, skipped: bool):
+            """Organizer-only: remove (skipped=True) or restore one date of a repeating event."""
+            if not self._is_events_editor():
+                return self._events_auth_error()
+            day = EventStore.parse_day(day_text)
+            if day is None:
+                return jsonify({"error": "Use a date like 2026-12-17."}), 400
+            try:
+                event: dict | None = self._event_store.set_skip(event_id, day, skipped) if EventStore.is_valid_id(event_id) else None
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+            except EventStoreError as exc:
+                return jsonify({"error": str(exc)}), 503
+            if event is None:
+                return jsonify({"error": "Event not found."}), 404
+            return jsonify(event)
+
+        @self._app.route("/api/events/<event_id>/skip", methods=["POST"])
+        def api_event_skip_date(event_id: str):
+            body: dict = request.get_json(force=True, silent=True) or {}
+            return skip_date_response(event_id, str(body.get("date", "")), True)
+
+        @self._app.route("/api/events/<event_id>/skip/<day>", methods=["DELETE"])
+        def api_event_restore_date(event_id: str, day: str):
+            return skip_date_response(event_id, day, False)
+
         @self._app.route("/api/events/<event_id>/approve", methods=["POST"])
         def api_event_approve(event_id: str):
             if not self._is_events_editor():

@@ -108,12 +108,16 @@ def occurrences(event: dict):
     base: date = first_day or local_start.date()
     span_days: int = ((last_day - first_day).days + 1) if first_day and last_day else 0
     duration: timedelta = end - start
+    skipped: set[str] = set(event.get("skip_dates") or [])
     for n in range(_MAX_OCCURRENCES):
         day: date | None = _shift_date(base, recurrence, n)
         if day is None:
             continue
         if until is not None and day > until:
             break
+        if day.isoformat() in skipped:
+            # A single date removed from the series ("delete this date only").
+            continue
         if span_days:
             occ_start = datetime.combine(day, time.min, tzinfo=zone)
             occ_end = datetime.combine(day + timedelta(days=span_days), time.min, tzinfo=zone)
@@ -137,6 +141,24 @@ def occurrence_at(event: dict, now: datetime) -> tuple[datetime, datetime, str] 
     if result is None and last is not None:
         result = (last[0], last[1], _EVENTS_STATUS_PAST)
     return result
+
+
+def is_series_date(event: dict, day: date) -> bool:
+    """True when *day* (in the event's time zone) is one of the series' dates,
+    ignoring any dates already skipped."""
+    result: bool = False
+    if str(event.get("recurrence", "") or "") in _RECURRENCE_RULES:
+        zone = _event_zone(event)
+        for occ_start, _ in occurrences(dict(event, skip_dates=[])):
+            local_day: date = occ_start.astimezone(zone).date()
+            if local_day == day:
+                result = True
+                break
+            if local_day > day:
+                break
+    return result
+
+
 _IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
     (b"\xff\xd8\xff", "image/jpeg"),
     (b"\x89PNG\r\n\x1a\n", "image/png"),
@@ -216,6 +238,19 @@ def build_ics(event: dict, page_url: str) -> str:
                 last_moment: datetime = datetime.combine(until, time(23, 59, 59), tzinfo=zone)
                 rule += ";UNTIL=" + last_moment.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         dates.append(rule)
+        # Single dates removed from the series.
+        start_dt = EventStore.parse_time(event.get("start", ""))
+        for skip in sorted(event.get("skip_dates") or []):
+            skip_day: date | None = EventStore.parse_day(skip)
+            if skip_day is None or start_dt is None:
+                continue
+            if first is not None:
+                dates.append("EXDATE;VALUE=DATE:" + skip_day.strftime("%Y%m%d"))
+            elif event.get("tz") and zone is not timezone.utc:
+                local_time: time = start_dt.astimezone(zone).time()
+                dates.append(f"EXDATE;TZID={event['tz']}:" + datetime.combine(skip_day, local_time).strftime("%Y%m%dT%H%M%S"))
+            else:
+                dates.append("EXDATE:" + datetime.combine(skip_day, start_dt.time(), tzinfo=timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
 
     location: dict = event.get("location") or {}
     where: str = location.get("link", "") if location.get("type") == _EVENTS_LOCATION_ONLINE else location.get("address", "")
@@ -273,6 +308,8 @@ def upcoming_occurrences(events: list[dict], now: datetime, days: int = 30, limi
                 "status": _EVENTS_STATUS_ACTIVE if occ_start <= now else _EVENTS_STATUS_UPCOMING,
                 "recurrence": event.get("recurrence", "") or "",
                 "location": {"type": location.get("type", ""), "address": location.get("address", "")},
+                "has_image": bool(event.get("has_image")),
+                "updated_at": event.get("updated_at", ""),
             }
             if item["all_day"]:
                 if not item["recurrence"] and event.get("start_day") and event.get("end_day"):
@@ -610,6 +647,42 @@ class EventStore:
                     event.update(clean)
                     if has_image is not None:
                         event["has_image"] = has_image
+                    event["updated_at"] = EventStore.format_time(datetime.now(timezone.utc))
+                    result = event
+                    break
+            if result is not None:
+                self._save_all(events)
+        return EventStore.with_status(result) if result is not None else None
+
+    def set_skip(self, event_id: str, day: date, skipped: bool = True) -> dict | None:
+        """Removes (or restores) one date of a repeating event.
+
+        Args:
+            event_id: The repeating event.
+            day: The date to skip or restore, in the event's own time zone.
+            skipped: True to remove the date, False to bring it back.
+
+        Returns:
+            The updated event, or None if it does not exist.
+
+        Raises:
+            ValueError: The event doesn't repeat, or *day* isn't one of its dates.
+        """
+        result: dict | None = None
+        with self._lock:
+            events: list[dict] = self._load_all()
+            for event in events:
+                if event.get("id") == event_id:
+                    if not event.get("recurrence"):
+                        raise ValueError("Only repeating events have single dates to remove.")
+                    if not is_series_date(event, day):
+                        raise ValueError("That date isn't part of this event's schedule.")
+                    dates: set[str] = set(event.get("skip_dates") or [])
+                    if skipped:
+                        dates.add(day.isoformat())
+                    else:
+                        dates.discard(day.isoformat())
+                    event["skip_dates"] = sorted(dates)
                     event["updated_at"] = EventStore.format_time(datetime.now(timezone.utc))
                     result = event
                     break

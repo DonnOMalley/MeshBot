@@ -11,6 +11,7 @@ import shutil
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from unittest.mock import MagicMock
 
 from cryptography.fernet import Fernet
@@ -864,6 +865,104 @@ class JoyPageTests(_EventsServerCase):
             f.write("not json")
         data: dict = self._visitor().get("/api/joy/lists?quotes=abc").get_json()
         self.assertEqual(data, {"affirmations": [], "quotes": [], "jokes": []})
+
+
+class UpcomingThumbnailTests(_EventsServerCase):
+    """The dashboard agenda says which events have a picture (for thumbnails)."""
+
+    def test_has_image_and_version(self) -> None:
+        self._post("/api/events", _fields(name="With Picture", start=_iso(5), end=_iso(6)), {"image": PNG, "image_thumb": JPEG})
+        self._post("/api/events", _fields(name="No Picture", start=_iso(7), end=_iso(8)))
+        items: dict = {i["name"]: i for i in self._visitor().get("/api/events/upcoming").get_json()["events"]}
+        self.assertTrue(items["With Picture"]["has_image"])
+        self.assertTrue(items["With Picture"]["updated_at"])
+        self.assertFalse(items["No Picture"]["has_image"])
+        thumb = self._visitor().get(f"/events/{items['With Picture']['id']}/image/cover_thumb")
+        self.assertEqual((thumb.status_code, thumb.data), (200, JPEG))
+
+
+class SkipDateTests(_EventsServerCase):
+    """Removing (and restoring) a single date of a repeating event."""
+
+    NY: str = "America/New_York"
+
+    def _weekly(self, **extra) -> dict:
+        # Wednesdays 7–9 PM New York, from Dec 2, 2026.
+        fields = _fields(name="Weekly Net", start="2026-12-03T00:00:00Z", end="2026-12-03T02:00:00Z", recurrence="weekly", tz=self.NY)
+        fields.update(extra)
+        return self._post("/api/events", fields).get_json()
+
+    def _skip(self, event_id: str, day: str, client=None):
+        return (client or self.client).post(f"/api/events/{event_id}/skip", json={"date": day})
+
+    @staticmethod
+    def _local_days(event: dict, count: int) -> list[str]:
+        zone = ZoneInfo("America/New_York")
+        days: list[str] = []
+        for start, _ in occurrences(event):
+            days.append(start.astimezone(zone).date().isoformat())
+            if len(days) == count:
+                break
+        return days
+
+    def test_skip_removes_only_that_date_and_restore_brings_it_back(self) -> None:
+        ev: dict = self._weekly()
+        res = self._skip(ev["id"], "2026-12-09")
+        self.assertEqual(res.status_code, 200, res.get_json())
+        self.assertEqual(res.get_json()["skip_dates"], ["2026-12-09"])
+        stored: dict = self.client.get(f"/api/events/{ev['id']}").get_json()
+        self.assertEqual(self._local_days(stored, 3), ["2026-12-02", "2026-12-16", "2026-12-23"])
+        res = self.client.delete(f"/api/events/{ev['id']}/skip/2026-12-09")
+        self.assertEqual(res.get_json()["skip_dates"], [])
+        stored = self.client.get(f"/api/events/{ev['id']}").get_json()
+        self.assertEqual(self._local_days(stored, 3), ["2026-12-02", "2026-12-09", "2026-12-16"])
+
+    def test_skipping_the_first_date_moves_the_next_date_up(self) -> None:
+        ev: dict = self._weekly()
+        res = self._skip(ev["id"], "2026-12-02").get_json()
+        if datetime.now(timezone.utc) < datetime(2026, 12, 3, tzinfo=timezone.utc):
+            self.assertEqual(res["occurrence_start"], "2026-12-10T00:00:00Z")
+
+    def test_rules(self) -> None:
+        ev: dict = self._weekly()
+        self.assertEqual(self._skip(ev["id"], "2026-12-10").status_code, 400, "a Thursday isn't one of its dates")
+        self.assertEqual(self._skip(ev["id"], "not-a-date").status_code, 400)
+        one_off: dict = self._post("/api/events", _fields()).get_json()
+        self.assertEqual(self._skip(one_off["id"], one_off["start"][:10]).status_code, 400, "one-off events have no single dates")
+        self.assertEqual(self._skip("a" * 16, "2026-12-09").status_code, 404)
+        res = self._skip(ev["id"], "2026-12-09", client=self._visitor())
+        self.assertEqual(res.status_code, 403, "organizers only")
+        self.assertEqual(self._visitor().delete(f"/api/events/{ev['id']}/skip/2026-12-09").status_code, 403)
+
+    def test_skipped_date_happening_now_is_not_active(self) -> None:
+        # Repeats weekly; today's date is happening right now.
+        ev: dict = self._post("/api/events", _fields(start=_iso(-24 * 7 - 1), end=_iso(-24 * 7 + 2), recurrence="weekly")).get_json()
+        self.assertEqual(ev["status"], "active")
+        today: str = (datetime.now(timezone.utc) - timedelta(hours=1)).date().isoformat()
+        skipped: dict = self._skip(ev["id"], today).get_json()
+        self.assertEqual(skipped["status"], "upcoming")
+        res = self._visitor().post(f"/api/events/{ev['id']}/photos", data={"photo": (io.BytesIO(JPEG), "p.jpg")}, content_type="multipart/form-data")
+        self.assertEqual(res.status_code, 409, "no photo uploads on a removed date")
+        upcoming: list = self._visitor().get("/api/events/upcoming").get_json()["events"]
+        self.assertFalse(any(o["status"] == "active" for o in upcoming))
+
+    def test_editing_the_series_keeps_skipped_dates(self) -> None:
+        ev: dict = self._weekly()
+        self._skip(ev["id"], "2026-12-09")
+        res = self._post(f"/api/events/{ev['id']}", _fields(name="Renamed Net", start="2026-12-03T00:00:00Z", end="2026-12-03T02:00:00Z", recurrence="weekly", tz=self.NY), method="put")
+        self.assertEqual(res.get_json()["skip_dates"], ["2026-12-09"])
+
+    def test_calendar_file_excludes_skipped_dates(self) -> None:
+        ev: dict = self._weekly()
+        self._skip(ev["id"], "2026-12-09")
+        self._skip(ev["id"], "2026-12-23")
+        text: str = self.client.get(f"/events/{ev['id']}/calendar.ics").get_data(as_text=True).replace("\r\n ", "")
+        self.assertIn("EXDATE;TZID=America/New_York:20261209T190000\r\n", text)
+        self.assertIn("EXDATE;TZID=America/New_York:20261223T190000\r\n", text)
+        all_day: dict = self._post("/api/events", _fields(recurrence="monthly", all_day="1", start_day="2026-12-05", end_day="2026-12-05", start="", end="")).get_json()
+        self._skip(all_day["id"], "2027-01-05")
+        text = self.client.get(f"/events/{all_day['id']}/calendar.ics").get_data(as_text=True)
+        self.assertIn("EXDATE;VALUE=DATE:20270105\r\n", text)
 
 
 if __name__ == "__main__":
