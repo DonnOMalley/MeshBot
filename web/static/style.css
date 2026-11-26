@@ -3169,15 +3169,38 @@ body.dashboard-page main {
     height: 50vh;
   }
 
-  /* Mesh: Bot Node sits above Chat, so give the chat panel the fixed
-     height instead of the whole column. */
-  .mesh-dashboard-page .dash-left {
-    height: auto;
+  /* Mesh: flatten both columns into one stack so the panels can be
+     reordered for phones — Chat first (the main thing people come for),
+     then node stats, the map, and the static Bot Node details last.
+     Rows size to their content; otherwise the fixed-height grid splits
+     the screen between the columns and clips the chat to a single line. */
+  .mesh-dashboard-page main {
+    grid-template-rows: none;
+    grid-auto-rows: max-content;
+  }
+
+  .mesh-dashboard-page .dash-left,
+  .mesh-dashboard-page .dash-right {
+    display: contents;
   }
 
   .mesh-dashboard-page .mesh-chat-panel {
-    flex: 0 0 auto;
-    height: 60vh;
+    order: 1;
+    flex: none;
+    height: 70vh;
+    height: 70dvh;
+  }
+
+  .mesh-dashboard-page .dash-top-row {
+    order: 2;
+  }
+
+  .mesh-dashboard-page .dash-bottom-row {
+    order: 3;
+  }
+
+  .mesh-dashboard-page #mesh-bot-node {
+    order: 4;
   }
 }
 
@@ -4221,6 +4244,8 @@ body.tih-page main {
   margin: auto;
   width: min(640px, calc(100vw - 24px));
   max-height: calc(100vh - 32px);
+  /* dvh tracks the visible viewport on mobile (excludes browser toolbars) */
+  max-height: calc(100dvh - 32px);
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -4489,6 +4514,7 @@ body.tih-page main {
 .ev-photo-dialog {
   width: min(1200px, calc(100vw - 24px));
   height: calc(100vh - 32px);
+  height: calc(100dvh - 32px);
 }
 
 .ev-photo-inner {
@@ -4876,6 +4902,41 @@ body.tih-page main {
 
   .ev-dialog-inner {
     padding: 16px;
+  }
+
+  /* Keep a visible gap above the dialog so its top edge and close button
+     never sit under the browser toolbar / notch. */
+  .ev-dialog {
+    margin-top: max(24px, env(safe-area-inset-top));
+    margin-bottom: 16px;
+    max-height: calc(100vh - 56px);
+    max-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - 16px);
+  }
+
+  .ev-photo-dialog {
+    height: calc(100vh - 56px);
+    height: calc(100dvh - max(24px, env(safe-area-inset-top)) - 16px);
+  }
+
+  /* Pin the close button while the dialog body scrolls, with a
+     finger-sized tap target. */
+  .ev-dialog-close {
+    position: sticky;
+    top: 0;
+    align-self: flex-end;
+    margin: -8px -8px -44px 0;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 30px;
+  }
+
+  /* Photo viewer is a fixed-height grid that doesn't scroll at the dialog
+     level, so keep its close button out of the grid flow. */
+  .ev-photo-inner .ev-dialog-close {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    margin: 0;
   }
 }
 
