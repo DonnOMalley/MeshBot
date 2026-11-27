@@ -95,6 +95,14 @@ class StorageScannerTests(unittest.TestCase):
         self.assertIsNone(self.scanner.file_type(category="Nope"))
         self.assertIsNone(self.scanner.file_type(ext="exe"))
 
+    def test_symlinked_root_is_skipped(self) -> None:
+        linked_log: str = os.path.join(self.dir, "log_link")
+        os.symlink(self.outside, linked_log)
+        scanner = StorageScanner({"data": os.path.join(self.dir, "data"), "log": linked_log}, cache_seconds=0)
+        s: dict = scanner.summary()
+        self.assertEqual([r["path"] for r in s["tree"]], ["data"])
+        self.assertNotIn("secret", str(s))
+
     def test_cache_and_rescan(self) -> None:
         cached = StorageScanner({"data": os.path.join(self.dir, "data")}, cache_seconds=3600)
         self.assertEqual(cached.summary()["total"]["files"], 6)
