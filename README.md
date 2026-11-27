@@ -187,7 +187,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 | Page      | Path        | Description                                                                                                                                |
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dashboard | `/`         | A full-width banner shows any event happening now (picture, click to open it). Joy leads the page: the affirmation in large type with the quote and joke beneath, and a Coming up rail of upcoming events with pictures beside it (repeats included, each opening its details). Mesh Chat and Today in History sit below. Section titles open their full pages. |
+| Dashboard | `/`         | A full-width banner shows any event happening now (picture, click to open it). Joy leads the page: the affirmation in large type with the quote and joke beneath, and a Coming up rail of the next 3 events with pictures beside it (repeats included, each opening its details). On wide screens Joy is as tall as that rail, leaving the rest of the page to Mesh Chat and Today in History below. Section titles open their full pages. |
 | Mesh      | `/mesh`     | Mesh dashboard: channel chat history, node counts (known, heard in the last hour / 24h, direct, on the map), the bot's own node, and a mini-map. The **Mesh** menu also holds Nodes, Map and Chat. |
 | Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
@@ -431,6 +431,10 @@ When an `EncryptionKey` is provided, the node database, favourites, chat history
 ---
 
 ## Release Notes
+
+### v0.13.5 — 2026-11-27
+
+- The **Dashboard**'s Joy panel is about a third shorter, giving **Mesh Chat** and **Today in History** more room. **Coming up** now shows the next 3 events instead of 4, and on wide screens Joy is as tall as that list: its text is a bit smaller, and a long joke scrolls inside the panel rather than making it taller. When Joy and Coming up stack on narrower screens, Joy keeps its full height.
 
 ### v0.13.4 — 2026-11-27
 

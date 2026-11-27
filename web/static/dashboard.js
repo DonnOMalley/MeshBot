@@ -10,6 +10,8 @@ const _MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "J
 const _DASH_EVENTS_REFRESH_MS = 60_000;
 const _DASH_EVENTS_DAYS = 30;
 const _DASH_EVENTS_LIMIT = 8;
+// The rail shows only the next few; its height sets the height of the Joy row.
+const _DASH_EVENTS_SHOWN = 3;
 
 async function _fetchUpcomingEvents() {
   const body = document.getElementById("dash-events-body");
@@ -22,7 +24,7 @@ async function _fetchUpcomingEvents() {
     const items = data.events || [];
     // Happening-now events go in the banner; the panel lists only what's next.
     _renderNowBanner(items.filter((o) => o.status === "active"));
-    _renderUpcomingEvents(items.filter((o) => o.status !== "active"));
+    _renderUpcomingEvents(items.filter((o) => o.status !== "active").slice(0, _DASH_EVENTS_SHOWN));
   } catch (_) {
     if (!body.querySelector(".home-ev-list")) body.innerHTML = '<p class="home-empty">Events couldn’t load. They’ll retry in a minute, or use the refresh button.</p>';
   }
