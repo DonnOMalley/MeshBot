@@ -148,6 +148,57 @@ body.claude-page main.cl-main {
   padding: 10px 12px 0;
 }
 
+.cl-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cl-dates label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cl-dates input[type="date"] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px 6px;
+  font-size: 12px;
+  color-scheme: dark; /* dark calendar pop-up */
+}
+
+.cl-dates input[type="date"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cl-date-reset {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.cl-date-reset:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.cl-date-reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .cl-totals {
   margin: 6px 14px 4px;
   font-size: 12px;
