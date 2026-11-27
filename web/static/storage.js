@@ -182,13 +182,22 @@ function _stFolderRow(node, depth, parentSize, forcedOpen) {
   if (node.children.length) li.setAttribute("aria-expanded", String(open));
   const caret = _stEl("button", "st-caret", node.children.length ? (open ? "▾" : "▸") : "");
   caret.type = "button";
-  caret.tabIndex = -1;
-  caret.setAttribute("aria-hidden", "true");
+  if (node.children.length) {
+    caret.dataset.path = node.path;
+    caret.setAttribute("aria-label", `${open ? "Collapse" : "Expand"} ${node.name}`);
+    caret.setAttribute("aria-expanded", String(open));
+  } else {
+    caret.tabIndex = -1;
+    caret.setAttribute("aria-hidden", "true");
+  }
   if (node.children.length)
     caret.addEventListener("click", (e) => {
       e.stopPropagation();
       _stExpanded.has(node.path) ? _stExpanded.delete(node.path) : _stExpanded.add(node.path);
       _stRenderList();
+      // the list was rebuilt, so put keyboard focus back on this folder's new caret
+      const again = [...document.querySelectorAll("#st-list .st-caret")].find((c) => c.dataset.path === node.path);
+      if (again) again.focus();
     });
   const btn = _stEl("button", "st-row-btn");
   btn.type = "button";
@@ -305,7 +314,7 @@ function _stRenderFolder(d) {
     if (d.files_omitted) sec.append(_stEl("p", "cl-muted st-note", `${d.files_omitted.toLocaleString()} smaller files not listed.`));
     nodes.push(sec);
   }
-  if (d.subfolders.length && d.largest.length) {
+  if (d.largest.length) {
     const sec = _stSection("Largest files inside");
     sec.append(_stFileTable(d.largest, true));
     nodes.push(sec);

@@ -142,8 +142,8 @@ class StorageScanner:
         files: list[dict] = []
         roots: list[str] = []
         for name, top in self._roots.items():
-            if not os.path.isdir(top):
-                continue
+            if os.path.islink(top) or not os.path.isdir(top):
+                continue  # a symlinked root would lead the scan outside the configured folder
             roots.append(name)
             self._walk(top, name, None, folders, files)
         disk: dict | None = None

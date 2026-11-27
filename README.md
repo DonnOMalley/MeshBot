@@ -269,7 +269,7 @@ The **Events** page (`/events`, next to History in the menu) lists community eve
 The menu bar has **Dashboard**, **Mesh** (Dashboard, Nodes, Map, Chat), **Joy**, **History**, **Events** and **Administration**. A gear at its right end opens **Settings**, which holds the Settings, Bot Test and About pages. On a phone they all sit in the ☰ menu.
 
 - **Administration** (Console, Claude and Storage pages) needs the admin login set as `AdminUsername` and `AdminPassword` in `meshbot.config`. When you're not signed in, clicking Administration opens a sign-in page (`/admin/login`), and opening `/console`, `/claude` or `/storage` directly goes there too. After signing in you're taken back to the page you asked for.
-- Once you're signed in, Administration becomes a menu with Console, Claude and **Sign out**. You stay signed in until the browser closes or you sign out.
+- Once you're signed in, Administration becomes a menu with Console, Claude, Storage and **Sign out**. You stay signed in until the browser closes or you sign out.
 - Five wrong tries from one address lock sign-in for 15 minutes. The login is read from the config file on every request, so changing it takes effect right away and signs every admin out. With either key blank, Administration is off.
 - The admin login is separate from `EventsPasscode`: signing in to one never opens the other.
 
