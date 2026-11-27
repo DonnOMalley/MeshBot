@@ -92,6 +92,7 @@ from common.constants import (
     _ADMIN_SESSION_KEY,
     _ADMIN_USERNAME_CONFIG_KEY,
     _CLAUDE_HOME_DIR,
+    _LOG_DIR,
     _CONFIG_SECTION,
     _DEFAULT_CONFIG_FILE,
     _EVENTS_AUTH_DISABLED,
@@ -125,11 +126,14 @@ from messaging.command_register import CommandRegister
 from web.tile_cache import TileCache
 import web.event_store as _event_store_module
 import web.claude_sessions as _claude_sessions_module
+import web.storage_scanner as _storage_scanner_module
 
 # Re-read helper modules from disk whenever this module is (hot) reloaded.
 importlib.reload(_event_store_module)
 importlib.reload(_claude_sessions_module)
+importlib.reload(_storage_scanner_module)
 from web.claude_sessions import ClaudeSessionReader  # noqa: E402  (after the reload on purpose)
+from web.storage_scanner import StorageScanner  # noqa: E402  (after the reload on purpose)
 from web.event_store import EventStore, EventStoreError, build_ics, upcoming_occurrences  # noqa: E402  (after the reload on purpose)
 
 _dm_response_tl: threading.local = threading.local()
@@ -375,6 +379,8 @@ class WebServer:
         self._auth_failures = {}
         self._admin_auth_failures = {}
         self._claude_reader = ClaudeSessionReader(_CLAUDE_HOME_DIR)
+        log_dir: str = os.path.dirname(console_logger.log_path) if console_logger is not None else _LOG_DIR
+        self._storage = StorageScanner({"data": data_dir, "log": log_dir})
         self._submissions = {}
         self._auth_lock = threading.Lock()
         self._pending_web_traces = {}
@@ -1372,6 +1378,36 @@ class WebServer:
             detail: dict | None = self._claude_reader.get_session(session_id)
             if detail is None:
                 return self._no_store(jsonify({"error": "No such Claude session."})), 404
+            return self._no_store(jsonify(detail))
+
+        @self._app.route("/storage")
+        def storage_page():
+            if not self._is_admin():
+                return self._admin_login_redirect()
+            return render_template("storage.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
+        @self._app.route("/api/storage", methods=["GET"])
+        def api_storage():
+            if not self._is_admin():
+                return self._admin_auth_error()
+            return self._no_store(jsonify(self._storage.summary()))
+
+        @self._app.route("/api/storage/folder", methods=["GET"])
+        def api_storage_folder():
+            if not self._is_admin():
+                return self._admin_auth_error()
+            detail: dict | None = self._storage.folder(request.args.get("path", ""))
+            if detail is None:
+                return self._no_store(jsonify({"error": "No such folder."})), 404
+            return self._no_store(jsonify(detail))
+
+        @self._app.route("/api/storage/type", methods=["GET"])
+        def api_storage_type():
+            if not self._is_admin():
+                return self._admin_auth_error()
+            detail: dict | None = self._storage.file_type(request.args.get("category"), request.args.get("ext"))
+            if detail is None:
+                return self._no_store(jsonify({"error": "No files of that type."})), 404
             return self._no_store(jsonify(detail))
 
         @self._app.route("/api/events/auth", methods=["GET"])
