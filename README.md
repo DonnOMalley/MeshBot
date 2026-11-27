@@ -187,7 +187,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 
 | Page      | Path        | Description                                                                                                                                |
 | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dashboard | `/`         | A full-width banner shows any event happening now (picture, click to open it). Joy leads the page: the affirmation in large type with the quote and joke beneath, and a Coming up rail of upcoming events with pictures beside it (repeats included, each opening its details). Chat history and Today in History sit below. Section titles open their full pages. |
+| Dashboard | `/`         | A full-width banner shows any event happening now (picture, click to open it). Joy leads the page: the affirmation in large type with the quote and joke beneath, and a Coming up rail of upcoming events with pictures beside it (repeats included, each opening its details). Mesh Chat and Today in History sit below. Section titles open their full pages. |
 | Mesh      | `/mesh`     | Mesh dashboard: channel chat history, node counts (known, heard in the last hour / 24h, direct, on the map), the bot's own node, and a mini-map. The **Mesh** menu also holds Nodes, Map and Chat. |
 | Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
@@ -436,6 +436,7 @@ When an `EncryptionKey` is provided, the node database, favourites, chat history
 - Photo EXIF details are no longer encrypted, even with an `EncryptionKey`. They are saved as plain `<photo id>_exif.json` beside each photo, like the photos themselves. The existing encrypted EXIF files were converted once by hand. Event pictures, photos and EXIF now have no encrypted form at all: the bot neither writes nor reads `.enc` files for them any more, so no leftover encrypted copies can build up when a picture is replaced or removed.
 - The Storage page no longer has an **Encrypted** (`.enc`) file-type group, since the bot doesn't create `.enc` files any more.
 - Event details, chat history, favourites and the node database are still encrypted when an `EncryptionKey` is set.
+- The **Dashboard**'s chat panel is titled **Mesh Chat** (it said "Chat history"), matching the Mesh dashboard.
 
 ### v0.13.2 — 2026-11-27
 
