@@ -76,6 +76,7 @@ function renderDevice(device) {
   const body = document.getElementById("settings-device-body");
   if (!body) return;
   const rows = [
+    ["Firmware Version", device.firmware_version || "—"],
     ["Role", formatEnumName(device.role)],
     ["Node Info Broadcast", formatBroadcastInterval(device.node_info_broadcast_secs)],
     ["Timezone", device.tzdef || "\u2014"],

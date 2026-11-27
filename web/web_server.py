@@ -1266,6 +1266,11 @@ class WebServer:
                     preserving_proto_field_name=True,
                     always_print_fields_with_no_presence=True,
                 )
+                # Firmware version comes from the DeviceMetadata received during the config handshake.
+                # Older nodes or a missing handshake leave it unset; report "" then.
+                metadata: object | None = getattr(self._iface, "metadata", None)
+                firmware_version: str = getattr(metadata, "firmware_version", "") or ""
+                device["firmware_version"] = firmware_version
                 channels: list = []
                 for ch in (local_node.channels or []):
                     if not ch.role:

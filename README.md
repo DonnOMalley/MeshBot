@@ -432,6 +432,10 @@ When an `EncryptionKey` is provided, the node database, favourites, chat history
 
 ## Release Notes
 
+### v0.13.7 — 2026-11-27
+
+- The **Settings** page's **Device Settings** panel now shows the connected node's **Firmware Version** as its first row. It comes from the device metadata the node sends when the bot connects, and shows "—" if the node didn't report one.
+
 ### v0.13.6 — 2026-11-27
 
 - The **Events** page's **Agenda** view has a **Hide past events** checkbox next to the month selector. It is ticked each time the page opens, so the agenda shows only events still to come or happening now, with a note saying how many past events are hidden. Untick it to see that month's past events too, listed below the upcoming ones under a **Past events** heading.
