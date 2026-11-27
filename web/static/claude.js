@@ -1,5 +1,5 @@
 // ── Claude page — read-only list of the Claude Code sessions on this computer ──
-// Everything here needs the ClaudePasscode sign-in; the server returns 403 otherwise.
+// Admin only: the server returns 403 to anyone not signed in as admin.
 
 "use strict";
 
@@ -12,8 +12,6 @@ let _clDatesTouched = false; // false: the date range follows the data as it gro
 document.addEventListener("DOMContentLoaded", () => {
   const label = document.getElementById("refresh-label");
   if (label) label.textContent = "";
-  document.getElementById("cl-auth-form").addEventListener("submit", _clSignIn);
-  document.getElementById("cl-signout").addEventListener("click", _clSignOut);
   document.getElementById("cl-filter").addEventListener("input", _clRenderList);
   ["cl-date-from", "cl-date-to"].forEach((id) =>
     document.getElementById(id).addEventListener("change", () => {
@@ -30,7 +28,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("cl-messages").classList.toggle("cl-hide-tools", !e.target.checked);
   });
   document.getElementById("cl-back").addEventListener("click", () => document.body.classList.remove("cl-reading"));
-  _clCheckAuth();
+  _clLoadList();
+  _clTimer = setInterval(_clLoadList, _CL_REFRESH_MS);
 });
 
 // Header "Refresh" button.
@@ -39,73 +38,14 @@ function refreshAll() {
   if (_clSelected) _clOpen(_clSelected, true);
 }
 
-async function _clCheckAuth() {
-  let auth = { enabled: false, viewer: false };
-  try {
-    auth = await (await fetch("/api/claude/auth")).json();
-  } catch (_) {
-    /* shown as signed out */
-  }
-  _clShow(auth);
-}
-
-function _clShow(auth) {
-  document.getElementById("cl-signin").hidden = auth.viewer;
-  document.getElementById("cl-app").hidden = !auth.viewer;
-  const form = document.getElementById("cl-auth-form");
-  if (!auth.enabled) {
-    document.getElementById("cl-signin-text").textContent = "The Claude page is turned off. Set ClaudePasscode in meshbot.config to turn it on.";
-    Array.from(form.elements).forEach((el) => (el.disabled = true));
-  }
-  clearInterval(_clTimer);
-  if (auth.viewer) {
-    _clLoadList();
-    _clTimer = setInterval(_clLoadList, _CL_REFRESH_MS);
-  } else {
-    form.elements.passcode.focus();
-  }
-}
-
-async function _clSignIn(e) {
-  e.preventDefault();
-  const form = e.currentTarget;
-  const err = document.getElementById("cl-auth-error");
-  const btn = document.getElementById("cl-auth-submit");
-  err.hidden = true;
-  btn.disabled = true;
-  try {
-    const res = await fetch("/api/claude/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ passcode: form.elements.passcode.value }),
-    });
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.error || "Sign-in failed.");
-    form.reset();
-    _clShow(result);
-  } catch (ex) {
-    err.textContent = ex.message;
-    err.hidden = false;
-    form.elements.passcode.select();
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function _clSignOut() {
-  await fetch("/api/claude/auth", { method: "DELETE" }).catch(() => {});
-  _clSessions = [];
-  _clSelected = null;
-  document.getElementById("cl-messages").replaceChildren(_clEl("p", "cl-muted", "Pick a session to read it."));
-  _clShow({ enabled: true, viewer: false });
-}
-
-// Fetches JSON; a 403 means the sign-in lapsed (passcode changed), so go back to the form.
+// Fetches JSON; a 403 means the admin sign-in lapsed (login changed or signed
+// out in another tab), so go to the sign-in page and come back here after.
 async function _clFetch(url) {
   const res = await fetch(url);
   const result = await res.json();
   if (res.status === 403 && result.auth_required) {
-    _clShow({ enabled: true, viewer: false });
+    clearInterval(_clTimer);
+    window.location.href = "/admin/login?next=" + encodeURIComponent("/claude");
     throw new Error(result.error);
   }
   if (!res.ok) throw new Error(result.error || "Request failed.");

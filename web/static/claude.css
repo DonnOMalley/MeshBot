@@ -16,19 +16,6 @@ body.claude-page main.cl-main {
   color: var(--error);
 }
 
-.cl-signin {
-  width: min(420px, 100%);
-  margin: 40px auto 0;
-}
-
-.cl-signin-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px;
-}
-
-.cl-signin-body input,
 .cl-list-tools input {
   width: 100%;
   background: var(--bg);
@@ -39,27 +26,11 @@ body.claude-page main.cl-main {
   font-size: 14px;
 }
 
-.cl-signin-body input:focus,
 .cl-list-tools input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-.cl-primary-btn {
-  align-self: flex-end;
-  background: var(--accent);
-  color: var(--bg);
-  border: none;
-  border-radius: 4px;
-  padding: 7px 18px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.cl-primary-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
 
 .cl-summary {
   margin-bottom: 16px;
@@ -128,6 +99,7 @@ body.claude-page main.cl-main {
 }
 
 .cl-signout {
+  text-decoration: none;
   background: none;
   border: 1px solid var(--border);
   border-radius: 4px;

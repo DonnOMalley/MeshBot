@@ -60,7 +60,8 @@ NoNodeInit        = false
 NodeRetentionDays = 30
 EncryptionKey     =
 EventsPasscode    =
-ClaudePasscode    =
+AdminUsername     =
+AdminPassword     =
 Verbose           = false
 HideSecondaryChannels = false
 WebUrl            = localhost
@@ -80,7 +81,8 @@ RangeTestDelay    = 1
 | `NodeRetentionDays`     | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
 | `EncryptionKey`         | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
 | `EventsPasscode`        | Passcode organizers enter on the Events page to publish, edit, approve or delete events. Blank turns editing and public submissions off. |
-| `ClaudePasscode`        | Passcode for the Claude page (`/claude`), which lists the Claude Code sessions on this computer. Separate from `EventsPasscode`. Blank turns the page off. |
+| `AdminUsername`         | Username for the admin login that opens the **Administration** menu (Console and Claude pages). |
+| `AdminPassword`         | Password for the admin login. Separate from `EventsPasscode`. Leaving either admin key blank turns Administration off. |
 | `Verbose`               | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
 | `HideSecondaryChannels` | When `true`, secondary channels are hidden from the web dashboard (chat, dashboard, settings pages).   |
 | `WebUrl`                | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
@@ -157,6 +159,18 @@ Direct connections are reported as `Direct connect! No relays 🎯`.
 
 Add your own commands in `commands/user_commands.py`. Register them via `get_commands()` and they will be passed to the channel monitor at startup.
 
+### Event commands
+
+Mesh nodes can ask about the published events on the Events page. Replies are sent as DMs and always fit the mesh message size (counted in bytes, so emoji are safe). Times are shown in each event's own time zone.
+
+| Command                | Reply                                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `!event`               | One short message: the next event (or the one happening now) with its name, start time and place.                      |
+| `!events`              | A numbered list of the next 5 events. A repeating event is listed once, at its next date.                              |
+| `!eventinfo [N\|name]` | Full details of one event: time, repeat, place or link, description, website and contact. `N` is the number from `!events` (none = the next event); other text matches the event name. Long details are split into up to 5 numbered messages (`1/3 …`), 2 seconds apart. |
+
+Only approved events are shown. The commands only read the event files; moving ended events to the history file is left to the dashboard.
+
 ---
 
 ## Web Dashboard
@@ -181,8 +195,8 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | Joy       | `/joy`      | A "Happening now" banner for each event in progress (its picture shown large, with Share photos / Details buttons); all the affirmations, a fresh set of quotes and jokes (↻ for more), and past events with their shared photo albums, plus a link to upcoming events. |
 | History   | `/history`  | Today in History calendar: opens on today's date; pick another day to see its historical events.                                           |
 | Events    | `/events`   | Community events calendar (calendar or agenda view); opens on today's events. Organizers add/edit events, visitors submit events for review, and anyone can upload photos while an event is happening. |
-| Claude    | `/claude`   | Read-only list of the Claude Code sessions on this computer and their conversations. Needs `ClaudePasscode`. |
-| Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                                                               |
+| Claude    | `/claude`   | Read-only list of the Claude Code sessions on this computer and their conversations. Admin only. |
+| Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output. Admin only.                                                                   |
 | Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window.                                    |
 | Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                                                   |
 | About     | `/about`    | General (bot info, release notes), Interaction (commands, dashboard guide, usage notes) and Configuration tabs.                            |
@@ -211,7 +225,7 @@ Favourites are persisted to `data/favorites.json`.
 
 ### Bot Test (Direct Message)
 
-The **Bot Test** page (`/dm`) lets you send direct messages to the bot from the browser without needing a physical Meshtastic device. A one-time identity setup associates your browser session with a fake Meshtastic node (the same identity used on the Chat page). Quick-command buttons for `!hello`, `!ping`, `!test`, `!last`, `!trace`, `!web`, and `!joke` let you test common commands with one click. Responses appear in a live conversation window that is not saved to the channel chat logs.
+The **Bot Test** page (`/dm`) lets you send direct messages to the bot from the browser without needing a physical Meshtastic device. A one-time identity setup associates your browser session with a fake Meshtastic node (the same identity used on the Chat page). Quick-command buttons for `!hello`, `!ping`, `!test`, `!last`, `!trace`, `!web`, `!joke`, `!event`, `!events` and `!eventinfo` let you test common commands with one click. Responses appear in a live conversation window that is not saved to the channel chat logs.
 
 ### Settings
 
@@ -249,18 +263,27 @@ The **Events** page (`/events`, next to History in the menu) lists community eve
 - With no `EventsPasscode` set, event editing and visitor submissions are both off.
 - The dashboard is plain HTTP, so the passcode is sent unencrypted over the network; use HTTPS (e.g. a reverse proxy) if that matters.
 
+### Menus and admin sign-in
+
+The menu bar has **Dashboard**, **Mesh** (Dashboard, Nodes, Map, Chat), **Joy**, **History**, **Events** and **Administration**. A gear at its right end opens **Settings**, which holds the Settings, Bot Test and About pages. On a phone they all sit in the ☰ menu.
+
+- **Administration** (Console and Claude pages) needs the admin login set as `AdminUsername` and `AdminPassword` in `meshbot.config`. When you're not signed in, clicking Administration opens a sign-in page (`/admin/login`), and opening `/console` or `/claude` directly goes there too. After signing in you're taken back to the page you asked for.
+- Once you're signed in, Administration becomes a menu with Console, Claude and **Sign out**. You stay signed in until the browser closes or you sign out.
+- Five wrong tries from one address lock sign-in for 15 minutes. The login is read from the config file on every request, so changing it takes effect right away and signs every admin out. With either key blank, Administration is off.
+- The admin login is separate from `EventsPasscode`: signing in to one never opens the other.
+
 ### Claude Sessions
 
-The **Claude** page (`/claude`, under **Administration**) shows the Claude Code sessions stored on the computer running the bot, read from `~/.claude` of the user the bot runs as.
+The **Claude** page (`/claude`, in the **Administration** menu) shows the Claude Code sessions stored on the computer running the bot, read from `~/.claude` of the user the bot runs as.
 
-- **Sign-in:** needs the passcode set as `ClaudePasscode` in `meshbot.config`. It is separate from `EventsPasscode`: signing in to one never opens the other, and each has its own lockout (five wrong tries from one address lock it for 15 minutes). The passcode is read on every request, so changing it takes effect right away and signs everyone out. With no `ClaudePasscode` the page is off.
+- **Sign-in:** needs the admin login (see [Menus and admin sign-in](#menus-and-admin-sign-in)).
 - **All sessions summary** (top of the page): recorded cost, tokens in (new input plus cache writes), cache reads, tokens out, and the date range from the first session's start to the last activity. Totals cover every stored session, not just the filtered list, and include the tokens used by each session's subagents. Hover a token total for the exact count.
 - **List:** every session, most recent first, with its title, folder, last activity, number of turns, tokens used and subagents. Sessions that are open right now are marked **● open** or **● working**. Filter by title, folder or first prompt, and by date with **From**/**To** (filled in automatically with the first and last day in the history; a session shows when any of its activity falls in the range; **All dates** goes back to the full range). The list refreshes every 30 seconds.
 - **Conversation:** click a session to read your prompts, Claude's replies and a one-line summary of each tool call (hide them with **Show tool calls**). Tool *results* (command output, file contents) and Claude's thinking are never sent to the browser, since that is where secrets are most likely to appear. Very long sessions show their newest 1,500 entries.
 - **Read-only:** the page cannot start, stop or message a session.
 - Claude Code deletes old sessions after `cleanupPeriodDays` in `~/.claude/settings.json` (30 days by default), so they also disappear from this page.
 - The session file format is internal to Claude Code and may change between versions; records the page does not recognise are skipped.
-- Like the Events passcode, this one and the session text travel unencrypted over plain HTTP. Use HTTPS (e.g. a reverse proxy) before signing in over the internet.
+- Like the Events passcode, the admin password and the session text travel unencrypted over plain HTTP. Use HTTPS (e.g. a reverse proxy) before signing in over the internet.
 
 ### Network Access
 
@@ -346,6 +369,7 @@ messaging/
         node_monitor.py         Node announcement monitor
 tests/
     test_events.py              Event store + Events API tests
+    test_event_commands.py      Mesh !event / !events / !eventinfo commands
     test_claude.py              Claude sessions reader + /claude page tests
                                 (run: .venv/bin/python -m unittest discover -s tests -t .)
 log/
@@ -389,6 +413,13 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 ---
 
 ## Release Notes
+
+### v0.12.0 — 2026-11-26
+
+- New mesh commands for events: `!event` (the next event in one message), `!events` (numbered list of the next 5) and `!eventinfo [N|name]` (full details, split into several messages when long).
+- The About page's command reference now covers them, plus `!affirm`, `!tih` and `!tih_link`, which were missing. The Bot Test page has Event, Events and Event Info buttons.
+- New **Settings** menu: a gear at the right end of the menu bar holds Settings, Bot Test and About.
+- **Administration** now needs an admin login (`AdminUsername` and `AdminPassword` in `meshbot.config`): clicking it opens a sign-in page, and it holds Console, Claude and Sign out. The Console is admin-only now, and the admin login replaces `ClaudePasscode` for the Claude page.
 
 ### v0.11.1 — 2026-11-26
 

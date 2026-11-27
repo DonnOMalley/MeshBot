@@ -43,8 +43,16 @@
               <p style="color: var(--muted); font-size: 12px; font-family: var(--mono)">{{ bot_description }}</p>
               {% endif %}
               <p>
-                <strong>New in v0.11.0:</strong>
-                a passcode-protected <a href="/claude">Claude</a> page lists the Claude Code sessions on this computer.
+                <strong>New in v0.12.0:</strong>
+                mesh nodes can ask about events with
+                <span style="font-family: var(--mono); color: var(--accent)">!event</span>
+                (the next event),
+                <span style="font-family: var(--mono); color: var(--accent)">!events</span>
+                (the next 5) and
+                <span style="font-family: var(--mono); color: var(--accent)">!eventinfo</span>
+                (full details); see the Interaction tab. The gear at the right of the menu bar holds Settings, Bot Test and About, and
+                Administration (Console and Claude) now needs an admin sign-in.
+                v0.11.0 added a passcode-protected <a href="/claude">Claude</a> page listing the Claude Code sessions on this computer.
                 v0.10.3 brought better phone layouts: event pop-ups stay clear of the address bar with an easy-to-tap close button, and the
                 <a href="/mesh">Mesh</a>
                 dashboard puts Mesh Chat first.
@@ -156,6 +164,70 @@
                       <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
                     </td>
                   </tr>
+                  <tr>
+                    <td class="cmd-name">!affirm</td>
+                    <td class="cmd-syntax">!affirm</td>
+                    <td class="cmd-desc">
+                      Fetches an affirmation from affirmations.dev and replies with it. Falls back to a local cache when offline.
+                      <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="cmd-name">!tih</td>
+                    <td class="cmd-syntax">!tih</td>
+                    <td class="cmd-desc">
+                      Replies with a random Today in History event (
+                      <code>YEAR: what happened</code>
+                      ), shortened to fit one mesh message.
+                      <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="cmd-name">!tih_link</td>
+                    <td class="cmd-syntax">!tih_link</td>
+                    <td class="cmd-desc">
+                      Send it as a reply to one of the bot&rsquo;s
+                      <code>!tih</code>
+                      messages to get that event&rsquo;s Wikipedia link.
+                      <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="cmd-name">!event</td>
+                    <td class="cmd-syntax">!event</td>
+                    <td class="cmd-desc">
+                      Replies with the next event (or the one happening now) in one short message: its name, start time and place, plus the
+                      <code>!eventinfo</code>
+                      hint. Only approved events from the
+                      <a href="/events">Events</a>
+                      page are shown, in the event&rsquo;s own time zone.
+                      <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="cmd-name">!events</td>
+                    <td class="cmd-syntax">!events</td>
+                    <td class="cmd-desc">
+                      Replies with a numbered list of the next 5 events, each at its next date. A repeating event is listed once.
+                      <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="cmd-name">!eventinfo</td>
+                    <td class="cmd-syntax">!eventinfo [N | name]</td>
+                    <td class="cmd-desc">
+                      Replies with the full details of one event: time, how often it repeats, place or online link, description, website and contact.
+                      <em>N</em>
+                      is the number from
+                      <code>!events</code>
+                      (leave it off for the next event); any other text matches part of the event name (e.g.
+                      <code>!eventinfo coffee</code>
+                      ). Long details arrive as up to 5 numbered messages (
+                      <code>1/3 &hellip;</code>
+                      ), 2&nbsp;seconds apart.
+                      <span style="font-size: 10px; color: var(--muted); font-family: var(--mono)">user command</span>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -202,22 +274,22 @@
                   <tr>
                     <td class="cmd-name"><a href="/console" style="color: var(--accent); text-decoration: none">Console</a></td>
                     <td class="cmd-syntax">/console</td>
-                    <td class="cmd-desc">Live CRT-style console terminal mirroring all bot stdout&thinsp;/&thinsp;stderr output.</td>
+                    <td class="cmd-desc">Live CRT-style console terminal mirroring all bot stdout&thinsp;/&thinsp;stderr output. In the Administration menu; needs the admin sign-in.</td>
                   </tr>
                   <tr>
                     <td class="cmd-name"><a href="/dm" style="color: var(--accent); text-decoration: none">Bot Test</a></td>
                     <td class="cmd-syntax">/dm</td>
-                    <td class="cmd-desc">Interactive DM session with the bot. Quick-command buttons for every command; responses appear in a live conversation window.</td>
+                    <td class="cmd-desc">In the &#9881; Settings menu. Interactive DM session with the bot. Quick-command buttons for every command; responses appear in a live conversation window.</td>
                   </tr>
                   <tr>
                     <td class="cmd-name"><a href="/settings" style="color: var(--accent); text-decoration: none">Settings</a></td>
                     <td class="cmd-syntax">/settings</td>
-                    <td class="cmd-desc">Read-only view of the connected device&rsquo;s LoRa, device, owner, and channel configuration.</td>
+                    <td class="cmd-desc">In the &#9881; Settings menu. Read-only view of the connected device&rsquo;s LoRa, device, owner, and channel configuration.</td>
                   </tr>
                   <tr>
                     <td class="cmd-name"><a href="/about" style="color: var(--accent); text-decoration: none">About</a></td>
                     <td class="cmd-syntax">/about</td>
-                    <td class="cmd-desc">This page, in three tabs: General (bot info and release notes), Interaction (commands, dashboard guide and usage notes) and Configuration (config reference).</td>
+                    <td class="cmd-desc">In the &#9881; Settings menu. This page, in three tabs: General (bot info and release notes), Interaction (commands, dashboard guide and usage notes) and Configuration (config reference).</td>
                   </tr>
                 </tbody>
               </table>
@@ -350,6 +422,20 @@
                     <td class="cmd-syntax">--EncryptionKey</td>
                     <td class="cmd-syntax"><em>none</em></td>
                     <td class="cmd-desc">Passphrase used to encrypt the node database and chat history files. All instances sharing the same files must use the same key. Prefer setting via config file to avoid shell history exposure.</td>
+                  </tr>
+                  <tr>
+                    <td class="cmd-name">AdminUsername</td>
+                    <td class="cmd-syntax">AdminUsername</td>
+                    <td class="cmd-syntax"><em>config only</em></td>
+                    <td class="cmd-syntax"><em>none</em></td>
+                    <td class="cmd-desc">Username for the admin sign-in that opens the Administration menu (Console and Claude pages).</td>
+                  </tr>
+                  <tr>
+                    <td class="cmd-name">AdminPassword</td>
+                    <td class="cmd-syntax">AdminPassword</td>
+                    <td class="cmd-syntax"><em>config only</em></td>
+                    <td class="cmd-syntax"><em>none</em></td>
+                    <td class="cmd-desc">Password for the admin sign-in. Leave it or the username blank to turn Administration off. Read on every request, so changes apply right away and sign every admin out.</td>
                   </tr>
                   <tr>
                     <td class="cmd-name">Verbose</td>

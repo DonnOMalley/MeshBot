@@ -1,15 +1,22 @@
 from __future__ import annotations
+import os
 import threading
+from commands.event_command_helper import EventCommandHelper
 from commands.user_command_helper import UserCommandHelper
+from common.encryption_helper import EncryptionHelper
 from common.meshtastic_helper import MeshtasticHelper
 from configuration.node_configuration import NodeConfiguration
 from messaging.command_handler import CommandHandler
 from meshtastic import channel_pb2, mesh_pb2
 from meshtastic.mesh_interface import MeshInterface
 from common.chat_history import ChatHistory
+from web.event_store import EventStore
 
 from common.constants import (
     CMD_AFFIRM,
+    CMD_EVENT,
+    CMD_EVENT_INFO,
+    CMD_EVENTS,
     CMD_JOKE,
     CMD_HELLO,
     CMD_RANGE,
@@ -17,9 +24,12 @@ from common.constants import (
     CMD_TIH_LINK,
     _AFFIRM_CONSOLE_SENT,
     _CMD_SEND_DELAY,
+    _EVENT_CMD_CONSOLE_SENT,
+    _EVENTS_SUBDIR,
     _HELLO_CONSOLE_RESPONSE,
     _JOKE_CONSOLE_SENT,
     _NODE_DB_DIR,
+    _NODE_DB_SALT_FILE,
     _CHAT_HISTORY_BOT_SENDER,
     _PACKET_KEY_DECODED,
     _PACKET_KEY_WEB_RESPONSES,
@@ -53,6 +63,7 @@ class UserCommands:
     _chat_history: ChatHistory | None
     _verbose: bool
     _helper: UserCommandHelper
+    _events: EventCommandHelper
     _range_test_requests: int
     _range_test_delay_minutes: int
     # endregion Protected Variables
@@ -68,6 +79,7 @@ class UserCommands:
         data_dir: str = _NODE_DB_DIR,
         range_test_requests: int = _RANGE_TEST_DEFAULT_REQUESTS,
         range_test_delay_minutes: int = _RANGE_TEST_DEFAULT_DELAY_MINUTES,
+        passphrase: str | None = None,
     ) -> None:
         """Initialises the user commands with an active interface and target channel.
 
@@ -83,6 +95,8 @@ class UserCommands:
                                   to [1, 10]. Defaults to 5.
             range_test_delay_minutes: Minutes between each !range message. Clamped
                                        to [1, 10]. Defaults to 1.
+            passphrase: The EncryptionKey, needed to read the encrypted event
+                        files for the !event commands. None = plain files.
         """
         self._iface = iface
         self._config = config
@@ -92,6 +106,13 @@ class UserCommands:
         self._helper = UserCommandHelper(data_dir=data_dir)
         self._range_test_requests = range_test_requests
         self._range_test_delay_minutes = range_test_delay_minutes
+        store: EventStore | None = None
+        try:
+            key: bytes | None = EncryptionHelper.resolve_key(passphrase, os.path.join(data_dir, _NODE_DB_SALT_FILE)) if passphrase else None
+            store = EventStore(os.path.join(data_dir, _EVENTS_SUBDIR), key)
+        except (OSError, ValueError) as exc:
+            print(f"[EVENTS] Event commands unavailable: {exc}")
+        self._events = EventCommandHelper(store)
     # endregion Constructor
 
     # region Protected Functions
@@ -304,6 +325,60 @@ class UserCommands:
                         chat_sender=_CHAT_HISTORY_BOT_SENDER,
                     ),
                 ).start()
+
+    def _reply_parts(self, sender: str, packet: dict, parts: list[str], kind: str) -> mesh_pb2.MeshPacket | None:
+        """Sends one or more reply messages to *sender* (or hands them to the web DM page).
+
+        The first part replies to the request right away; the rest follow
+        ``_CMD_SEND_DELAY`` seconds apart on timers so the receive thread is
+        never blocked and the radio is not flooded.
+        """
+        result: mesh_pb2.MeshPacket | None = None
+        if MeshtasticHelper.is_web_user_packet(packet):
+            packet[_PACKET_KEY_DECODED][_PACKET_KEY_WEB_RESPONSES] = list(parts)
+        elif parts:
+            destination: str | None = MeshtasticHelper.get_message_destination_id(packet, sender, self._config.node_id)
+            result = MeshtasticHelper.send_text_message(
+                iface=self._iface,
+                channelIndex=self._channel.index,
+                packet=packet,
+                message=parts[0],
+                consoleMsg=_EVENT_CMD_CONSOLE_SENT.format(kind=kind, sender=sender, parts=len(parts)) if self._verbose else None,
+                destinationId=destination,
+                chat_history=self._chat_history,
+                chat_sender=_CHAT_HISTORY_BOT_SENDER,
+            )
+            for i, part in enumerate(parts[1:], 1):
+                threading.Timer(
+                    _CMD_SEND_DELAY * i,
+                    MeshtasticHelper.send_text_message,
+                    kwargs=dict(
+                        iface=self._iface,
+                        channelIndex=self._channel.index,
+                        packet={},
+                        message=part,
+                        destinationId=destination,
+                        chat_history=self._chat_history,
+                        chat_sender=_CHAT_HISTORY_BOT_SENDER,
+                    ),
+                ).start()
+        return result
+
+    def _cmd_event(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
+        """Replies to ``!event`` with the next event's name, time and place (one message)."""
+        return self._reply_parts(sender, packet, [self._events.compute_next()], "summary")
+
+    def _cmd_events(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
+        """Replies to ``!events`` with a numbered list of the next few events (one message)."""
+        return self._reply_parts(sender, packet, [self._events.compute_list()], "list")
+
+    def _cmd_event_info(self, sender: str, params: str, packet: dict) -> mesh_pb2.MeshPacket | None:
+        """Replies to ``!eventinfo [N|name]`` with the full details of one event.
+
+        ``N`` is the number shown by ``!events`` (none = the next event); other
+        text matches the event name. Long details are sent as several messages.
+        """
+        return self._reply_parts(sender, packet, self._events.compute_details(params), "details")
     # endregion Protected Functions
 
     # region Public Functions
@@ -321,5 +396,8 @@ class UserCommands:
             CMD_RANGE: self._cmd_range_test,
             CMD_TIH: self._cmd_tih,
             CMD_TIH_LINK: self._cmd_tih_link,
+            CMD_EVENT: self._cmd_event,
+            CMD_EVENTS: self._cmd_events,
+            CMD_EVENT_INFO: self._cmd_event_info,
         }
     # endregion Public Functions

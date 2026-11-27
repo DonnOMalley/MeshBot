@@ -13,10 +13,11 @@ import tempfile
 import threading
 import time
 import zipfile
+from urllib.parse import quote
 from datetime import datetime, timezone
 from typing import cast
 
-from flask import Flask, Response, abort, jsonify, render_template, request, send_file, send_from_directory, session
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_file, send_from_directory, session
 from google.protobuf.json_format import MessageToDict
 from meshtastic import channel_pb2
 from meshtastic.mesh_interface import MeshInterface
@@ -84,11 +85,13 @@ from common.constants import (
     _ZEN_QUOTES_KEY_QUOTE,
 )
 from common.constants import (
-    _CLAUDE_AUTH_DISABLED,
-    _CLAUDE_AUTH_REQUIRED,
+    _ADMIN_AUTH_DISABLED,
+    _ADMIN_AUTH_REQUIRED,
+    _ADMIN_AUTH_WRONG,
+    _ADMIN_PASSWORD_CONFIG_KEY,
+    _ADMIN_SESSION_KEY,
+    _ADMIN_USERNAME_CONFIG_KEY,
     _CLAUDE_HOME_DIR,
-    _CLAUDE_PASSCODE_CONFIG_KEY,
-    _CLAUDE_SESSION_VIEWER_KEY,
     _CONFIG_SECTION,
     _DEFAULT_CONFIG_FILE,
     _EVENTS_AUTH_DISABLED,
@@ -370,7 +373,7 @@ class WebServer:
         self._event_store = EventStore(os.path.join(data_dir, _EVENTS_SUBDIR), self._fernet_key)
         self._config_file = config_file
         self._auth_failures = {}
-        self._claude_auth_failures = {}
+        self._admin_auth_failures = {}
         self._claude_reader = ClaudeSessionReader(_CLAUDE_HOME_DIR)
         self._submissions = {}
         self._auth_lock = threading.Lock()
@@ -389,7 +392,7 @@ class WebServer:
             passphrase=passphrase,
             chat_history=None,
             web_url=_WEB_DASHBOARD_URL.format(host=host, port=port),
-            user_defined_commands=UserCommands(iface, config, channel, verbose=self._verbose).get_commands(),
+            user_defined_commands=UserCommands(iface, config, channel, verbose=self._verbose, data_dir=data_dir, passphrase=passphrase).get_commands(),
         )
         
         #print("Command Register built with commands:", self._dm_command_register._commands.keys())
@@ -414,6 +417,7 @@ class WebServer:
         self._server_thread = None
         self._web_users = {}
         logging.getLogger("werkzeug").setLevel(logging.WARNING)
+        self._app.context_processor(lambda: {"is_admin": self._is_admin()})
         self._register_routes()
     # endregion Constructor
 
@@ -716,20 +720,41 @@ class WebServer:
         """Reads ``EventsPasscode`` from the config file; None when unset or unreadable."""
         return self._config_passcode(_EVENTS_PASSCODE_CONFIG_KEY)
 
-    def _claude_passcode(self) -> str | None:
-        """Reads ``ClaudePasscode`` from the config file; None when unset or unreadable."""
-        return self._config_passcode(_CLAUDE_PASSCODE_CONFIG_KEY)
+    def _admin_login(self) -> tuple[str, str] | None:
+        """Reads ``AdminUsername``/``AdminPassword`` from the config file; None unless both are set."""
+        username: str | None = self._config_passcode(_ADMIN_USERNAME_CONFIG_KEY)
+        password: str | None = self._config_passcode(_ADMIN_PASSWORD_CONFIG_KEY)
+        return (username, password) if username and password else None
 
-    def _is_claude_viewer(self) -> bool:
-        """True when this browser session signed in with the current Claude passcode."""
-        passcode: str | None = self._claude_passcode()
-        stored: str = str(session.get(_CLAUDE_SESSION_VIEWER_KEY, ""))
-        return passcode is not None and bool(stored) and hmac.compare_digest(stored, self._passcode_fingerprint(passcode, "meshbot-claude:"))
+    def _is_admin(self) -> bool:
+        """True when this browser session signed in with the current admin login.
 
-    def _claude_auth_error(self):
-        """The 403 returned when a Claude page request is not signed in."""
-        message: str = _CLAUDE_AUTH_REQUIRED if self._claude_passcode() else _CLAUDE_AUTH_DISABLED
+        The login is read from the config file on every check, so changing the
+        username or password signs every admin out.
+        """
+        login: tuple[str, str] | None = self._admin_login()
+        stored: str = str(session.get(_ADMIN_SESSION_KEY, ""))
+        return login is not None and bool(stored) and hmac.compare_digest(stored, self._admin_fingerprint(login))
+
+    def _admin_fingerprint(self, login: tuple[str, str]) -> str:
+        """Value kept in the session cookie for a signed-in admin."""
+        return self._passcode_fingerprint(login[0] + "\n" + login[1], "meshbot-admin:")
+
+    def _admin_auth_error(self):
+        """The 403 returned when an admin-only API request is not signed in."""
+        message: str = _ADMIN_AUTH_REQUIRED if self._admin_login() else _ADMIN_AUTH_DISABLED
         return self._no_store(jsonify({"error": message, "auth_required": True})), 403
+
+    @staticmethod
+    def _safe_next(target: str | None) -> str:
+        """A same-site path to return to after signing in (never another site)."""
+        value: str = str(target or "")
+        ok: bool = value.startswith("/") and not value.startswith("//") and "\\" not in value and not value.startswith("/admin/")
+        return value if ok else "/console"
+
+    def _admin_login_redirect(self):
+        """Sends a signed-out visitor of an admin page to the sign-in page."""
+        return redirect("/admin/login?next=" + quote(request.path, safe="/"))
 
     @staticmethod
     def _no_store(response: Response) -> Response:
@@ -1090,12 +1115,53 @@ class WebServer:
             )
             return jsonify(list(reversed(messages)))
 
+        @self._app.route("/admin/login", methods=["GET", "POST"])
+        def admin_login():
+            target: str = self._safe_next(request.values.get("next"))
+            if self._is_admin():
+                return redirect(target)
+            enabled: bool = self._admin_login() is not None
+            error: str = "" if enabled else _ADMIN_AUTH_DISABLED
+            username: str = ""
+            status: int = 200
+            if request.method == "POST" and enabled:
+                client: str = request.remote_addr or "unknown"
+                wait: float = self._limit_wait_seconds(self._admin_auth_failures, client, _EVENTS_AUTH_MAX_FAILURES, _EVENTS_AUTH_WINDOW_SECONDS)
+                username = str(request.form.get("username", "")).strip()[:100]
+                password: str = str(request.form.get("password", ""))
+                login: tuple[str, str] | None = self._admin_login()
+                if wait > 0:
+                    error, status = _EVENTS_AUTH_LOCKED.format(minutes=max(1, int(wait // 60) + 1)), 429
+                elif login is not None:
+                    # Compare both parts every time so a wrong username takes as long as a wrong password.
+                    user_ok: bool = hmac.compare_digest(username.encode("utf-8"), login[0].encode("utf-8"))
+                    pass_ok: bool = hmac.compare_digest(password.encode("utf-8"), login[1].encode("utf-8"))
+                    if user_ok and pass_ok:
+                        session[_ADMIN_SESSION_KEY] = self._admin_fingerprint(login)
+                        return redirect(target)
+                    self._record_hit(self._admin_auth_failures, client)
+                    error, status = _ADMIN_AUTH_WRONG, 401
+            page: str = render_template(
+                "admin_login.html", bot_name=self._bot_name, bot_description=self._bot_description,
+                enabled=enabled, error=error, username=username, next_path=target,
+            )
+            return self._no_store(Response(page, status=status, mimetype="text/html"))
+
+        @self._app.route("/admin/logout")
+        def admin_logout():
+            session.pop(_ADMIN_SESSION_KEY, None)
+            return redirect("/")
+
         @self._app.route("/console")
         def console():
+            if not self._is_admin():
+                return self._admin_login_redirect()
             return render_template("console.html", bot_name=self._bot_name, bot_description=self._bot_description)
 
         @self._app.route("/api/console")
         def api_console():
+            if not self._is_admin():
+                return self._admin_auth_error()
             after_raw: str = request.args.get("after", "-1")
             after: int = int(after_raw) if after_raw.lstrip("-").isdigit() else -1
             if self._console_logger is not None:
@@ -1289,45 +1355,20 @@ class WebServer:
 
         @self._app.route("/claude")
         def claude_page():
+            if not self._is_admin():
+                return self._admin_login_redirect()
             return render_template("claude.html", bot_name=self._bot_name, bot_description=self._bot_description)
-
-        @self._app.route("/api/claude/auth", methods=["GET"])
-        def api_claude_auth_status():
-            return self._no_store(jsonify({"enabled": self._claude_passcode() is not None, "viewer": self._is_claude_viewer()}))
-
-        @self._app.route("/api/claude/auth", methods=["POST"])
-        def api_claude_sign_in():
-            passcode: str | None = self._claude_passcode()
-            if passcode is None:
-                return jsonify({"error": _CLAUDE_AUTH_DISABLED}), 503
-            client: str = request.remote_addr or "unknown"
-            wait: float = self._limit_wait_seconds(self._claude_auth_failures, client, _EVENTS_AUTH_MAX_FAILURES, _EVENTS_AUTH_WINDOW_SECONDS)
-            if wait > 0:
-                minutes: int = max(1, int(wait // 60) + 1)
-                return jsonify({"error": _EVENTS_AUTH_LOCKED.format(minutes=minutes)}), 429
-            body: dict = request.get_json(force=True, silent=True) or {}
-            attempt: str = str(body.get("passcode", "")).strip()
-            if not hmac.compare_digest(attempt.encode("utf-8"), passcode.encode("utf-8")):
-                self._record_hit(self._claude_auth_failures, client)
-                return jsonify({"error": _EVENTS_AUTH_WRONG}), 401
-            session[_CLAUDE_SESSION_VIEWER_KEY] = self._passcode_fingerprint(passcode, "meshbot-claude:")
-            return jsonify({"enabled": True, "viewer": True})
-
-        @self._app.route("/api/claude/auth", methods=["DELETE"])
-        def api_claude_sign_out():
-            session.pop(_CLAUDE_SESSION_VIEWER_KEY, None)
-            return jsonify({"enabled": self._claude_passcode() is not None, "viewer": False})
 
         @self._app.route("/api/claude/sessions", methods=["GET"])
         def api_claude_sessions():
-            if not self._is_claude_viewer():
-                return self._claude_auth_error()
+            if not self._is_admin():
+                return self._admin_auth_error()
             return self._no_store(jsonify({"sessions": self._claude_reader.list_sessions()}))
 
         @self._app.route("/api/claude/sessions/<session_id>", methods=["GET"])
         def api_claude_session(session_id: str):
-            if not self._is_claude_viewer():
-                return self._claude_auth_error()
+            if not self._is_admin():
+                return self._admin_auth_error()
             detail: dict | None = self._claude_reader.get_session(session_id)
             if detail is None:
                 return self._no_store(jsonify({"error": "No such Claude session."})), 404
