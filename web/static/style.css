@@ -4323,8 +4323,51 @@ body.tih-page main {
   min-height: 520px;
 }
 
+.ev-agenda-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+}
+
 .ev-agenda-nav {
+  flex: 1 1 260px;
   max-width: 360px;
+}
+
+.ev-agenda-past-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  user-select: none;
+}
+
+.ev-agenda-hidden-note {
+  text-align: center;
+  margin: 0;
+}
+
+.ev-agenda-past {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 14px;
+  border-top: 2px dashed var(--border);
+}
+
+.ev-agenda-past-heading {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+
+.ev-agenda-past .ev-agenda-date {
+  color: var(--muted);
 }
 
 .ev-agenda-list {

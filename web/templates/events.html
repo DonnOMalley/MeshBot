@@ -56,10 +56,16 @@
 
         <!-- Agenda view -->
         <div id="ev-agenda-view" class="panel-body ev-agenda" hidden>
-          <div class="tih-month-nav ev-agenda-nav">
-            <button id="ev-agenda-prev-btn" class="tih-nav-btn" title="Previous month">&#8249;</button>
-            <span id="ev-agenda-label" class="tih-month-label">Loading&hellip;</span>
-            <button id="ev-agenda-next-btn" class="tih-nav-btn" title="Next month">&#8250;</button>
+          <div class="ev-agenda-toolbar">
+            <div class="tih-month-nav ev-agenda-nav">
+              <button id="ev-agenda-prev-btn" class="tih-nav-btn" title="Previous month">&#8249;</button>
+              <span id="ev-agenda-label" class="tih-month-label">Loading&hellip;</span>
+              <button id="ev-agenda-next-btn" class="tih-nav-btn" title="Next month">&#8250;</button>
+            </div>
+            <label class="ev-agenda-past-toggle">
+              <input type="checkbox" id="ev-agenda-hide-past" checked />
+              Hide past events
+            </label>
           </div>
           <div id="ev-agenda-list" class="ev-agenda-list"></div>
         </div>

@@ -26,6 +26,7 @@ let _evFormRemoveImage = false;
 let _evPreviewUrl = null;
 let _evAuth = { enabled: false, editor: false };
 let _evAfterSignIn = null; // action to run once the organizer signs in
+let _evAgendaHidePast = true; // agenda: leave out events that have ended
 
 // ── Initialisation ──────────────────────────────────────────────────────────
 
@@ -37,6 +38,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("ev-next-btn").addEventListener("click", () => _evShiftMonth(1));
   document.getElementById("ev-agenda-prev-btn").addEventListener("click", () => _evShiftMonth(-1));
   document.getElementById("ev-agenda-next-btn").addEventListener("click", () => _evShiftMonth(1));
+  const hidePast = document.getElementById("ev-agenda-hide-past");
+  hidePast.checked = _evAgendaHidePast;
+  hidePast.addEventListener("change", () => {
+    _evAgendaHidePast = hidePast.checked;
+    _evRenderAgenda();
+  });
   document.getElementById("ev-today-btn").addEventListener("click", _evGoToday);
   document.getElementById("ev-view-calendar").addEventListener("click", () => _evSetView("calendar"));
   document.getElementById("ev-view-agenda").addEventListener("click", () => _evSetView("agenda"));
@@ -540,15 +547,38 @@ function _evRenderDay() {
 function _evRenderAgenda() {
   const list = document.getElementById("ev-agenda-list");
   list.innerHTML = "";
-  const monthStart = new Date(_evYear, _evMonth, 1);
-  const monthEvents = _evEventsInMonth(_evYear, _evMonth);
+  // Re-check each event's status now (not as of the last API load), so an event
+  // that ended while the page was open is sorted and labelled the same way.
+  const monthEvents = _evEventsInMonth(_evYear, _evMonth).map((ev) => Object.assign({}, ev, { status: _evOccStatus(ev._start, ev._end) }));
   if (!monthEvents.length) {
     list.appendChild(_el("p", { class: "tih-events-empty" }, "No events this month."));
     return;
   }
+  // Events still to come (or happening now) first, then the ones that have ended.
+  const isPast = (ev) => ev.status === "past";
+  const upcoming = monthEvents.filter((ev) => !isPast(ev));
+  const past = monthEvents.filter(isPast);
+  const pastNote = `${past.length} past event${past.length === 1 ? "" : "s"}`;
+
+  if (upcoming.length) _evAppendAgendaGroups(list, upcoming);
+  else list.appendChild(_el("p", { class: "tih-events-empty" }, "No upcoming events this month." + (_evAgendaHidePast ? ` ${pastNote} hidden.` : "")));
+
+  if (!past.length) return;
+  if (_evAgendaHidePast) {
+    if (upcoming.length) list.appendChild(_el("p", { class: "ev-muted ev-agenda-hidden-note" }, `${pastNote} hidden — untick “Hide past events” to see them.`));
+    return;
+  }
+  const section = _el("div", { class: "ev-agenda-past" }, [_el("div", { class: "ev-agenda-past-heading" }, "Past events")]);
+  _evAppendAgendaGroups(section, past);
+  list.appendChild(section);
+}
+
+// Appends events (sorted by start) to container, grouped under a heading per day.
+function _evAppendAgendaGroups(container, events) {
+  const monthStart = new Date(_evYear, _evMonth, 1);
   let lastKey = null;
   let group = null;
-  monthEvents.forEach((ev) => {
+  events.forEach((ev) => {
     // Events that began last month are listed under the 1st.
     const anchor = ev._start < monthStart ? monthStart : ev._start;
     const key = _evKey(anchor);
@@ -556,7 +586,7 @@ function _evRenderAgenda() {
       lastKey = key;
       const isToday = key === _evKey(new Date());
       group = _el("div", { class: "ev-agenda-group" }, [_el("div", { class: "ev-agenda-date" + (isToday ? " is-today" : "") }, _evFmtDate(anchor, false) + (isToday ? " · Today" : ""))]);
-      list.appendChild(group);
+      container.appendChild(group);
     }
     group.appendChild(_evCard(ev));
   });
