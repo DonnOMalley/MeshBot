@@ -7,6 +7,7 @@ const _CL_REFRESH_MS = 30_000;
 let _clSessions = [];
 let _clSelected = null;
 let _clTimer = null;
+let _clDatesTouched = false; // false: the date range follows the data as it grows
 
 document.addEventListener("DOMContentLoaded", () => {
   const label = document.getElementById("refresh-label");
@@ -14,6 +15,17 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("cl-auth-form").addEventListener("submit", _clSignIn);
   document.getElementById("cl-signout").addEventListener("click", _clSignOut);
   document.getElementById("cl-filter").addEventListener("input", _clRenderList);
+  ["cl-date-from", "cl-date-to"].forEach((id) =>
+    document.getElementById(id).addEventListener("change", () => {
+      _clDatesTouched = true;
+      _clRenderList();
+    })
+  );
+  document.getElementById("cl-date-reset").addEventListener("click", () => {
+    _clDatesTouched = false;
+    _clSyncDateRange();
+    _clRenderList();
+  });
   document.getElementById("cl-show-tools").addEventListener("change", (e) => {
     document.getElementById("cl-messages").classList.toggle("cl-hide-tools", !e.target.checked);
   });
@@ -104,10 +116,36 @@ async function _clLoadList() {
   try {
     _clSessions = (await _clFetch("/api/claude/sessions")).sessions;
     _clRenderSummary();
+    _clSyncDateRange();
     _clRenderList();
   } catch (ex) {
     document.getElementById("cl-list").replaceChildren(_clEl("li", "cl-error", ex.message));
   }
+}
+
+// Sets the date pickers' limits to the first and last day in the history. Until
+// the user picks dates, the range follows the data (new sessions extend it).
+function _clSyncDateRange() {
+  const days = _clSessions.flatMap((s) => [s.started, s.updated]).filter(Boolean).map(_clYmd).sort();
+  const fromEl = document.getElementById("cl-date-from");
+  const toEl = document.getElementById("cl-date-to");
+  const min = days[0] || "";
+  const max = days[days.length - 1] || "";
+  [fromEl, toEl].forEach((el) => {
+    el.min = min;
+    el.max = max;
+  });
+  if (!_clDatesTouched) {
+    fromEl.value = min;
+    toEl.value = max;
+  }
+  document.getElementById("cl-date-reset").disabled = !_clDatesTouched;
+}
+
+// Local calendar day of an ISO time, as "YYYY-MM-DD" (what <input type=date> uses).
+function _clYmd(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Totals across every stored session (ignores the filter box), subagents included.
@@ -165,7 +203,15 @@ function _clDayRange(fromIso, toIso) {
 
 function _clRenderList() {
   const query = document.getElementById("cl-filter").value.trim().toLowerCase();
-  const shown = _clSessions.filter((s) => !query || [s.title, s.cwd, s.first_prompt].some((v) => (v || "").toLowerCase().includes(query)));
+  const from = document.getElementById("cl-date-from").value; // "YYYY-MM-DD" or ""
+  const to = document.getElementById("cl-date-to").value;
+  const shown = _clSessions.filter(
+    (s) =>
+      (!query || [s.title, s.cwd, s.first_prompt].some((v) => (v || "").toLowerCase().includes(query))) &&
+      // A session counts when its activity overlaps the range (it may span days).
+      (!from || !s.updated || _clYmd(s.updated) >= from) &&
+      (!to || !s.started || _clYmd(s.started) <= to)
+  );
   document.getElementById("cl-count").textContent = `${shown.length} of ${_clSessions.length}`;
   const total = shown.reduce((sum, s) => sum + _clTotalTokens(s), 0);
   const cost = shown.reduce((sum, s) => sum + (s.cost_usd || 0), 0);

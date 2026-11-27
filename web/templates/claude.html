@@ -41,6 +41,11 @@
           </div>
           <div class="cl-list-tools">
             <input type="search" id="cl-filter" placeholder="Filter by title, folder or prompt" aria-label="Filter sessions" />
+            <div class="cl-dates">
+              <label>From <input type="date" id="cl-date-from" aria-label="Active on or after" /></label>
+              <label>To <input type="date" id="cl-date-to" aria-label="Active on or before" /></label>
+              <button type="button" id="cl-date-reset" class="cl-date-reset" title="Show every date">All dates</button>
+            </div>
           </div>
           <p class="cl-totals" id="cl-totals"></p>
           <ul class="cl-list" id="cl-list"><li class="cl-muted">Loading&hellip;</li></ul>
