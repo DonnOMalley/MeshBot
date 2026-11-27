@@ -233,7 +233,7 @@ The **Bot Test** page (`/dm`) lets you send direct messages to the bot from the 
 The **Settings** page (`/settings`) displays a read-only view of the connected Meshtastic device's configuration:
 
 - **LoRa Settings** — region, modem preset, and key radio parameters.
-- **Device Settings** — device role, serial, GPS, debug, and power settings.
+- **Device Settings** — firmware version, device role, serial, GPS, debug, and power settings.
 - **Owner** — the node's long name, short name, and hardware model.
 - **Channels** — all configured channel slots with their name, role, and PSK status.
 
@@ -431,6 +431,11 @@ When an `EncryptionKey` is provided, the node database, favourites, chat history
 ---
 
 ## Release Notes
+
+### v0.13.8 — 2026-11-27
+
+- Added `CLAUDE.md` with project notes for Claude Code: every change merged into `main` gets its own version and release notes, the coding standards and PR workflow, how to run the tests, and that `~/source/MeshBot` is a symlink to the same checkout.
+- The **Settings** section of this README now lists the firmware version under **Device Settings**.
 
 ### v0.13.7 — 2026-11-27
 
