@@ -345,10 +345,11 @@ class EventStore:
     edited to end in the future moves back to the current file.
 
     Images (the event's own picture and participant photos) are stored one file
-    per image under ``images/<event_id>/``, encrypted with the same key. Each
-    image has a small ``_thumb`` companion produced by the browser. The file
-    extension comes from the image's own bytes (``cover.jpg``, ``<id>_thumb.webp``);
-    encrypted files get ``.enc`` on the end (``cover.jpg.enc``).
+    per image under ``images/<event_id>/``, exactly as uploaded and never
+    encrypted, so they open straight from disk. Each image has a small
+    ``_thumb`` companion produced by the browser. The file extension comes from
+    the image's own bytes (``cover.jpg``, ``<id>_thumb.webp``). A photo's EXIF
+    sidecar is still encrypted when a key is configured (``.json.enc``).
 
     Thread-safe: every public method holds a single lock.
     """
@@ -367,8 +368,9 @@ class EventStore:
         Args:
             events_dir: Directory holding the event files and image folders.
                         Created if it does not exist.
-            key: Fernet key used to encrypt files at rest, or ``None`` to store
-                 plain JSON and plain image bytes.
+            key: Fernet key used to encrypt the event files and EXIF at rest,
+                 or ``None`` to store them as plain JSON. Images are always
+                 stored as plain image files.
         """
         self._events_dir = events_dir
         self._images_dir = os.path.join(events_dir, _EVENTS_IMAGES_SUBDIR)
@@ -830,11 +832,11 @@ class EventStore:
                         os.remove(path)
 
     def save_image(self, event_id: str, name: str, data: bytes) -> None:
-        """Writes one image file, encrypted when a key is configured.
+        """Writes one image file exactly as given (never encrypted).
 
-        The file is named for its type (``cover.png``, or ``cover.png.enc`` when
-        encrypted). Any older copy of the same image under another extension,
-        e.g. a JPEG cover replaced by a PNG, is removed.
+        The file is named for its type (``cover.png``). Any older copy of the
+        same image under another extension, e.g. a JPEG cover replaced by a
+        PNG, is removed.
 
         Raises:
             ValueError: The path is invalid or *data* is not a supported image.
@@ -846,15 +848,14 @@ class EventStore:
             raise ValueError("Not a JPEG, PNG, GIF or WebP image")
         with self._lock:
             os.makedirs(self._event_image_dir(event_id), exist_ok=True)
-            payload: bytes = self._fernet.encrypt(data) if self._fernet is not None else data
             path: str = self._image_path(event_id, name, mime)
-            self._write_atomic(path, payload)
+            self._write_atomic(path, data)
             for stale in self._existing_image_paths(event_id, name):
                 if stale != path:
                     os.remove(stale)
 
     def read_image(self, event_id: str, name: str) -> bytes | None:
-        """Returns the decrypted bytes of one image, or None if missing/unreadable."""
+        """Returns the bytes of one image, or None if missing/unreadable."""
         result: bytes | None = None
         if EventStore.is_valid_id(event_id) and EventStore.is_valid_image_name(name):
             with self._lock:
@@ -892,11 +893,8 @@ class EventStore:
         return os.path.join(self._images_dir, event_id)
 
     def _image_path(self, event_id: str, name: str, mime: str) -> str:
-        """Where an image of type *mime* is stored under the current encryption setting."""
-        filename: str = name + _EVENTS_IMAGE_EXTENSIONS[mime]
-        if self._fernet is not None:
-            filename += _EVENTS_ENCRYPTED_EXT
-        return os.path.join(self._event_image_dir(event_id), filename)
+        """Where an image of type *mime* is stored (``cover.png``)."""
+        return os.path.join(self._event_image_dir(event_id), name + _EVENTS_IMAGE_EXTENSIONS[mime])
 
     def _exif_path(self, event_id: str, photo_id: str) -> str:
         """Where a photo's EXIF is stored under the current encryption setting."""
@@ -911,31 +909,17 @@ class EventStore:
         return self._fernet.encrypt(data) if self._fernet is not None else data
 
     def _existing_image_paths(self, event_id: str, name: str) -> list[str]:
-        """Every file on disk holding image *name*: any type, encrypted or not."""
+        """Every file on disk holding image *name*, of any image type."""
         folder: str = self._event_image_dir(event_id)
-        candidates: list[str] = []
-        for ext in _EVENTS_IMAGE_EXTENSIONS.values():
-            candidates.append(os.path.join(folder, name + ext + _EVENTS_ENCRYPTED_EXT))
-            candidates.append(os.path.join(folder, name + ext))
+        candidates: list[str] = [os.path.join(folder, name + ext) for ext in _EVENTS_IMAGE_EXTENSIONS.values()]
         return [p for p in candidates if os.path.isfile(p)]
 
-    def _read_image_file(self, path: str) -> bytes | None:
-        """Reads one image file, decrypting it when it is encrypted.
-
-        Plain files (written before a key was set) are returned as-is if they
-        hold a recognisable image.
-        """
+    @staticmethod
+    def _read_image_file(path: str) -> bytes | None:
+        """Reads one image file; None unless it holds a recognisable image."""
         with open(path, "rb") as f:
             raw: bytes = f.read()
-        result: bytes | None = None
-        if self._fernet is not None and path.endswith(_EVENTS_ENCRYPTED_EXT):
-            try:
-                result = self._fernet.decrypt(raw)
-            except InvalidToken:
-                pass
-        if result is None and EventStore.detect_image_type(raw) is not None:
-            result = raw
-        return result
+        return raw if EventStore.detect_image_type(raw) is not None else None
 
     @staticmethod
     def _write_atomic(path: str, payload: bytes) -> None:
