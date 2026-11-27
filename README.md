@@ -254,6 +254,7 @@ The **Events** page (`/events`, next to History in the menu) lists community eve
 The **Claude** page (`/claude`, under **Administration**) shows the Claude Code sessions stored on the computer running the bot, read from `~/.claude` of the user the bot runs as.
 
 - **Sign-in:** needs the passcode set as `ClaudePasscode` in `meshbot.config`. It is separate from `EventsPasscode`: signing in to one never opens the other, and each has its own lockout (five wrong tries from one address lock it for 15 minutes). The passcode is read on every request, so changing it takes effect right away and signs everyone out. With no `ClaudePasscode` the page is off.
+- **All sessions summary** (top of the page): recorded cost, tokens in (new input plus cache writes), cache reads, tokens out, and the date range from the first session's start to the last activity. Totals cover every stored session, not just the filtered list, and include the tokens used by each session's subagents. Hover a token total for the exact count.
 - **List:** every session, most recent first, with its title, folder, last activity, number of turns, tokens used and subagents. Sessions that are open right now are marked **● open** or **● working**. Filter by title, folder or first prompt. The list refreshes every 30 seconds.
 - **Conversation:** click a session to read your prompts, Claude's replies and a one-line summary of each tool call (hide them with **Show tool calls**). Tool *results* (command output, file contents) and Claude's thinking are never sent to the browser, since that is where secrets are most likely to appear. Very long sessions show their newest 1,500 entries.
 - **Read-only:** the page cannot start, stop or message a session.
@@ -388,6 +389,11 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 ---
 
 ## Release Notes
+
+### v0.11.1 — 2026-11-26
+
+- The Claude page opens with an **All sessions** summary: recorded cost, tokens in, cache reads, tokens out, and the date range from the first session to the latest activity.
+- Session token counts now include the work done by each session's subagents.
 
 ### v0.11.0 — 2026-11-26
 

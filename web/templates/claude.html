@@ -26,7 +26,13 @@
       </section>
 
       <!-- Signed in -->
-      <div class="cl-layout" id="cl-app" hidden>
+      <div id="cl-app" hidden>
+      <!-- Totals across every stored session (filled by claude.js) -->
+      <section class="panel cl-summary" id="cl-summary" aria-label="All sessions summary">
+        <div class="panel-header"><span class="panel-header-text">&#128202; All sessions</span><span class="cl-count" id="cl-summary-range"></span></div>
+        <div class="cl-summary-grid" id="cl-summary-grid"><p class="cl-muted">Loading&hellip;</p></div>
+      </section>
+      <div class="cl-layout">
         <section class="panel cl-list-panel">
           <div class="panel-header">
             <span class="panel-header-text">&#129302; Claude sessions</span>
@@ -51,6 +57,7 @@
             <p class="cl-muted">Pick a session to read it.</p>
           </div>
         </section>
+      </div>
       </div>
     </main>
 

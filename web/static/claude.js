@@ -103,10 +103,64 @@ async function _clFetch(url) {
 async function _clLoadList() {
   try {
     _clSessions = (await _clFetch("/api/claude/sessions")).sessions;
+    _clRenderSummary();
     _clRenderList();
   } catch (ex) {
     document.getElementById("cl-list").replaceChildren(_clEl("li", "cl-error", ex.message));
   }
+}
+
+// Totals across every stored session (ignores the filter box), subagents included.
+function _clRenderSummary() {
+  const grid = document.getElementById("cl-summary-grid");
+  const all = _clSessions;
+  if (!all.length) {
+    grid.replaceChildren(_clEl("p", "cl-muted", "No Claude sessions found."));
+    document.getElementById("cl-summary-range").textContent = "";
+    return;
+  }
+  const sum = (key) => all.reduce((n, s) => n + (s.tokens[key] || 0), 0);
+  const fresh = sum("input_tokens");
+  const writes = sum("cache_creation_input_tokens");
+  const reads = sum("cache_read_input_tokens");
+  const out = sum("output_tokens");
+  const priced = all.filter((s) => s.cost_usd != null);
+  const cost = priced.reduce((n, s) => n + s.cost_usd, 0);
+  const starts = all.map((s) => s.started).filter(Boolean).sort();
+  const ends = all.map((s) => s.updated).filter(Boolean).sort();
+  const first = starts[0];
+  const last = ends[ends.length - 1];
+  const days = first && last ? Math.max(1, Math.ceil((new Date(last) - new Date(first)) / 86400000)) : 0;
+
+  document.getElementById("cl-summary-range").textContent = `${all.length} session${all.length === 1 ? "" : "s"}`;
+  grid.replaceChildren(
+    _clTile("Recorded cost", `$${cost.toFixed(2)}`, `from ${priced.length} of ${all.length} sessions`, "Claude Code writes a cost only for some sessions, so the real total is higher."),
+    _clTile("Tokens in", _clNum(fresh + writes), `${_clNum(fresh)} new · ${_clNum(writes)} cache writes`, _clExact(fresh + writes)),
+    _clTile("Cache reads", _clNum(reads), "re-read context, billed cheaply", _clExact(reads)),
+    _clTile("Tokens out", _clNum(out), "Claude's replies and tool calls", _clExact(out)),
+    _clTile("Date range", first ? _clDayRange(first, last) : "—", first ? `${_clDate(first)} → ${_clDate(last)} · ${days} day${days === 1 ? "" : "s"}` : "", "")
+  );
+  grid.lastElementChild.classList.add("cl-tile-wide");
+}
+
+function _clTile(label, value, sub, title) {
+  const tile = _clEl("div", "cl-tile");
+  if (title) tile.title = title;
+  tile.append(_clEl("div", "cl-tile-label", label), _clEl("div", "cl-tile-value", value), _clEl("div", "cl-tile-sub", sub));
+  return tile;
+}
+
+function _clExact(n) {
+  return n.toLocaleString() + " tokens";
+}
+
+// "Nov 24 – Nov 26, 2026"; the first year shows only when the range crosses a year.
+function _clDayRange(fromIso, toIso) {
+  const from = new Date(fromIso);
+  const to = new Date(toIso);
+  const sameYear = from.getFullYear() === to.getFullYear();
+  const start = from.toLocaleDateString([], sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+  return `${start} – ${to.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
 }
 
 function _clRenderList() {
