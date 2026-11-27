@@ -586,7 +586,8 @@ _EVENTS_IMAGE_EXTENSIONS: dict[str, str] = {
     "image/gif": ".gif",
     "image/webp": ".webp",
 }
-# Added after the image extension when the file is encrypted (cover.jpg.enc).
+# Added after the EXIF file name when it is encrypted (<photo id>_exif.json.enc).
+# Images themselves are never encrypted.
 _EVENTS_ENCRYPTED_EXT: str = ".enc"
 # EXIF read from the original photo in the browser, stored beside the photo as
 # <photo id>_exif.json (+ .enc). GPS tags are never stored.
@@ -649,7 +650,7 @@ _STORAGE_LABELS: dict[str, str] = {
     "data": "Bot data",
     "data/tiles": "Map tile cache",
     "data/Events": "Events",
-    "data/Events/images": "Event photos (encrypted)",
+    "data/Events/images": "Event photos",
     "data/TodayInHistory": "Today in History cache",
     "data/nodes.json": "Node database",
     "data/salt.bin": "Encryption salt",

@@ -1,4 +1,4 @@
-"""Tests for the Events page: the encrypted event store and its web API.
+"""Tests for the Events page: the event store (encrypted JSON, plain images) and its web API.
 
 Run from the repo root:  .venv/bin/python -m unittest discover -s tests -v
 """
@@ -175,14 +175,16 @@ class EventStoreTests(unittest.TestCase):
         with open(path, encoding="utf-8") as f:
             self.assertEqual(f.read(), before)
 
-    def test_images_encrypted_and_paths_validated(self) -> None:
+    def test_images_stored_plain_and_paths_validated(self) -> None:
         ev: dict = self._create()
         self.store.save_cover(ev["id"], PNG, JPEG)
         folder: str = os.path.join(self.dir, "images", ev["id"])
-        self.assertEqual(sorted(os.listdir(folder)), ["cover.png.enc", "cover_thumb.jpg.enc"])
-        img_path: str = os.path.join(folder, "cover.png.enc")
-        with open(img_path, "rb") as f:
-            self.assertFalse(f.read().startswith(b"\x89PNG"))
+        # Even with a key, images are written exactly as uploaded.
+        self.assertEqual(sorted(os.listdir(folder)), ["cover.png", "cover_thumb.jpg"])
+        with open(os.path.join(folder, "cover.png"), "rb") as f:
+            self.assertEqual(f.read(), PNG)
+        with open(os.path.join(folder, "cover_thumb.jpg"), "rb") as f:
+            self.assertEqual(f.read(), JPEG)
         self.assertEqual(self.store.read_image(ev["id"], "cover"), PNG)
         self.assertEqual(self.store.read_image(ev["id"], "cover_thumb"), JPEG)
         self.assertIsNone(self.store.read_image(ev["id"], "../../salt"))
@@ -199,12 +201,12 @@ class EventStoreTests(unittest.TestCase):
         self.store.save_cover(ev["id"], PNG, JPEG)
         self.store.save_cover(ev["id"], JPEG, PNG)
         folder: str = os.path.join(self.dir, "images", ev["id"])
-        self.assertEqual(sorted(os.listdir(folder)), ["cover.jpg.enc", "cover_thumb.png.enc"])
+        self.assertEqual(sorted(os.listdir(folder)), ["cover.jpg", "cover_thumb.png"])
         self.assertEqual(self.store.read_image(ev["id"], "cover"), JPEG)
         self.store.remove_cover(ev["id"])
         self.assertEqual(os.listdir(folder), [])
 
-    def test_plain_images_open_directly(self) -> None:
+    def test_images_same_with_or_without_key(self) -> None:
         plain: EventStore = EventStore(self.dir, None)
         ev: dict = self._create()
         plain.save_cover(ev["id"], PNG, JPEG)
@@ -212,8 +214,22 @@ class EventStoreTests(unittest.TestCase):
         with open(path, "rb") as f:
             self.assertEqual(f.read(), PNG)
         self.assertEqual(plain.read_image(ev["id"], "cover_thumb"), JPEG)
-        # Turning encryption on later still reads the plain files.
         self.assertEqual(self.store.read_image(ev["id"], "cover"), PNG)
+        # A participant photo saved with a key is plain on disk and readable without one.
+        photo: dict = self.store.add_photo(ev["id"], "Sam", JPEG, PNG)
+        with open(os.path.join(self.dir, "images", ev["id"], photo["id"] + ".jpg"), "rb") as f:
+            self.assertEqual(f.read(), JPEG)
+        self.assertEqual(plain.read_image(ev["id"], photo["id"] + "_thumb"), PNG)
+
+    def test_non_image_file_is_not_served(self) -> None:
+        ev: dict = self._create()
+        folder: str = os.path.join(self.dir, "images", ev["id"])
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "cover.png"), "wb") as f:
+            f.write(b"not really a png")
+        with open(os.path.join(folder, "cover.jpg.enc"), "wb") as f:
+            f.write(Fernet(self.key).encrypt(JPEG))
+        self.assertIsNone(self.store.read_image(ev["id"], "cover"), "no decrypting, no non-images")
 
     def test_add_photo(self) -> None:
         ev: dict = self._create(start=_iso(-1), end=_iso(1))
@@ -393,6 +409,8 @@ class EventsApiTests(_EventsServerCase):
         folder: str = os.path.join(self.dir, _EVENTS_SUBDIR, "images", ev["id"])
         with open(os.path.join(folder, photo_id + "_exif.json.enc"), "rb") as f:
             self.assertNotIn(b"Canon", f.read())
+        with open(os.path.join(folder, photo_id + ".jpg"), "rb") as f:
+            self.assertEqual(f.read(), JPEG, "the photo itself is stored as uploaded")
 
         served = self._visitor().get(f"/api/events/{ev['id']}/photos/{photo_id}/exif")
         self.assertEqual(served.status_code, 200)

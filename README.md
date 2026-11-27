@@ -421,13 +421,17 @@ web/
 
 Node records are stored in `data/nodes.json`. Chat history is stored per-channel as `data/<channel_name>.txt`. Favourites are stored in `data/favorites.json`.
 
-Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`, named for their real type (`cover.jpg`, `<photo id>_thumb.png`, ...). With an `EncryptionKey` the files are encrypted and end in `.enc` (`cover.jpg.enc`); without one they open directly in any image viewer. Each participant photo's details (EXIF, never GPS) sit beside it in `<photo id>_exif.json`, encrypted the same way (`.json.enc`).
+Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`, named for their real type (`cover.jpg`, `<photo id>_thumb.png`, ...). Images are saved exactly as uploaded and are never encrypted, so they open directly in any image viewer and download as-is. Each participant photo's details (EXIF, never GPS) sit beside it in `<photo id>_exif.json`, encrypted when an `EncryptionKey` is set (`.json.enc`).
 
-When an `EncryptionKey` is provided, all of these files (including event pictures and photos) are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.
+When an `EncryptionKey` is provided, all of these files except event pictures and photos are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.
 
 ---
 
 ## Release Notes
+
+### v0.13.1 — 2026-11-27
+
+- Event pictures and participant photos are no longer encrypted, even with an `EncryptionKey`. They are saved exactly as uploaded (`cover.jpg`, `<photo id>_thumb.png`, ...), so they open straight from `data/Events/images/` in any image viewer and download as-is. Event details, chat history, the node database and photo EXIF stay encrypted. Existing encrypted images were converted once by hand; the bot does not read `.enc` images anymore.
 
 ### v0.13.0 — 2026-11-26
 
