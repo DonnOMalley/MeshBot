@@ -1,4 +1,4 @@
-"""Tests for the Events page: the event store (encrypted JSON, plain images) and its web API.
+"""Tests for the Events page: the event store (encrypted event JSON, plain images and EXIF) and its web API.
 
 Run from the repo root:  .venv/bin/python -m unittest discover -s tests -v
 """
@@ -287,17 +287,21 @@ class EventStoreTests(unittest.TestCase):
         photo: dict = self.store.add_photo(ev["id"], "Sam", JPEG, JPEG, {"Model": "Pixel 9"})
         self.assertEqual(self.store.read_photo_exif(ev["id"], photo["id"]), {"Model": "Pixel 9"})
         self.assertNotIn("exif", self.store.get(ev["id"])["photos"][0])
-        self.assertEqual(EventStore(self.dir, None).read_photo_exif(ev["id"], photo["id"]), {}, "no key: encrypted EXIF unreadable")
         self.assertEqual(self.store.read_photo_exif(ev["id"], "../x"), {})
-        plain_dir: str = os.path.join(self.dir, "plain")
-        plain_store: EventStore = EventStore(plain_dir, None)
-        clean, _ = EventStore.validate(_fields(start=_iso(-1), end=_iso(1)))
-        plain_ev: dict = plain_store.create(clean)
-        plain: dict = plain_store.add_photo(plain_ev["id"], "Pat", JPEG, JPEG, {"Make": "Nikon"})
-        with open(os.path.join(plain_dir, "images", plain_ev["id"], plain["id"] + "_exif.json"), encoding="utf-8") as f:
-            self.assertEqual(json.load(f), {"Make": "Nikon"})
-        # Turning encryption on later still reads the plain file.
-        self.assertEqual(EventStore(plain_dir, self.key).read_photo_exif(plain_ev["id"], plain["id"]), {"Make": "Nikon"})
+        # Saved as plain JSON even with a key, so it reads the same with or without one.
+        folder: str = os.path.join(self.dir, "images", ev["id"])
+        with open(os.path.join(folder, photo["id"] + "_exif.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"Model": "Pixel 9"})
+        self.assertFalse(os.path.exists(os.path.join(folder, photo["id"] + "_exif.json.enc")))
+        self.assertEqual(EventStore(self.dir, None).read_photo_exif(ev["id"], photo["id"]), {"Model": "Pixel 9"})
+
+    def test_legacy_encrypted_exif_is_ignored(self) -> None:
+        # Old <photo id>_exif.json.enc files are no longer read.
+        ev: dict = self._create(start=_iso(-1), end=_iso(1))
+        photo: dict = self.store.add_photo(ev["id"], "Sam", JPEG, JPEG)
+        with open(os.path.join(self.dir, "images", ev["id"], photo["id"] + "_exif.json.enc"), "wb") as f:
+            f.write(Fernet(self.key).encrypt(b'{"Make":"Canon"}'))
+        self.assertEqual(self.store.read_photo_exif(ev["id"], photo["id"]), {})
 
     def test_detect_image_type(self) -> None:
         self.assertEqual(EventStore.detect_image_type(PNG), "image/png")
@@ -398,7 +402,7 @@ class EventsApiTests(_EventsServerCase):
         self.assertEqual(set(res.get_json()["fields"]), {"name", "website"})
         self.assertEqual(self.client.get("/api/events").get_json()["events"], [])
 
-    def test_photo_exif_stored_encrypted_and_served(self) -> None:
+    def test_photo_exif_stored_plain_and_served(self) -> None:
         ev: dict = self._post("/api/events", _fields(start=_iso(-1), end=_iso(1))).get_json()
         exif: str = json.dumps({"File name": "IMG_1.jpg", "Make": "Canon", "FNumber": "f/2.8", "GPSLatitude": "39.7", "gpsaltitude": "200"})
         res = self._post(f"/api/events/{ev['id']}/photos", {"uploader": "Sam", "exif": exif}, {"photo": [JPEG], "thumb": [JPEG]})
@@ -407,8 +411,8 @@ class EventsApiTests(_EventsServerCase):
         self.assertNotIn("exif", res.get_json()["added"][0], "EXIF is not part of the event payload")
 
         folder: str = os.path.join(self.dir, _EVENTS_SUBDIR, "images", ev["id"])
-        with open(os.path.join(folder, photo_id + "_exif.json.enc"), "rb") as f:
-            self.assertNotIn(b"Canon", f.read())
+        with open(os.path.join(folder, photo_id + "_exif.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"File name": "IMG_1.jpg", "Make": "Canon", "FNumber": "f/2.8"}, "plain JSON, GPS dropped")
         with open(os.path.join(folder, photo_id + ".jpg"), "rb") as f:
             self.assertEqual(f.read(), JPEG, "the photo itself is stored as uploaded")
 

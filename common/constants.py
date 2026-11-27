@@ -586,11 +586,9 @@ _EVENTS_IMAGE_EXTENSIONS: dict[str, str] = {
     "image/gif": ".gif",
     "image/webp": ".webp",
 }
-# Added after the EXIF file name when it is encrypted (<photo id>_exif.json.enc).
-# Images themselves are never encrypted.
-_EVENTS_ENCRYPTED_EXT: str = ".enc"
 # EXIF read from the original photo in the browser, stored beside the photo as
-# <photo id>_exif.json (+ .enc). GPS tags are never stored.
+# plain JSON in <photo id>_exif.json. Images and EXIF are never encrypted.
+# GPS tags are never stored.
 _EVENTS_EXIF_SUFFIX: str = "_exif.json"
 _EVENTS_EXIF_MAX_BYTES: int = 64 * 1024
 _EVENTS_EXIF_MAX_TAGS: int = 250
@@ -641,7 +639,6 @@ _STORAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
     "Data": ("json", "csv", "bin", "db", "sqlite"),
     "Text & chat": ("txt", "md"),
     "Logs": ("log",),
-    "Encrypted": ("enc",),
     "Runtime": ("pid", "lock", "tmp"),
 }
 _STORAGE_OTHER_CATEGORY: str = "Other"

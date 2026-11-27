@@ -16,7 +16,6 @@ from common.constants import (
     _EVENTS_FIELD_MAX_LEN,
     _EVENTS_FILE,
     _EVENTS_HISTORY_FILE,
-    _EVENTS_ENCRYPTED_EXT,
     _EVENTS_EXIF_KEY_MAX_LEN,
     _EVENTS_EXIF_MAX_BYTES,
     _EVENTS_EXIF_MAX_TAGS,
@@ -349,7 +348,7 @@ class EventStore:
     encrypted, so they open straight from disk. Each image has a small
     ``_thumb`` companion produced by the browser. The file extension comes from
     the image's own bytes (``cover.jpg``, ``<id>_thumb.webp``). A photo's EXIF
-    sidecar is still encrypted when a key is configured (``.json.enc``).
+    is saved beside it as plain JSON (``<id>_exif.json``), also never encrypted.
 
     Thread-safe: every public method holds a single lock.
     """
@@ -368,9 +367,9 @@ class EventStore:
         Args:
             events_dir: Directory holding the event files and image folders.
                         Created if it does not exist.
-            key: Fernet key used to encrypt the event files and EXIF at rest,
-                 or ``None`` to store them as plain JSON. Images are always
-                 stored as plain image files.
+            key: Fernet key used to encrypt the two event files at rest, or
+                 ``None`` to store them as plain JSON. Images and their EXIF
+                 are always stored as plain files.
         """
         self._events_dir = events_dir
         self._images_dir = os.path.join(events_dir, _EVENTS_IMAGES_SUBDIR)
@@ -805,7 +804,7 @@ class EventStore:
                     self.save_image(event_id, photo_id, full)
                     self.save_image(event_id, photo_id + _EVENTS_THUMB_SUFFIX, thumb)
                     if exif:
-                        self._write_atomic(self._exif_path(event_id, photo_id), self._encode(EventStore.serialize_exif(exif)))
+                        self._write_atomic(self._exif_path(event_id, photo_id), EventStore.serialize_exif(exif).encode("utf-8"))
                     result = {
                         "id": photo_id,
                         "uploader": uploader.strip()[:_EVENTS_UPLOADER_MAX_LEN],
@@ -869,22 +868,12 @@ class EventStore:
         """Returns the stored EXIF of one photo, or ``{}`` if none/unreadable."""
         result: dict[str, str] = {}
         if EventStore.is_valid_id(event_id) and EventStore.is_valid_id(photo_id):
-            plain: str = os.path.join(self._event_image_dir(event_id), photo_id + _EVENTS_EXIF_SUFFIX)
+            path: str = self._exif_path(event_id, photo_id)
             with self._lock:
-                for path in (plain + _EVENTS_ENCRYPTED_EXT, plain):
-                    if not os.path.isfile(path):
-                        continue
+                if os.path.isfile(path):
                     with open(path, "rb") as f:
                         raw: bytes = f.read()
-                    if path.endswith(_EVENTS_ENCRYPTED_EXT):
-                        if self._fernet is None:
-                            continue
-                        try:
-                            raw = self._fernet.decrypt(raw)
-                        except InvalidToken:
-                            continue
                     result = EventStore.clean_exif(raw.decode("utf-8", errors="replace"), limit_input=False)
-                    break
         return result
     # endregion Public Functions
 
@@ -897,16 +886,8 @@ class EventStore:
         return os.path.join(self._event_image_dir(event_id), name + _EVENTS_IMAGE_EXTENSIONS[mime])
 
     def _exif_path(self, event_id: str, photo_id: str) -> str:
-        """Where a photo's EXIF is stored under the current encryption setting."""
-        filename: str = photo_id + _EVENTS_EXIF_SUFFIX
-        if self._fernet is not None:
-            filename += _EVENTS_ENCRYPTED_EXT
-        return os.path.join(self._event_image_dir(event_id), filename)
-
-    def _encode(self, text: str) -> bytes:
-        """UTF-8 bytes of *text*, encrypted when a key is configured."""
-        data: bytes = text.encode("utf-8")
-        return self._fernet.encrypt(data) if self._fernet is not None else data
+        """Where a photo's EXIF is stored (``<photo id>_exif.json``, plain JSON)."""
+        return os.path.join(self._event_image_dir(event_id), photo_id + _EVENTS_EXIF_SUFFIX)
 
     def _existing_image_paths(self, event_id: str, name: str) -> list[str]:
         """Every file on disk holding image *name*, of any image type."""

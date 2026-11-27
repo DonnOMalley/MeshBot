@@ -29,7 +29,7 @@ def _make_tree(root: str) -> tuple[str, str]:
     _write(os.path.join(data, "primary.txt"), 200)
     _write(os.path.join(data, "tiles", "13", "1", "2.png"), 1000)
     _write(os.path.join(data, "tiles", "13", "1", "3.png"), 500)
-    _write(os.path.join(data, "Events", "images", "abc", "p1.jpg.enc"), 700)
+    _write(os.path.join(data, "Events", "images", "abc", "clip.mp4"), 700)
     _write(os.path.join(data, "README"), 5)
     _write(os.path.join(log, "console_1.log"), 50)
     os.makedirs(os.path.join(data, "empty"))
@@ -50,7 +50,7 @@ class StorageScannerTests(unittest.TestCase):
 
     def test_file_ext(self) -> None:
         self.assertEqual(file_ext("a.PNG"), "png")
-        self.assertEqual(file_ext("p1.jpg.enc"), "enc")
+        self.assertEqual(file_ext("p1_exif.json"), "json")
         self.assertEqual(file_ext("README"), "(none)")
         self.assertEqual(file_ext(".env"), "(none)")
 
@@ -69,7 +69,7 @@ class StorageScannerTests(unittest.TestCase):
 
     def test_categories_in_fixed_order(self) -> None:
         cats: list[dict] = self.scanner.summary()["categories"]
-        self.assertEqual([c["name"] for c in cats], ["Images", "Data", "Text & chat", "Logs", "Encrypted", "Other"])
+        self.assertEqual([c["name"] for c in cats], ["Images", "Data", "Text & chat", "Logs", "Other"])
         self.assertEqual(cats[0]["size"], 1500)
         self.assertEqual(cats[0]["exts"], [{"ext": "png", "size": 1500, "files": 2}])
 
@@ -90,8 +90,8 @@ class StorageScannerTests(unittest.TestCase):
         t: dict = self.scanner.file_type(ext="png")
         self.assertEqual((t["files"], t["size"], t["average"], t["category"]), (2, 1500, 750, "Images"))
         self.assertEqual(t["folders"], [{"path": "data/tiles/13/1", "label": None, "files": 2, "size": 1500}])
-        c: dict = self.scanner.file_type(category="Encrypted")
-        self.assertEqual(c["exts"][0]["ext"], "enc")
+        c: dict = self.scanner.file_type(category="Logs")
+        self.assertEqual(c["exts"][0]["ext"], "log")
         self.assertIsNone(self.scanner.file_type(category="Nope"))
         self.assertIsNone(self.scanner.file_type(ext="exe"))
 
