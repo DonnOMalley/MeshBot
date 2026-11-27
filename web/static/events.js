@@ -79,12 +79,20 @@ document.addEventListener("DOMContentLoaded", () => {
   // Open on today's events; a shared ?id= link jumps to that event instead.
   if (!new URLSearchParams(location.search).get("id")) _evSelectedKey = _evKey(new Date());
   _evLoad().then(() => {
-    const wanted = new URLSearchParams(location.search).get("id");
+    const params = new URLSearchParams(location.search);
+    const wanted = params.get("id");
     if (wanted) {
       const ev = _evEvents.find((e) => e.id === wanted);
       if (ev) {
         _evJumpTo(_evNextOccurrence(ev)._start);
         _evOpenDetail(ev.id);
+        // ?photo=<photo id> (e.g. from the Joy page) also opens the photo viewer on
+        // that photo, newest first like the gallery; an unknown id starts at the newest.
+        const wantedPhoto = params.get("photo");
+        const ordered = (ev.photos || []).slice().reverse();
+        if (wantedPhoto !== null && ordered.length) {
+          _evOpenPhotoViewer(ev, ordered, Math.max(0, ordered.findIndex((p) => p.id === wantedPhoto)));
+        }
       }
     }
   });

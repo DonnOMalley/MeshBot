@@ -192,7 +192,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | Nodes     | `/nodes`    | Full-page node table.                                                                                                                      |
 | Map       | `/map`      | Interactive map of all positioned nodes. Includes sidebar filter, marker selection, and a bot-locate button when the bot is reporting GPS. |
 | Chat      | `/chat`     | Full-page chat with per-channel tabs and message send form.                                                                                |
-| Joy       | `/joy`      | A "Happening now" banner for each event in progress (its picture shown large, with Share photos / Details buttons); all the affirmations, a fresh set of quotes and jokes (↻ for more), and past events with their shared photo albums, plus a link to upcoming events. |
+| Joy       | `/joy`      | A "Happening now" banner for each event in progress (its picture shown large, with Share photos / Details buttons); all the affirmations, a fresh set of quotes and jokes (↻ for more), and past events with their shared photo albums (the album link and photo thumbnails open the event straight into its photo viewer), plus a link to upcoming events. |
 | History   | `/history`  | Today in History calendar: opens on today's date; pick another day to see its historical events.                                           |
 | Events    | `/events`   | Community events calendar (calendar or agenda view); opens on today's events. Organizers add/edit events, visitors submit events for review, and anyone can upload photos while an event is happening. |
 | Claude    | `/claude`   | Read-only list of the Claude Code sessions on this computer and their conversations. Admin only. |
@@ -258,6 +258,7 @@ The **Events** page (`/events`, next to History in the menu) lists community eve
 - **Downloading photos (organizers only):** when signed in, the photo viewer shows **⬇ Download** to save the current photo at full size, and the event's Photos section shows **⬇ Download all (.zip)** to get every participant photo in one ZIP file. Both are hidden from visitors, and the server refuses the downloads unless you're signed in.
 - **Repeats:** an event can repeat **Weekly**, **Every other week**, **Monthly** (same day of the month; the 31st skips shorter months) or **Yearly** (Feb 29 only in leap years), with an optional **Until** date. Each date appears on the calendar and agenda, keeps its local time across daylight saving (the event's time zone is stored), and counts as "Happening now" for photo uploads and the dashboard. Editing changes the whole series; to drop one date (say a holiday week), an organizer opens that date and uses **Delete this date only** — it disappears everywhere (calendar, dashboard, Joy page, photo uploads, `.ics` file) and can be brought back with **Restore** in the event's details. (Google's add-to-calendar link can't carry skipped dates; the `.ics` file does.) A repeating event moves to the history file only after its last date. Google Calendar and the `.ics` file get the full series; the Outlook links add the next date only.
 - Share a single event with `/events?id=<event id>` (the **Copy link** button).
+- Add `&photo=<photo id>` to open that event with the photo viewer already showing that photo (an unknown photo id starts at the newest). The Joy page's photo links use this.
 - **Add to calendar** (on published events that haven't ended) offers Google Calendar, Outlook.com and Outlook for work or school (each opens that calendar's new-event page already filled in), plus an `.ics` file for Apple Calendar / iPhone and any other calendar app (`/events/<event id>/calendar.ics`). The calendar entry includes the description, meeting link or address, website and a link back to the event page.
 - **Organizer passcode:** publishing, editing, approving and deleting events needs the passcode set as `EventsPasscode` in `meshbot.config`. Organizers click **Organizer sign-in** (or **Edit event**) and enter it once; they stay signed in until the browser closes or they sign out. Five wrong tries from one address lock it out for 15 minutes. The passcode is read from the config file on each check, so changing it takes effect right away (and signs everyone out). Viewing events and uploading photos during an event never need the passcode.
 - **Visitor submissions:** visitors who are not signed in see **Submit an Event** instead of **New Event**. Their event is saved as *pending review* and stays hidden from everyone else (calendar, details, picture and photo uploads) until an organizer approves it. An address can submit 5 events per hour, and only events that have not ended yet can be submitted.
@@ -430,6 +431,11 @@ When an `EncryptionKey` is provided, the node database, favourites, chat history
 ---
 
 ## Release Notes
+
+### v0.13.4 — 2026-11-27
+
+- On the **Joy** page, **Open photo album →** under a past event now opens the event with its photo viewer already showing, starting at the newest photo, so you don't have to click a photo first. Clicking one of the card's photo thumbnails opens the viewer on that photo, and the **+N** tile opens it on the first photo not shown on the card. Closing the viewer leaves the event's details open. The event's title still just opens the event.
+- Event links can now name a photo: `/events?id=<event id>&photo=<photo id>` opens the event and then that photo in the viewer. Links without `photo`, such as **Copy link**, work as before.
 
 ### v0.13.3 — 2026-11-27
 
