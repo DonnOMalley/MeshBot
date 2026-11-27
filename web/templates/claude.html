@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>{{ bot_name }} &mdash; Claude</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/claude.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="tih-page claude-page">
+    {% set active_page = 'claude' %} {% include "partials/_header.html" %}
+
+    <main class="cl-main">
+      <!-- Signed out: passcode form (claude.js shows one of the two views) -->
+      <section class="panel cl-signin" id="cl-signin" hidden>
+        <div class="panel-header"><span class="panel-header-text">&#128274; Claude sessions</span></div>
+        <form id="cl-auth-form" class="cl-signin-body" novalidate>
+          <p class="cl-muted" id="cl-signin-text">Enter the Claude passcode to see the Claude Code sessions on this computer.</p>
+          <label for="cl-passcode">Passcode</label>
+          <input type="password" id="cl-passcode" name="passcode" autocomplete="current-password" required />
+          <p id="cl-auth-error" class="cl-error" hidden></p>
+          <button type="submit" id="cl-auth-submit" class="cl-primary-btn">Sign in</button>
+        </form>
+      </section>
+
+      <!-- Signed in -->
+      <div class="cl-layout" id="cl-app" hidden>
+        <section class="panel cl-list-panel">
+          <div class="panel-header">
+            <span class="panel-header-text">&#129302; Claude sessions</span>
+            <span class="cl-count" id="cl-count"></span>
+            <button type="button" class="cl-signout" id="cl-signout" title="Sign out of the Claude page">Sign out</button>
+          </div>
+          <div class="cl-list-tools">
+            <input type="search" id="cl-filter" placeholder="Filter by title, folder or prompt" aria-label="Filter sessions" />
+          </div>
+          <p class="cl-totals" id="cl-totals"></p>
+          <ul class="cl-list" id="cl-list"><li class="cl-muted">Loading&hellip;</li></ul>
+        </section>
+
+        <section class="panel cl-detail-panel" id="cl-detail">
+          <div class="panel-header">
+            <button type="button" class="cl-back" id="cl-back" aria-label="Back to the list">&larr;</button>
+            <span class="panel-header-text" id="cl-detail-title">Conversation</span>
+          </div>
+          <div class="cl-detail-meta" id="cl-detail-meta"></div>
+          <label class="cl-tools-toggle"><input type="checkbox" id="cl-show-tools" checked /> Show tool calls</label>
+          <div class="cl-messages" id="cl-messages">
+            <p class="cl-muted">Pick a session to read it.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/static/claude.js"></script>
+  </body>
+</html>

@@ -598,6 +598,15 @@ _EVENTS_AUTH_REQUIRED: str = "Organizer sign-in required to add, edit or delete 
 _EVENTS_AUTH_DISABLED: str = "Event editing is turned off. Set EventsPasscode in meshbot.config to turn it on."
 _EVENTS_AUTH_WRONG: str = "That passcode is not right."
 _EVENTS_AUTH_LOCKED: str = "Too many wrong passcodes. Try again in {minutes} minute(s)."
+# Claude sessions page (/claude): read-only view of Claude Code sessions on this computer.
+_CLAUDE_HOME_DIR: str = "~/.claude"
+_CLAUDE_PASSCODE_CONFIG_KEY: str = "ClaudePasscode"
+_CLAUDE_SESSION_VIEWER_KEY: str = "claude_viewer"
+_CLAUDE_AUTH_REQUIRED: str = "Sign in with the Claude passcode to see Claude sessions."
+_CLAUDE_AUTH_DISABLED: str = "The Claude page is turned off. Set ClaudePasscode in meshbot.config to turn it on."
+_CLAUDE_MAX_MESSAGES: int = 1500
+_CLAUDE_TEXT_MAX_LEN: int = 20000
+_CLAUDE_TOOL_INPUT_MAX_LEN: int = 400
 _EVENTS_SUBMIT_MAX_PER_WINDOW: int = 5
 _EVENTS_SUBMIT_WINDOW_SECONDS: float = 3600.0
 _EVENTS_SUBMIT_LIMITED: str = "Too many event submissions from this connection. Try again in {minutes} minute(s)."

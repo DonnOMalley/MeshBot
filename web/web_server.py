@@ -84,6 +84,11 @@ from common.constants import (
     _ZEN_QUOTES_KEY_QUOTE,
 )
 from common.constants import (
+    _CLAUDE_AUTH_DISABLED,
+    _CLAUDE_AUTH_REQUIRED,
+    _CLAUDE_HOME_DIR,
+    _CLAUDE_PASSCODE_CONFIG_KEY,
+    _CLAUDE_SESSION_VIEWER_KEY,
     _CONFIG_SECTION,
     _DEFAULT_CONFIG_FILE,
     _EVENTS_AUTH_DISABLED,
@@ -116,9 +121,12 @@ from configuration.node_configuration import NodeConfiguration
 from messaging.command_register import CommandRegister
 from web.tile_cache import TileCache
 import web.event_store as _event_store_module
+import web.claude_sessions as _claude_sessions_module
 
-# Re-read the event store from disk whenever this module is (hot) reloaded.
+# Re-read helper modules from disk whenever this module is (hot) reloaded.
 importlib.reload(_event_store_module)
+importlib.reload(_claude_sessions_module)
+from web.claude_sessions import ClaudeSessionReader  # noqa: E402  (after the reload on purpose)
 from web.event_store import EventStore, EventStoreError, build_ics, upcoming_occurrences  # noqa: E402  (after the reload on purpose)
 
 _dm_response_tl: threading.local = threading.local()
@@ -362,6 +370,8 @@ class WebServer:
         self._event_store = EventStore(os.path.join(data_dir, _EVENTS_SUBDIR), self._fernet_key)
         self._config_file = config_file
         self._auth_failures = {}
+        self._claude_auth_failures = {}
+        self._claude_reader = ClaudeSessionReader(_CLAUDE_HOME_DIR)
         self._submissions = {}
         self._auth_lock = threading.Lock()
         self._pending_web_traces = {}
@@ -689,23 +699,48 @@ class WebServer:
         """
         return 1 <= len(name) <= _WEB_USER_LONG_NAME_MAX_LEN
 
-    def _events_passcode(self) -> str | None:
-        """Reads ``EventsPasscode`` from the config file; None when unset or unreadable."""
+    def _config_passcode(self, key: str) -> str | None:
+        """Reads passcode *key* from the config file; None when unset or unreadable."""
         result: str | None = None
         parser: configparser.RawConfigParser = configparser.RawConfigParser()
         try:
             parser.read(self._config_file, encoding="utf-8")
             if parser.has_section(_CONFIG_SECTION):
-                value: str = parser.get(_CONFIG_SECTION, _EVENTS_PASSCODE_CONFIG_KEY, fallback="").strip()
+                value: str = parser.get(_CONFIG_SECTION, key, fallback="").strip()
                 result = value or None
         except (configparser.Error, OSError, UnicodeDecodeError):
             pass
         return result
 
+    def _events_passcode(self) -> str | None:
+        """Reads ``EventsPasscode`` from the config file; None when unset or unreadable."""
+        return self._config_passcode(_EVENTS_PASSCODE_CONFIG_KEY)
+
+    def _claude_passcode(self) -> str | None:
+        """Reads ``ClaudePasscode`` from the config file; None when unset or unreadable."""
+        return self._config_passcode(_CLAUDE_PASSCODE_CONFIG_KEY)
+
+    def _is_claude_viewer(self) -> bool:
+        """True when this browser session signed in with the current Claude passcode."""
+        passcode: str | None = self._claude_passcode()
+        stored: str = str(session.get(_CLAUDE_SESSION_VIEWER_KEY, ""))
+        return passcode is not None and bool(stored) and hmac.compare_digest(stored, self._passcode_fingerprint(passcode, "meshbot-claude:"))
+
+    def _claude_auth_error(self):
+        """The 403 returned when a Claude page request is not signed in."""
+        message: str = _CLAUDE_AUTH_REQUIRED if self._claude_passcode() else _CLAUDE_AUTH_DISABLED
+        return self._no_store(jsonify({"error": message, "auth_required": True})), 403
+
     @staticmethod
-    def _passcode_fingerprint(passcode: str) -> str:
+    def _no_store(response: Response) -> Response:
+        """Keeps browsers and proxies from caching a private response."""
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @staticmethod
+    def _passcode_fingerprint(passcode: str, purpose: str = "meshbot-events:") -> str:
         """Value kept in the session cookie; changes when the passcode changes."""
-        return hashlib.sha256(("meshbot-events:" + passcode).encode("utf-8")).hexdigest()[:32]
+        return hashlib.sha256((purpose + passcode).encode("utf-8")).hexdigest()[:32]
 
     def _is_events_editor(self) -> bool:
         """True when this browser session signed in with the current passcode."""
@@ -1251,6 +1286,52 @@ class WebServer:
         def too_large(_error):
             limit_mb: int = _EVENTS_MAX_UPLOAD_BYTES // (1024 * 1024)
             return jsonify({"error": f"Upload is too large (limit {limit_mb} MB per request)."}), 413
+
+        @self._app.route("/claude")
+        def claude_page():
+            return render_template("claude.html", bot_name=self._bot_name, bot_description=self._bot_description)
+
+        @self._app.route("/api/claude/auth", methods=["GET"])
+        def api_claude_auth_status():
+            return self._no_store(jsonify({"enabled": self._claude_passcode() is not None, "viewer": self._is_claude_viewer()}))
+
+        @self._app.route("/api/claude/auth", methods=["POST"])
+        def api_claude_sign_in():
+            passcode: str | None = self._claude_passcode()
+            if passcode is None:
+                return jsonify({"error": _CLAUDE_AUTH_DISABLED}), 503
+            client: str = request.remote_addr or "unknown"
+            wait: float = self._limit_wait_seconds(self._claude_auth_failures, client, _EVENTS_AUTH_MAX_FAILURES, _EVENTS_AUTH_WINDOW_SECONDS)
+            if wait > 0:
+                minutes: int = max(1, int(wait // 60) + 1)
+                return jsonify({"error": _EVENTS_AUTH_LOCKED.format(minutes=minutes)}), 429
+            body: dict = request.get_json(force=True, silent=True) or {}
+            attempt: str = str(body.get("passcode", "")).strip()
+            if not hmac.compare_digest(attempt.encode("utf-8"), passcode.encode("utf-8")):
+                self._record_hit(self._claude_auth_failures, client)
+                return jsonify({"error": _EVENTS_AUTH_WRONG}), 401
+            session[_CLAUDE_SESSION_VIEWER_KEY] = self._passcode_fingerprint(passcode, "meshbot-claude:")
+            return jsonify({"enabled": True, "viewer": True})
+
+        @self._app.route("/api/claude/auth", methods=["DELETE"])
+        def api_claude_sign_out():
+            session.pop(_CLAUDE_SESSION_VIEWER_KEY, None)
+            return jsonify({"enabled": self._claude_passcode() is not None, "viewer": False})
+
+        @self._app.route("/api/claude/sessions", methods=["GET"])
+        def api_claude_sessions():
+            if not self._is_claude_viewer():
+                return self._claude_auth_error()
+            return self._no_store(jsonify({"sessions": self._claude_reader.list_sessions()}))
+
+        @self._app.route("/api/claude/sessions/<session_id>", methods=["GET"])
+        def api_claude_session(session_id: str):
+            if not self._is_claude_viewer():
+                return self._claude_auth_error()
+            detail: dict | None = self._claude_reader.get_session(session_id)
+            if detail is None:
+                return self._no_store(jsonify({"error": "No such Claude session."})), 404
+            return self._no_store(jsonify(detail))
 
         @self._app.route("/api/events/auth", methods=["GET"])
         def api_events_auth_status():
