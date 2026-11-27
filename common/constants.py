@@ -630,6 +630,38 @@ _ADMIN_SESSION_KEY: str = "admin"
 _ADMIN_AUTH_REQUIRED: str = "Sign in as admin to see this."
 _ADMIN_AUTH_DISABLED: str = "Administration is turned off. Set AdminUsername and AdminPassword in meshbot.config to turn it on."
 _ADMIN_AUTH_WRONG: str = "That username or password is not right."
+# Storage page (/storage): read-only sizes of the bot's data/ and log/ folders.
+_STORAGE_CACHE_SECONDS: float = 15.0
+_STORAGE_TOP_FILES: int = 10
+_STORAGE_FOLDER_FILES_MAX: int = 500
+# File-type groups by extension (lower case, no dot). Anything else is "Other".
+_STORAGE_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "Images": ("png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "bmp", "svg"),
+    "Data": ("json", "csv", "bin", "db", "sqlite"),
+    "Text & chat": ("txt", "md"),
+    "Logs": ("log",),
+    "Encrypted": ("enc",),
+    "Runtime": ("pid", "lock", "tmp"),
+}
+_STORAGE_OTHER_CATEGORY: str = "Other"
+# Plain-English labels for known folders and files, keyed by path under the bot folder.
+_STORAGE_LABELS: dict[str, str] = {
+    "data": "Bot data",
+    "data/tiles": "Map tile cache",
+    "data/Events": "Events",
+    "data/Events/images": "Event photos (encrypted)",
+    "data/TodayInHistory": "Today in History cache",
+    "data/nodes.json": "Node database",
+    "data/salt.bin": "Encryption salt",
+    "data/favorites.json": "Favorite nodes",
+    "data/jokes.json": "Joke cache",
+    "data/affirmations.json": "Affirmation cache",
+    "data/zen_quotes.json": "Zen quote cache",
+    "data/meshbot.pid": "Running bot's process ID",
+    "data/Events/events.json": "Events (encrypted)",
+    "data/Events/events_history.json": "Past events (encrypted)",
+    "log": "Console logs",
+}
 _CLAUDE_MAX_MESSAGES: int = 1500
 _CLAUDE_TEXT_MAX_LEN: int = 20000
 _CLAUDE_TOOL_INPUT_MAX_LEN: int = 400

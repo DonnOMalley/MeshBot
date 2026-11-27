@@ -81,7 +81,7 @@ RangeTestDelay    = 1
 | `NodeRetentionDays`     | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
 | `EncryptionKey`         | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
 | `EventsPasscode`        | Passcode organizers enter on the Events page to publish, edit, approve or delete events. Blank turns editing and public submissions off. |
-| `AdminUsername`         | Username for the admin login that opens the **Administration** menu (Console and Claude pages). |
+| `AdminUsername`         | Username for the admin login that opens the **Administration** menu (Console, Claude and Storage pages). |
 | `AdminPassword`         | Password for the admin login. Separate from `EventsPasscode`. Leaving either admin key blank turns Administration off. |
 | `Verbose`               | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
 | `HideSecondaryChannels` | When `true`, secondary channels are hidden from the web dashboard (chat, dashboard, settings pages).   |
@@ -196,6 +196,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | History   | `/history`  | Today in History calendar: opens on today's date; pick another day to see its historical events.                                           |
 | Events    | `/events`   | Community events calendar (calendar or agenda view); opens on today's events. Organizers add/edit events, visitors submit events for review, and anyone can upload photos while an event is happening. |
 | Claude    | `/claude`   | Read-only list of the Claude Code sessions on this computer and their conversations. Admin only. |
+| Storage   | `/storage`  | Sizes of the bot's `data/` and `log/` folders: overview, folder tree or file-type groups, and details for each. Admin only. |
 | Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output. Admin only.                                                                   |
 | Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window.                                    |
 | Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                                                   |
@@ -267,7 +268,7 @@ The **Events** page (`/events`, next to History in the menu) lists community eve
 
 The menu bar has **Dashboard**, **Mesh** (Dashboard, Nodes, Map, Chat), **Joy**, **History**, **Events** and **Administration**. A gear at its right end opens **Settings**, which holds the Settings, Bot Test and About pages. On a phone they all sit in the ☰ menu.
 
-- **Administration** (Console and Claude pages) needs the admin login set as `AdminUsername` and `AdminPassword` in `meshbot.config`. When you're not signed in, clicking Administration opens a sign-in page (`/admin/login`), and opening `/console` or `/claude` directly goes there too. After signing in you're taken back to the page you asked for.
+- **Administration** (Console, Claude and Storage pages) needs the admin login set as `AdminUsername` and `AdminPassword` in `meshbot.config`. When you're not signed in, clicking Administration opens a sign-in page (`/admin/login`), and opening `/console`, `/claude` or `/storage` directly goes there too. After signing in you're taken back to the page you asked for.
 - Once you're signed in, Administration becomes a menu with Console, Claude and **Sign out**. You stay signed in until the browser closes or you sign out.
 - Five wrong tries from one address lock sign-in for 15 minutes. The login is read from the config file on every request, so changing it takes effect right away and signs every admin out. With either key blank, Administration is off.
 - The admin login is separate from `EventsPasscode`: signing in to one never opens the other.
@@ -284,6 +285,16 @@ The **Claude** page (`/claude`, in the **Administration** menu) shows the Claude
 - Claude Code deletes old sessions after `cleanupPeriodDays` in `~/.claude/settings.json` (30 days by default), so they also disappear from this page.
 - The session file format is internal to Claude Code and may change between versions; records the page does not recognise are skipped.
 - Like the Events passcode, the admin password and the session text travel unencrypted over plain HTTP. Use HTTPS (e.g. a reverse proxy) before signing in over the internet.
+
+### Storage
+
+The **Storage** page (`/storage`, in the **Administration** menu) shows how much space the bot's own folders use: `data/` (node database, chat history, map tile cache, events and their photos, caches) and `log/` (console logs).
+
+- **Sign-in:** needs the admin login (see [Menus and admin sign-in](#menus-and-admin-sign-in)).
+- **Overview** (top of the page): total size, file and folder counts, the largest folder, each top folder's size, free disk space, the most recent change, and a **By file type** bar. Click a file type under the bar to open it.
+- **Folders / File types** (left): switch between a folder tree (click ▸ to expand; each row has a bar showing its share of its parent) and file-type groups (Images, Data, Text & chat, Logs, Encrypted, Runtime, Other) with their extensions. The filter box narrows either list.
+- **Details** (right): for a folder, its size, file-type mix, subfolders, its own files, and the largest and most recently changed files inside it; for a file type, its total and average size, its extensions, the folders it lives in (click one to open it) and its largest files. Known folders and files get a plain-English label (for example *Map tile cache*, *Node database*).
+- **Read-only:** the page only reads names, sizes and dates. It never opens, downloads or deletes a file, and only folders inside `data/` and `log/` can be looked up. Symlinks are skipped. Results are cached for 15 seconds and the page refreshes every minute.
 
 ### Network Access
 
@@ -371,6 +382,7 @@ tests/
     test_events.py              Event store + Events API tests
     test_event_commands.py      Mesh !event / !events / !eventinfo commands
     test_claude.py              Claude sessions reader + /claude page tests
+    test_storage.py             Storage scanner + /storage page tests
                                 (run: .venv/bin/python -m unittest discover -s tests -t .)
 log/
     console_<timestamp>.log     Console output log (one per session, git-ignored)
@@ -378,6 +390,7 @@ web/
     web_server.py               Flask web server
     event_store.py              Event storage (encrypted JSON + images)
     claude_sessions.py          Read-only reader for Claude Code sessions (~/.claude)
+    storage_scanner.py          Read-only sizes of data/ and log/ for the Storage page
     static/
         app.js                  Shared JS module (nodes, channels, history)
         chat.js                 Page init for /chat
@@ -387,6 +400,8 @@ web/
         events.js               Events page (calendar, agenda, form, photo uploads)
         mesh.js                 Mesh dashboard (/mesh): node stats, bot node, mini-map
         nodes.js                Page init for /nodes
+        storage.js              Storage page (/storage): overview, folder tree, file types, details
+        storage.css             Storage page styles
         style.css               Dashboard styles
     templates/
         partials/
@@ -413,6 +428,10 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 ---
 
 ## Release Notes
+
+### v0.13.0 — 2026-11-26
+
+- New **Storage** page (`/storage`, under **Administration**): an overview of the bot's `data/` and `log/` folders (total size, largest folder, free disk space, last change, size by file type), a left panel that switches between a folder tree and file-type groups, and details for each folder or type (subfolders, file-type mix, largest and newest files). Read-only.
 
 ### v0.12.0 — 2026-11-26
 

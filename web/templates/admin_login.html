@@ -15,7 +15,7 @@
       <section class="panel admin-login">
         <div class="panel-header"><span class="panel-header-text">&#128274; Administration</span></div>
         <form method="post" action="/admin/login" class="admin-login-body">
-          <p class="admin-login-text">Sign in as admin to use the Console and Claude pages.</p>
+          <p class="admin-login-text">Sign in as admin to use the Console, Claude and Storage pages.</p>
           <input type="hidden" name="next" value="{{ next_path }}" />
           <label for="admin-username">Username</label>
           <input type="text" id="admin-username" name="username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required {% if not enabled %}disabled{% elif not username %}autofocus{% endif %} />

@@ -43,13 +43,14 @@
   <a href="/joy" class="nav-link{% if active_page == 'joy' %} active{% endif %}">&#10024; Joy</a>
   <a href="/history" class="nav-link{% if active_page == 'history' %} active{% endif %}">&#128197; History</a>
   <a href="/events" class="nav-link{% if active_page == 'events' %} active{% endif %}">&#127881; Events</a>
-  {% set _admin_active = active_page in ['console', 'claude', 'admin_login'] %}
+  {% set _admin_active = active_page in ['console', 'claude', 'storage', 'admin_login'] %}
   {% if is_admin %}
   <div class="nav-dropdown{% if _admin_active %} admin-active{% endif %}">
     <button class="nav-dropdown-trigger{% if _admin_active %} active{% endif %}" aria-haspopup="true">&#128737;&#65039; Administration <span class="nav-caret">&#9662;</span></button>
     <div class="nav-dropdown-menu" role="menu">
       <a href="/console" class="nav-dropdown-item{% if active_page == 'console' %} active{% endif %}" role="menuitem">&#x276F;&#x005F; Console</a>
       <a href="/claude" class="nav-dropdown-item{% if active_page == 'claude' %} active{% endif %}" role="menuitem">&#129302; Claude</a>
+      <a href="/storage" class="nav-dropdown-item{% if active_page == 'storage' %} active{% endif %}" role="menuitem">&#128452;&#65039; Storage</a>
       <a href="/admin/logout" class="nav-dropdown-item" role="menuitem">&#128682; Sign out</a>
     </div>
   </div>

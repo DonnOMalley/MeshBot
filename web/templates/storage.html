@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>{{ bot_name }} &mdash; Storage</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/claude.css" />
+    <link rel="stylesheet" href="/static/storage.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="tih-page claude-page storage-page">
+    {% set active_page = 'storage' %} {% include "partials/_header.html" %}
+
+    <main class="cl-main">
+      <!-- Admin only: the server sends signed-out visitors to /admin/login -->
+      <section class="panel cl-summary" aria-label="Storage overview">
+        <div class="panel-header"><span class="panel-header-text">&#128452;&#65039; Storage overview</span><span class="cl-count" id="st-scanned"></span></div>
+        <div class="cl-summary-grid" id="st-summary-grid"><p class="cl-muted">Loading&hellip;</p></div>
+        <div class="st-mix" id="st-mix" hidden></div>
+      </section>
+
+      <div class="cl-layout">
+        <section class="panel cl-list-panel">
+          <div class="panel-header">
+            <span class="panel-header-text" id="st-list-title">&#128193; Folders</span>
+            <span class="cl-count" id="st-list-count"></span>
+          </div>
+          <div class="st-tools">
+            <div class="st-toggle" role="tablist" aria-label="Group by">
+              <button type="button" role="tab" id="st-view-folders" aria-selected="true">&#128193; Folders</button>
+              <button type="button" role="tab" id="st-view-types" aria-selected="false">&#128196; File types</button>
+            </div>
+            <input type="search" id="st-filter" placeholder="Filter folders" aria-label="Filter" />
+          </div>
+          <ul class="st-tree" id="st-list" role="tree"><li class="cl-muted">Loading&hellip;</li></ul>
+        </section>
+
+        <section class="panel cl-detail-panel" id="st-detail">
+          <div class="panel-header">
+            <button type="button" class="cl-back" id="st-back" aria-label="Back to the list">&larr;</button>
+            <span class="panel-header-text" id="st-detail-title">Details</span>
+          </div>
+          <div class="st-detail-body" id="st-detail-body">
+            <p class="cl-muted">Pick a folder or a file type to see what&rsquo;s in it.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/static/storage.js"></script>
+  </body>
+</html>
