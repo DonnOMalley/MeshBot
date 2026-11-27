@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>{{ bot_name }} &mdash; Admin sign-in</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+  </head>
+  <body class="admin-login-page">
+    {% set active_page = 'admin_login' %} {% include "partials/_header.html" %}
+
+    <main class="admin-login-main">
+      <section class="panel admin-login">
+        <div class="panel-header"><span class="panel-header-text">&#128274; Administration</span></div>
+        <form method="post" action="/admin/login" class="admin-login-body">
+          <p class="admin-login-text">Sign in as admin to use the Console and Claude pages.</p>
+          <input type="hidden" name="next" value="{{ next_path }}" />
+          <label for="admin-username">Username</label>
+          <input type="text" id="admin-username" name="username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required {% if not enabled %}disabled{% elif not username %}autofocus{% endif %} />
+          <label for="admin-password">Password</label>
+          <input type="password" id="admin-password" name="password" autocomplete="current-password" required {% if not enabled %}disabled{% elif username %}autofocus{% endif %} />
+          {% if error %}<p class="admin-login-error" role="alert">{{ error }}</p>{% endif %}
+          <button type="submit" class="admin-login-btn" {% if not enabled %}disabled{% endif %}>Sign in</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

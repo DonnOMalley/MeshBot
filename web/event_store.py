@@ -649,6 +649,21 @@ class EventStore:
                     break
         return result
 
+    def published_events(self, now: datetime | None = None) -> list[dict]:
+        """Returns the approved events, read-only (never re-files or deletes anything).
+
+        For readers outside the dashboard (e.g. the mesh ``!event`` commands)
+        that may hold their own store on the same files: leaving the writes to
+        the dashboard means two stores can never race on them.
+
+        Raises:
+            EventStoreError: When the event files cannot be read.
+        """
+        moment: datetime = now or datetime.now(timezone.utc)
+        with self._lock:
+            events: list[dict] = self._read_file(_EVENTS_FILE) + self._read_file(_EVENTS_HISTORY_FILE)
+        return [e for e in events if EventStore.is_approved(e) and not EventStore._is_expired_submission(e, moment)]
+
     @staticmethod
     def is_approved(event: dict) -> bool:
         """True when the event may be shown publicly.

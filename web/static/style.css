@@ -165,6 +165,78 @@ nav {
   background: rgba(255, 255, 255, 0.04);
 }
 
+/* Settings: a gear on its own at the right end of the nav bar. */
+.nav-settings {
+  margin-left: auto;
+}
+.nav-settings .nav-dropdown-trigger {
+  gap: 4px;
+}
+.nav-settings-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+.nav-settings-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── Admin sign-in page ─────────────────────────────────────────────── */
+.admin-login-main {
+  padding: 20px;
+}
+main > section.admin-login:last-child {
+  width: min(420px, 100%);
+  margin: 40px auto 0;
+  flex: none;
+  min-height: 0;
+}
+.admin-login-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+}
+.admin-login-text {
+  color: var(--muted);
+  margin: 0 0 4px;
+}
+.admin-login-body input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.admin-login-body input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.admin-login-error {
+  color: var(--error);
+  margin: 0;
+}
+.admin-login-btn {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 4px;
+  padding: 7px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-login-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ── Header ─────────────────────────────────────────────────────────── */
 header {
   display: flex;
@@ -1713,6 +1785,20 @@ main > section:last-child #chat-messages {
   }
   body.nav-open .nav-caret {
     display: none;
+  }
+  /* Phone menu: Settings is a normal section, with its name shown. */
+  body.nav-open .nav-settings {
+    margin-left: 0;
+  }
+  body.nav-open .nav-settings-icon {
+    font-size: inherit;
+  }
+  body.nav-open .nav-settings-label {
+    position: static;
+    width: auto;
+    height: auto;
+    clip: auto;
+    margin-left: 6px;
   }
   body.nav-open .nav-dropdown-menu {
     display: flex;

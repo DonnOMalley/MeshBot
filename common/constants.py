@@ -134,6 +134,9 @@ CMD_AFFIRM: str = "affirm"
 CMD_RANGE: str = "range"
 CMD_TIH: str = "tih"
 CMD_TIH_LINK: str = "tih_link"
+CMD_EVENT: str = "event"
+CMD_EVENTS: str = "events"
+CMD_EVENT_INFO: str = "eventinfo"
 _EXCLAMATION_PREFIX: str = "!"
 # endregion Bot Command Names
 
@@ -343,6 +346,26 @@ _TIH_LINK_NOT_FOUND: str = "No TIH event found for that message."
 _TIH_LINK_NO_LINK: str = "No Wikipedia link available for that event."
 _TIH_LINK_CONSOLE_SENT: str = "[BOT] Today in History link sent to {sender}."
 # endregion Bot Command: TIH
+# region Bot Command: Events
+_EVENT_CMD_HORIZON_DAYS: int = 365
+_EVENT_CMD_LIST_LIMIT: int = 5
+_EVENT_CMD_SEARCH_LIMIT: int = 50
+_EVENT_CMD_OCCURRENCE_SCAN: int = 2000
+_EVENT_CMD_MAX_PARTS: int = 5
+_EVENT_CMD_NONE: str = "No upcoming events are scheduled."
+_EVENT_CMD_UNAVAILABLE: str = "Events are not available right now."
+_EVENT_CMD_NEXT_LABEL: str = "Next event: {name}"
+_EVENT_CMD_NOW_LABEL: str = "Happening now: {name}"
+_EVENT_CMD_DETAILS_HINT: str = "!eventinfo {index} for details"
+_EVENT_CMD_LIST_HEADER: str = "Upcoming events:"
+_EVENT_CMD_LIST_HINT: str = "!eventinfo N for details"
+_EVENT_CMD_NOT_FOUND_INDEX: str = "There is no event #{index}. Send !events for the list."
+_EVENT_CMD_NOT_FOUND_NAME: str = "No upcoming event matches \"{query}\". Send !events for the list."
+_EVENT_CMD_ONLINE: str = "Online"
+_EVENT_CMD_ALL_DAY: str = "all day"
+_EVENT_CMD_ELLIPSIS: str = "\u2026"
+_EVENT_CMD_CONSOLE_SENT: str = "[BOT] Event {kind} sent to {sender} ({parts} message(s))."
+# endregion Bot Command: Events
 # region API Service
 _API_SERVICE_POLL_ERROR: str = "[API] {name}: poll error — {error}."
 # endregion API Service
@@ -379,6 +402,7 @@ _CMD_PARAM_HINTS: dict[str, str] = {
     CMD_HELLO: "[msg]",
     CMD_LAST: "<N> <C>",
     CMD_RANGE: "<N> <M>",
+    CMD_EVENT_INFO: "[N]",
 }
 _CMD_LAST_MAX_MESSAGES: int = 5
 _DM_RESPONSE_WAIT_SECS: float = 0.15
@@ -600,10 +624,12 @@ _EVENTS_AUTH_WRONG: str = "That passcode is not right."
 _EVENTS_AUTH_LOCKED: str = "Too many wrong passcodes. Try again in {minutes} minute(s)."
 # Claude sessions page (/claude): read-only view of Claude Code sessions on this computer.
 _CLAUDE_HOME_DIR: str = "~/.claude"
-_CLAUDE_PASSCODE_CONFIG_KEY: str = "ClaudePasscode"
-_CLAUDE_SESSION_VIEWER_KEY: str = "claude_viewer"
-_CLAUDE_AUTH_REQUIRED: str = "Sign in with the Claude passcode to see Claude sessions."
-_CLAUDE_AUTH_DISABLED: str = "The Claude page is turned off. Set ClaudePasscode in meshbot.config to turn it on."
+_ADMIN_USERNAME_CONFIG_KEY: str = "AdminUsername"
+_ADMIN_PASSWORD_CONFIG_KEY: str = "AdminPassword"
+_ADMIN_SESSION_KEY: str = "admin"
+_ADMIN_AUTH_REQUIRED: str = "Sign in as admin to see this."
+_ADMIN_AUTH_DISABLED: str = "Administration is turned off. Set AdminUsername and AdminPassword in meshbot.config to turn it on."
+_ADMIN_AUTH_WRONG: str = "That username or password is not right."
 _CLAUDE_MAX_MESSAGES: int = 1500
 _CLAUDE_TEXT_MAX_LEN: int = 20000
 _CLAUDE_TOOL_INPUT_MAX_LEN: int = 400

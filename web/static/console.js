@@ -50,6 +50,11 @@
     try {
       const url = "/api/console?after=" + seq;
       const res = await fetch(url);
+      if (res.status === 403) {
+        // Admin sign-in lapsed (signed out elsewhere or login changed).
+        window.location.href = "/admin/login?next=" + encodeURIComponent("/console");
+        return;
+      }
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       failCount = 0;
