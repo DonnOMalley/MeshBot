@@ -15,7 +15,7 @@ const _ST_COLORS = {
   Runtime: "#0aac23",
   Other: "#9887ef",
 };
-const _ST_ICONS = { Images: "🖼️", Data: "🧾", "Text & chat": "💬", Logs: "📜", Encrypted: "🔒", Runtime: "⚙️", Other: "📦" };
+const _ST_ICONS = { Images: "🖼️", Data: "🧾", "Text & chat": "💬", Logs: "📜",Runtime: "⚙️", Other: "📦" };
 
 let _stSummary = null;
 let _stView = "folders"; // or "types"

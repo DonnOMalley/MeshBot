@@ -293,7 +293,7 @@ The **Storage** page (`/storage`, in the **Administration** menu) shows how much
 
 - **Sign-in:** needs the admin login (see [Menus and admin sign-in](#menus-and-admin-sign-in)).
 - **Overview** (top of the page): total size, file and folder counts, the largest folder, each top folder's size, free disk space, the most recent change, and a **By file type** bar. Click a file type under the bar to open it.
-- **Folders / File types** (left): switch between a folder tree (click ▸ to expand; each row has a bar showing its share of its parent) and file-type groups (Images, Data, Text & chat, Logs, Encrypted, Runtime, Other) with their extensions. The filter box narrows either list.
+- **Folders / File types** (left): switch between a folder tree (click ▸ to expand; each row has a bar showing its share of its parent) and file-type groups (Images, Data, Text & chat, Logs, Runtime, Other) with their extensions. The filter box narrows either list.
 - **Details** (right): for a folder, its size, file-type mix, subfolders, its own files, and the largest and most recently changed files inside it; for a file type, its total and average size, its extensions, the folders it lives in (click one to open it) and its largest files. Known folders and files get a plain-English label (for example *Map tile cache*, *Node database*).
 - **Read-only:** the page only reads names, sizes and dates. It never opens, downloads or deletes a file, and only folders inside `data/` and `log/` can be looked up. Symlinks are skipped. Results are cached for 15 seconds and the page refreshes every minute.
 
@@ -390,7 +390,7 @@ log/
     console_<timestamp>.log     Console output log (one per session, git-ignored)
 web/
     web_server.py               Flask web server
-    event_store.py              Event storage (encrypted JSON + images)
+    event_store.py              Event storage (encrypted event JSON, plain images + EXIF)
     claude_sessions.py          Read-only reader for Claude Code sessions (~/.claude)
     storage_scanner.py          Read-only sizes of data/ and log/ for the Storage page
     static/
@@ -423,13 +423,19 @@ web/
 
 Node records are stored in `data/nodes.json`. Chat history is stored per-channel as `data/<channel_name>.txt`. Favourites are stored in `data/favorites.json`.
 
-Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`, named for their real type (`cover.jpg`, `<photo id>_thumb.png`, ...). Images are saved exactly as uploaded and are never encrypted, so they open directly in any image viewer and download as-is. Each participant photo's details (EXIF, never GPS) sit beside it in `<photo id>_exif.json`, encrypted when an `EncryptionKey` is set (`.json.enc`).
+Events are stored in `data/Events/`: `events.json` holds events that have not ended, and `events_history.json` holds past events. An event moves to the history file automatically once its end time passes (and back again if it is edited to end in the future). A visitor submission that was never approved is deleted at that point instead. Each event's picture and participant photos are stored under `data/Events/images/<event id>/`, named for their real type (`cover.jpg`, `<photo id>_thumb.png`, ...). Images are saved exactly as uploaded and are never encrypted, so they open directly in any image viewer and download as-is. Each participant photo's details (EXIF, never GPS) sit beside it in `<photo id>_exif.json` as plain JSON, also never encrypted.
 
-When an `EncryptionKey` is provided, all of these files except event pictures and photos are encrypted using AES via the `cryptography` package. All instances sharing the same data files must use the same key.
+When an `EncryptionKey` is provided, the node database, favourites, chat history and the two event files are encrypted using AES via the `cryptography` package. Event pictures, photos and photo EXIF are never encrypted. All instances sharing the same data files must use the same key.
 
 ---
 
 ## Release Notes
+
+### v0.13.3 — 2026-11-27
+
+- Photo EXIF details are no longer encrypted, even with an `EncryptionKey`. They are saved as plain `<photo id>_exif.json` beside each photo, like the photos themselves. The existing encrypted EXIF files were converted once by hand. Event pictures, photos and EXIF now have no encrypted form at all: the bot neither writes nor reads `.enc` files for them any more, so no leftover encrypted copies can build up when a picture is replaced or removed.
+- The Storage page no longer has an **Encrypted** (`.enc`) file-type group, since the bot doesn't create `.enc` files any more.
+- Event details, chat history, favourites and the node database are still encrypted when an `EncryptionKey` is set.
 
 ### v0.13.2 — 2026-11-27
 
