@@ -547,13 +547,15 @@ function _evRenderDay() {
 function _evRenderAgenda() {
   const list = document.getElementById("ev-agenda-list");
   list.innerHTML = "";
-  const monthEvents = _evEventsInMonth(_evYear, _evMonth);
+  // Re-check each event's status now (not as of the last API load), so an event
+  // that ended while the page was open is sorted and labelled the same way.
+  const monthEvents = _evEventsInMonth(_evYear, _evMonth).map((ev) => Object.assign({}, ev, { status: _evOccStatus(ev._start, ev._end) }));
   if (!monthEvents.length) {
     list.appendChild(_el("p", { class: "tih-events-empty" }, "No events this month."));
     return;
   }
   // Events still to come (or happening now) first, then the ones that have ended.
-  const isPast = (ev) => _evOccStatus(ev._start, ev._end) === "past";
+  const isPast = (ev) => ev.status === "past";
   const upcoming = monthEvents.filter((ev) => !isPast(ev));
   const past = monthEvents.filter(isPast);
   const pastNote = `${past.length} past event${past.length === 1 ? "" : "s"}`;
