@@ -6,8 +6,8 @@ const REFRESH_INTERVAL_MS = 60_000;
 
 // http(s):// links and bare www. addresses in plain message text (see linkify()).
 const _LINK_PATTERN = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
-// Punctuation that usually ends a sentence rather than the link itself.
-const _LINK_TRAILING_PUNCT = /[.,;:!?'")\]}]+$/;
+// A punctuation mark at the end of a link that usually ends the sentence instead.
+const _LINK_TRAILING_PUNCT = /[.,;:!?'")\]}]$/;
 
 // ── Shared state ─────────────────────────────────────────────────────────────
 
@@ -332,14 +332,11 @@ function linkify(s) {
   let last = 0;
   for (const match of text.matchAll(_LINK_PATTERN)) {
     let url = match[0];
-    const trail = url.match(_LINK_TRAILING_PUNCT);
-    // Keep a closing ")" that pairs with an opening "(" inside the URL, e.g. Wikipedia links.
-    if (trail) {
-      let cut = trail[0];
-      if (cut.startsWith(")") && (url.match(/\(/g) || []).length > (url.slice(0, -cut.length).match(/\)/g) || []).length) {
-        cut = cut.slice(1);
-      }
-      url = url.slice(0, url.length - cut.length);
+    // Drop trailing punctuation one character at a time, but keep every ")" that
+    // closes a "(" inside the URL, at any depth (Wikipedia: Foo_(bar_(baz))).
+    while (_LINK_TRAILING_PUNCT.test(url)) {
+      if (url.endsWith(")") && _countChar(url, "(") >= _countChar(url, ")")) break;
+      url = url.slice(0, -1);
     }
     // Skip a bare scheme or "www." with nothing usable after it.
     if (!/^(?:https?:\/\/|www\.)[^.]/i.test(url)) continue;
@@ -350,4 +347,9 @@ function linkify(s) {
   }
   html += esc(text.slice(last));
   return html;
+}
+
+// How many times the single character *ch* appears in *s*.
+function _countChar(s, ch) {
+  return s.split(ch).length - 1;
 }

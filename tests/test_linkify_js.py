@@ -85,6 +85,15 @@ class LinkifyTests(unittest.TestCase):
         self.assertEqual(out[0], _link(url))
         self.assertEqual(out[1], "(" + _link(url) + ")")
 
+    def test_nested_parens_kept(self) -> None:
+        """Every closing paren that pairs with one inside the URL stays, at any depth."""
+        url: str = "https://en.wikipedia.org/wiki/Foo_(bar_(baz))"
+        out: list[str] = self._run(url, f"({url}).", f"See {url}, ok", "https://x.io/a)b)")
+        self.assertEqual(out[0], _link(url))
+        self.assertEqual(out[1], "(" + _link(url) + ").")
+        self.assertEqual(out[2], "See " + _link(url) + ", ok")
+        self.assertEqual(out[3], _link("https://x.io/a)b") + ")", "unpaired trailing paren is dropped")
+
     def test_several_links(self) -> None:
         """Every URL in a message is linked."""
         out: list[str] = self._run("a https://one.io b https://two.io")
