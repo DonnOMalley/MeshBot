@@ -1266,6 +1266,9 @@ class WebServer:
                     preserving_proto_field_name=True,
                     always_print_fields_with_no_presence=True,
                 )
+                # Firmware version comes from the DeviceMetadata received during the config handshake.
+                metadata = getattr(self._iface, "metadata", None)
+                device["firmware_version"] = (getattr(metadata, "firmware_version", "") or "") if metadata else ""
                 channels: list = []
                 for ch in (local_node.channels or []):
                     if not ch.role:
