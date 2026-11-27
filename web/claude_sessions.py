@@ -86,7 +86,14 @@ class ClaudeSessionReader:
             st: os.stat_result = os.stat(path)
         except OSError:
             return None
+        # Subagent transcripts count towards the session too, so their changes refresh it.
         key: tuple[float, int] = (st.st_mtime, st.st_size)
+        for sub in _subagent_paths(path):
+            try:
+                sub_st: os.stat_result = os.stat(sub)
+                key = (max(key[0], sub_st.st_mtime), key[1] + sub_st.st_size)
+            except OSError:
+                pass
         with self._lock:
             hit = self._cache.get(path)
         if hit is not None and hit[0] == key:
@@ -104,8 +111,8 @@ class ClaudeSessionReader:
         s: dict = {
             "id": session_id, "title": None, "cwd": None, "first_prompt": None,
             "started": None, "updated": None, "turns": 0, "models": {},
-            "tokens": dict.fromkeys(_TOKEN_KEYS, 0), "cost_usd": None,
-            "subagents": len(glob.glob(os.path.join(path[: -len(".jsonl")], "subagents", "*.jsonl"))),
+            "tokens": dict.fromkeys(_TOKEN_KEYS, 0), "subagent_tokens": dict.fromkeys(_TOKEN_KEYS, 0),
+            "cost_usd": None, "subagents": len(_subagent_paths(path)),
         }
         for rec in _records(path):
             kind = rec.get("type")
@@ -137,6 +144,17 @@ class ClaudeSessionReader:
                         value = usage.get(k)
                         if isinstance(value, int):
                             s["tokens"][k] += value
+        # Subagent work is billed to the session: add it to the totals, and keep it separately too.
+        for sub in _subagent_paths(path):
+            for rec in _records(sub):
+                message = rec.get("message") if rec.get("type") == "assistant" else None
+                usage = message.get("usage") if isinstance(message, dict) else None
+                if isinstance(usage, dict):
+                    for k in _TOKEN_KEYS:
+                        value = usage.get(k)
+                        if isinstance(value, int):
+                            s["tokens"][k] += value
+                            s["subagent_tokens"][k] += value
         s["models"].pop("<synthetic>", None)
         return s
     # endregion Listing
@@ -192,6 +210,11 @@ def _records(path: str):
                     yield rec
     except OSError:
         return
+
+
+def _subagent_paths(session_path: str) -> list[str]:
+    """Transcripts of the subagents a session started (``<sessionId>/subagents/*.jsonl``)."""
+    return glob.glob(os.path.join(session_path[: -len(".jsonl")], "subagents", "*.jsonl"))
 
 
 def _tool_summary(tool_input) -> str:

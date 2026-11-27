@@ -61,6 +61,52 @@ body.claude-page main.cl-main {
   cursor: default;
 }
 
+.cl-summary {
+  margin-bottom: 16px;
+}
+
+.cl-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1px;
+  background: var(--border); /* thin lines between tiles */
+}
+
+.cl-summary-grid > .cl-muted {
+  background: var(--surface);
+  padding: 12px 14px;
+  margin: 0;
+}
+
+.cl-tile {
+  background: var(--surface);
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+.cl-tile-wide {
+  grid-column: span 2;
+}
+
+.cl-tile-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.cl-tile-value {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 4px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-tile-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .cl-layout {
   display: grid;
   grid-template-columns: minmax(280px, 380px) 1fr;
@@ -292,6 +338,18 @@ body.claude-page main.cl-main {
 @media (max-width: 760px) {
   .cl-layout {
     grid-template-columns: 1fr;
+  }
+  .cl-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cl-tile-value {
+    font-size: 18px;
+  }
+  .cl-tile-wide {
+    grid-column: 1 / -1;
+  }
+  body.claude-page.cl-reading .cl-summary {
+    display: none;
   }
   .cl-list-panel,
   .cl-detail-panel {

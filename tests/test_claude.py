@@ -83,6 +83,20 @@ class ClaudeSessionReaderTests(unittest.TestCase):
         self.assertNotIn("SECRET_TOKEN", text)
         self.assertNotIn("private", text)
 
+    def test_subagent_tokens_are_counted(self) -> None:
+        _write_session(self.home)
+        self.assertEqual(self.reader.list_sessions()[0]["tokens"]["output_tokens"], 50)
+        sub_dir: str = os.path.join(self.home, "projects", "-home-me-proj", SID, "subagents")
+        os.makedirs(sub_dir)
+        with open(os.path.join(sub_dir, "agent-a1.jsonl"), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "assistant", "message": {"model": "claude-haiku-5-5", "usage": {
+                "input_tokens": 1, "cache_creation_input_tokens": 2, "cache_read_input_tokens": 3, "output_tokens": 7}}}) + "\n")
+        s: dict = self.reader.list_sessions()[0]  # cache must notice the new subagent file
+        self.assertEqual(s["subagents"], 1)
+        self.assertEqual(s["tokens"], {"input_tokens": 11, "cache_creation_input_tokens": 102, "cache_read_input_tokens": 1003, "output_tokens": 57})
+        self.assertEqual(s["subagent_tokens"]["output_tokens"], 7)
+        self.assertEqual(s["models"], {"claude-opus-5-5": 1}, "turns and models stay the main session's")
+
     def test_bad_ids(self) -> None:
         _write_session(self.home)
         for bad in ("../../etc/passwd", "*", "AAAAAAAA-2222-3333-4444-555555555555", SID + "\n", ""):
