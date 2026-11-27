@@ -432,6 +432,10 @@ When an `EncryptionKey` is provided, the node database, favourites, chat history
 
 ## Release Notes
 
+### v0.13.6 — 2026-11-27
+
+- The **Events** page's **Agenda** view has a **Hide past events** checkbox next to the month selector. It is ticked each time the page opens, so the agenda shows only events still to come or happening now, with a note saying how many past events are hidden. Untick it to see that month's past events too, listed below the upcoming ones under a **Past events** heading.
+
 ### v0.13.5 — 2026-11-27
 
 - The **Dashboard**'s Joy panel is about a third shorter, giving **Mesh Chat** and **Today in History** more room. **Coming up** now shows the next 3 events instead of 4, and on wide screens Joy is as tall as that list: its text is a bit smaller, and a long joke scrolls inside the panel rather than making it taller. When Joy and Coming up stack on narrower screens, Joy keeps its full height.
