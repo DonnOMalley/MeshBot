@@ -246,6 +246,7 @@ Outgoing messages are prefixed with `[SHORT]` on the mesh (e.g. `[WUSR] Hello me
 - Timestamps are shown in browser local time (HH:MM:SS).
 - Days are separated by a date line.
 - Channels are selectable via tabs.
+- Web addresses (`http://`, `https://` or `www.`) in messages are clickable and open in a new tab.
 
 ### Events
 
@@ -383,6 +384,7 @@ tests/
     test_event_commands.py      Mesh !event / !events / !eventinfo commands
     test_claude.py              Claude sessions reader + /claude page tests
     test_storage.py             Storage scanner + /storage page tests
+    test_linkify_js.py          Clickable chat links (linkify in app.js, needs Node)
                                 (run: .venv/bin/python -m unittest discover -s tests -t .)
 log/
     console_<timestamp>.log     Console output log (one per session, git-ignored)
@@ -428,6 +430,10 @@ When an `EncryptionKey` is provided, all of these files except event pictures an
 ---
 
 ## Release Notes
+
+### v0.13.2 — 2026-11-27
+
+- Links in chat are now clickable. Any `http://` or `https://` address, or a bare `www.` address, in a message on the **Dashboard**, the **Mesh** dashboard's Mesh Chat, the **Chat** page and the **Bot Test** page opens in a new tab. A full stop, comma or closing bracket straight after a link is not treated as part of it. Only web links are made clickable; the rest of the message is shown exactly as before.
 
 ### v0.13.1 — 2026-11-27
 
