@@ -250,10 +250,12 @@ function _joyRenderPast(events) {
     card.appendChild(_joyEl("p", "joy-past-meta", metaParts.join(" · ")));
 
     if (photos.length) {
+      // These links open the event with its photo viewer already showing.
+      const photoUrl = (p) => `${albumUrl}&photo=${encodeURIComponent(p.id)}`;
       const strip = _joyEl("div", "joy-thumbs");
       photos.slice(0, _JOY_THUMBS).forEach((p) => {
         const a = document.createElement("a");
-        a.href = albumUrl;
+        a.href = photoUrl(p);
         a.title = (p.uploader ? p.uploader + " · " : "") + new Date(p.uploaded_at).toLocaleString();
         const img = document.createElement("img");
         img.src = `/events/${encodeURIComponent(e.id)}/image/${encodeURIComponent(p.id)}_thumb`;
@@ -264,13 +266,13 @@ function _joyRenderPast(events) {
       });
       if (photos.length > _JOY_THUMBS) {
         const more = _joyEl("a", "joy-thumbs-more", `+${photos.length - _JOY_THUMBS}`);
-        more.href = albumUrl;
+        more.href = photoUrl(photos[_JOY_THUMBS]);
         more.title = "See all photos";
         strip.appendChild(more);
       }
       card.appendChild(strip);
       const open = _joyEl("a", "joy-album-link", "Open photo album →");
-      open.href = albumUrl;
+      open.href = photoUrl(photos[0]);
       card.appendChild(open);
     }
     box.appendChild(card);
