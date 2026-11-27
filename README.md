@@ -60,6 +60,7 @@ NoNodeInit        = false
 NodeRetentionDays = 30
 EncryptionKey     =
 EventsPasscode    =
+ClaudePasscode    =
 Verbose           = false
 HideSecondaryChannels = false
 WebUrl            = localhost
@@ -79,6 +80,7 @@ RangeTestDelay    = 1
 | `NodeRetentionDays`     | Days of inactivity before a node is removed from the local database. Default: `30`.                    |
 | `EncryptionKey`         | Passphrase to encrypt the node database and chat history. Leave blank for plain text.                  |
 | `EventsPasscode`        | Passcode organizers enter on the Events page to publish, edit, approve or delete events. Blank turns editing and public submissions off. |
+| `ClaudePasscode`        | Passcode for the Claude page (`/claude`), which lists the Claude Code sessions on this computer. Separate from `EventsPasscode`. Blank turns the page off. |
 | `Verbose`               | When `true`, prints received messages, dispatched commands, and sent notifications.                    |
 | `HideSecondaryChannels` | When `true`, secondary channels are hidden from the web dashboard (chat, dashboard, settings pages).   |
 | `WebUrl`                | Hostname shown in the console startup message. Does not change the bind address. Default: `localhost`. |
@@ -179,6 +181,7 @@ Use `--WebUrl` and `--WebPort` (or the config file equivalents) to change the ad
 | Joy       | `/joy`      | A "Happening now" banner for each event in progress (its picture shown large, with Share photos / Details buttons); all the affirmations, a fresh set of quotes and jokes (↻ for more), and past events with their shared photo albums, plus a link to upcoming events. |
 | History   | `/history`  | Today in History calendar: opens on today's date; pick another day to see its historical events.                                           |
 | Events    | `/events`   | Community events calendar (calendar or agenda view); opens on today's events. Organizers add/edit events, visitors submit events for review, and anyone can upload photos while an event is happening. |
+| Claude    | `/claude`   | Read-only list of the Claude Code sessions on this computer and their conversations. Needs `ClaudePasscode`. |
 | Console   | `/console`  | Live bot console terminal; mirrors all stdout/stderr output.                                                                               |
 | Bot Test  | `/dm`       | Interactive direct-message session with the bot; includes quick-command buttons and a live chat window.                                    |
 | Settings  | `/settings` | Read-only view of the connected device's LoRa, device, owner, and channel configuration.                                                   |
@@ -245,6 +248,18 @@ The **Events** page (`/events`, next to History in the menu) lists community eve
 - **Reviewing:** signed-in organizers see a "⏳ N events waiting for review" bar, and days with pending events get an orange dot. Open a pending event to check it (use **Edit event** to fix anything), then **Approve & publish** or **Reject** (deletes it and its picture). Organizers' own events are published straight away. A submission nobody approves is deleted, with its picture, once its end time passes.
 - With no `EventsPasscode` set, event editing and visitor submissions are both off.
 - The dashboard is plain HTTP, so the passcode is sent unencrypted over the network; use HTTPS (e.g. a reverse proxy) if that matters.
+
+### Claude Sessions
+
+The **Claude** page (`/claude`, under **Administration**) shows the Claude Code sessions stored on the computer running the bot, read from `~/.claude` of the user the bot runs as.
+
+- **Sign-in:** needs the passcode set as `ClaudePasscode` in `meshbot.config`. It is separate from `EventsPasscode`: signing in to one never opens the other, and each has its own lockout (five wrong tries from one address lock it for 15 minutes). The passcode is read on every request, so changing it takes effect right away and signs everyone out. With no `ClaudePasscode` the page is off.
+- **List:** every session, most recent first, with its title, folder, last activity, number of turns, tokens used and subagents. Sessions that are open right now are marked **● open** or **● working**. Filter by title, folder or first prompt. The list refreshes every 30 seconds.
+- **Conversation:** click a session to read your prompts, Claude's replies and a one-line summary of each tool call (hide them with **Show tool calls**). Tool *results* (command output, file contents) and Claude's thinking are never sent to the browser, since that is where secrets are most likely to appear. Very long sessions show their newest 1,500 entries.
+- **Read-only:** the page cannot start, stop or message a session.
+- Claude Code deletes old sessions after `cleanupPeriodDays` in `~/.claude/settings.json` (30 days by default), so they also disappear from this page.
+- The session file format is internal to Claude Code and may change between versions; records the page does not recognise are skipped.
+- Like the Events passcode, this one and the session text travel unencrypted over plain HTTP. Use HTTPS (e.g. a reverse proxy) before signing in over the internet.
 
 ### Network Access
 
@@ -330,15 +345,19 @@ messaging/
         node_monitor.py         Node announcement monitor
 tests/
     test_events.py              Event store + Events API tests
+    test_claude.py              Claude sessions reader + /claude page tests
                                 (run: .venv/bin/python -m unittest discover -s tests -t .)
 log/
     console_<timestamp>.log     Console output log (one per session, git-ignored)
 web/
     web_server.py               Flask web server
     event_store.py              Event storage (encrypted JSON + images)
+    claude_sessions.py          Read-only reader for Claude Code sessions (~/.claude)
     static/
         app.js                  Shared JS module (nodes, channels, history)
         chat.js                 Page init for /chat
+        claude.js               Claude page (/claude): sign-in, session list, conversation
+        claude.css              Claude page styles
         console.js              Page init for /console (terminal polling)
         events.js               Events page (calendar, agenda, form, photo uploads)
         mesh.js                 Mesh dashboard (/mesh): node stats, bot node, mini-map
@@ -369,6 +388,13 @@ When an `EncryptionKey` is provided, all of these files (including event picture
 ---
 
 ## Release Notes
+
+### v0.11.0 — 2026-11-26
+
+**Claude sessions page**
+
+- New **Claude** page (`/claude`, under **Administration**) lists the Claude Code sessions on this computer: title, folder, last activity, turns, tokens, and whether each one is open right now. Click one to read the conversation and its tool calls; tool output and thinking are never shown.
+- Protected by its own passcode, `ClaudePasscode` in `meshbot.config`, separate from the Events passcode. With none set, the page is off.
 
 ### v0.10.3 — 2026-11-26
 

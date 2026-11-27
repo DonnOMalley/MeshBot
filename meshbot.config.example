@@ -54,6 +54,11 @@ EncryptionKey    =
 ; right away.
 EventsPasscode   =
 
+; Passcode for the Claude page (/claude), a read-only list of the Claude Code
+; sessions on this computer. Use a different passcode from EventsPasscode.
+; Leave blank (or remove) to turn the page off. Changes apply right away.
+ClaudePasscode   =
+
 ; Print extra diagnostic output to the console.
 Verbose          = false
 
