@@ -4,6 +4,11 @@
 
 const REFRESH_INTERVAL_MS = 60_000;
 
+// http(s):// links and bare www. addresses in plain message text (see linkify()).
+const _LINK_PATTERN = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+// Punctuation that usually ends a sentence rather than the link itself.
+const _LINK_TRAILING_PUNCT = /[.,;:!?'")\]}]+$/;
+
 // ── Shared state ─────────────────────────────────────────────────────────────
 
 let _activeChannel = null;
@@ -279,7 +284,7 @@ function renderMessages(messages) {
 
     const isBot = sender === "[BOT]";
     const senderSpan = isBot ? `<span class="msg-sender msg-sender-bot">BOT</span>` : `<span class="msg-sender">${esc(sender)}</span>`;
-    const textHtml = esc(text).replace(/\n/g, "<br>");
+    const textHtml = linkify(text).replace(/\n/g, "<br>");
 
     let replyHtml = "";
     if (reply_to) {
@@ -316,4 +321,33 @@ function fmtDate(iso) {
 function esc(s) {
   if (s == null) return "";
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;");
+}
+
+// Escapes plain text for HTML and turns any URLs in it into links that open in
+// a new tab. Everything that isn't a link is escaped exactly like esc().
+function linkify(s) {
+  if (s == null) return "";
+  const text = String(s);
+  let html = "";
+  let last = 0;
+  for (const match of text.matchAll(_LINK_PATTERN)) {
+    let url = match[0];
+    const trail = url.match(_LINK_TRAILING_PUNCT);
+    // Keep a closing ")" that pairs with an opening "(" inside the URL, e.g. Wikipedia links.
+    if (trail) {
+      let cut = trail[0];
+      if (cut.startsWith(")") && (url.match(/\(/g) || []).length > (url.slice(0, -cut.length).match(/\)/g) || []).length) {
+        cut = cut.slice(1);
+      }
+      url = url.slice(0, url.length - cut.length);
+    }
+    // Skip a bare scheme or "www." with nothing usable after it.
+    if (!/^(?:https?:\/\/|www\.)[^.]/i.test(url)) continue;
+    const href = /^www\./i.test(url) ? "https://" + url : url;
+    html += esc(text.slice(last, match.index));
+    html += `<a class="msg-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`;
+    last = match.index + url.length;
+  }
+  html += esc(text.slice(last));
+  return html;
 }

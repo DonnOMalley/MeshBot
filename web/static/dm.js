@@ -361,7 +361,7 @@ function _appendUserMessage(text) {
             <span class="dm-msg-sender">${who}</span>
             <span class="dm-msg-time">${timeStr}</span>
         </div>
-        <div class="dm-msg-body">${esc(text)}</div>`;
+        <div class="dm-msg-body">${linkify(text)}</div>`;
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }
@@ -392,7 +392,7 @@ function _resolvePending(el, response, failed, isHtml) {
     el.classList.add("dm-message--pending-static");
     body.innerHTML = '<span class="dm-msg-pending-note">Sent. Waiting for bot response&hellip;</span>';
   } else {
-    body.innerHTML = isHtml ? response : esc(response);
+    body.innerHTML = isHtml ? response : linkify(response);
   }
   const box = document.getElementById("dm-chat-window");
   if (box) box.scrollTop = box.scrollHeight;

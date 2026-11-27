@@ -578,6 +578,18 @@ td.empty {
   font-style: italic;
 }
 
+/* ── Links inside chat messages (chat, Mesh dashboard, Dashboard, Bot Test) ── */
+.msg-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+.msg-link:hover,
+.msg-link:focus-visible {
+  text-decoration-thickness: 2px;
+}
+
 .msg-cont {
   padding-left: 18px;
   color: var(--muted);
