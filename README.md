@@ -122,6 +122,27 @@ Set `HideSecondaryChannels = true` in your config file (or pass `--HideSecondary
 
 Press **Ctrl+C** to stop.
 
+### Running as a Service (start at boot)
+
+On Linux, MeshBot can run as a systemd **user** service, so it starts when the computer boots (no login needed) and restarts by itself if it crashes or the radio isn't plugged in yet. From the checkout, as the user that owns it (they must be in the `dialout` group):
+
+```bash
+./service/install_service.sh          # install + enable at boot
+systemctl --user start meshbot        # start now (stop any copy running in a terminal first)
+```
+
+The script fills in the checkout and `.venv` paths in `service/meshbot.service`, copies it to `~/.config/systemd/user/`, turns on lingering (`loginctl enable-linger`) so the service starts at boot, and enables it. Re-run it if you move the checkout.
+
+| Task | Command |
+|---|---|
+| Status | `systemctl --user status meshbot` |
+| Follow the log | `journalctl --user -u meshbot -f` (also `log/console_*.log` and the **Console** page) |
+| Restart (picks up code and config changes) | `systemctl --user restart meshbot` |
+| Stop / start | `systemctl --user stop meshbot` / `systemctl --user start meshbot` |
+| Don't start at boot | `systemctl --user disable meshbot` |
+
+The service stops the bot with **SIGINT** (the same as Ctrl+C), so a stop, restart or reboot still sends the signoff message, restores the node's settings and saves the node database. `./reload_web.sh` works the same as before.
+
 ---
 
 ## Built-in Commands
@@ -347,6 +368,9 @@ meshbot.py                      Entry point
 meshbot.config                  Runtime configuration (git-ignored)
 meshbot.config.example          Example configuration template
 requirements.txt                Python dependencies
+service/
+    meshbot.service             systemd user unit template (start at boot)
+    install_service.sh          Installs and enables the unit
 commands/
     user_commands.py            User-defined bot commands
 common/
@@ -431,6 +455,11 @@ When an `EncryptionKey` is provided, the node database, favourites, chat history
 ---
 
 ## Release Notes
+
+### v0.13.9 — 2026-11-27
+
+- MeshBot can now run as a systemd user service that starts at boot: `service/install_service.sh` installs and enables `service/meshbot.service`. It restarts the bot after a crash or if the radio wasn't plugged in yet, and stops it with SIGINT so the signoff message, node settings restore and node database save still happen. See **Running as a Service** above.
+- `reload_web.sh` now says to watch the hot reload with `journalctl` when the bot runs as a service.
 
 ### v0.13.8 — 2026-11-27
 

@@ -1,0 +1,25 @@
+# systemd user unit for MeshBot. Installed by service/install_service.sh, which
+# replaces @MESHBOT_DIR@ with the checkout path and @PYTHON@ with the venv's Python.
+
+[Unit]
+Description=MeshBot Meshtastic bot and web dashboard
+# Keep retrying forever (e.g. radio unplugged at boot) instead of giving up.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=@MESHBOT_DIR@
+ExecStart="@PYTHON@" -u meshbot.py
+Environment=PYTHONUNBUFFERED=1
+# The bot shuts down cleanly on Ctrl+C (KeyboardInterrupt): it sends the signoff
+# message, restores the node's settings and flushes the node database. SIGTERM
+# would skip all of that, so stop it with SIGINT and give it time to finish.
+KillSignal=SIGINT
+TimeoutStopSec=90
+# Restart after crashes and after a clean exit (e.g. no serial device found yet).
+# `systemctl --user stop meshbot` does not trigger a restart.
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target
