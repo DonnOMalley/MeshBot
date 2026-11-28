@@ -18,8 +18,13 @@ if ! id -nG | grep -qw dialout; then
   echo "Warning: $(id -un) is not in the 'dialout' group, so the bot cannot open the radio." >&2
 fi
 
+# Escape characters that are special in a sed replacement (\, & and the | delimiter).
+sed_escape() {
+  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+}
+
 mkdir -p "$UNIT_DIR"
-sed -e "s|@MESHBOT_DIR@|$MESHBOT_DIR|g" -e "s|@PYTHON@|$PYTHON|g" \
+sed -e "s|@MESHBOT_DIR@|$(sed_escape "$MESHBOT_DIR")|g" -e "s|@PYTHON@|$(sed_escape "$PYTHON")|g" \
   "$SCRIPT_DIR/$SERVICE_NAME" > "$UNIT_DIR/$SERVICE_NAME"
 echo "Wrote $UNIT_DIR/$SERVICE_NAME"
 

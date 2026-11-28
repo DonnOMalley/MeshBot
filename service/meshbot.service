@@ -9,7 +9,7 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 WorkingDirectory=@MESHBOT_DIR@
-ExecStart=@PYTHON@ -u meshbot.py
+ExecStart="@PYTHON@" -u meshbot.py
 Environment=PYTHONUNBUFFERED=1
 # The bot shuts down cleanly on Ctrl+C (KeyboardInterrupt): it sends the signoff
 # message, restores the node's settings and flushes the node database. SIGTERM
