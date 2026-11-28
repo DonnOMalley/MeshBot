@@ -147,7 +147,8 @@ class StorageScanner:
             roots.append(name)
             self._walk(top, name, None, folders, files)
         disk: dict | None = None
-        for top in self._roots.values():
+        for name in roots:  # only accepted roots, so a rejected symlink is never consulted
+            top: str = self._roots[name]
             try:
                 usage = shutil.disk_usage(top)
                 disk = {"total": usage.total, "used": usage.used, "free": usage.free}

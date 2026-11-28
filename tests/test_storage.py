@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 from unittest.mock import MagicMock
 
 from meshtastic import channel_pb2
@@ -98,13 +99,29 @@ class StorageScannerTests(unittest.TestCase):
     def test_symlinked_root_is_skipped(self) -> None:
         linked_log: str = os.path.join(self.dir, "log_link")
         os.symlink(self.outside, linked_log)
-        scanner = StorageScanner({"data": os.path.join(self.dir, "data"), "log": linked_log}, cache_seconds=0)
+        scanner: StorageScanner = StorageScanner({"data": os.path.join(self.dir, "data"), "log": linked_log}, cache_seconds=0)
         s: dict = scanner.summary()
         self.assertEqual([r["path"] for r in s["tree"]], ["data"])
         self.assertNotIn("secret", str(s))
 
+    def test_disk_usage_skips_symlinked_root(self) -> None:
+        linked_log: str = os.path.join(self.dir, "log_link")
+        os.symlink(self.outside, linked_log)
+        scanner: StorageScanner = StorageScanner({"log": linked_log, "data": os.path.join(self.dir, "data")}, cache_seconds=0)
+        with mock.patch("web.storage_scanner.shutil.disk_usage", wraps=shutil.disk_usage) as usage:
+            scanner.summary()
+        consulted: list[str] = [c.args[0] for c in usage.call_args_list]
+        self.assertNotIn(linked_log, consulted)
+        self.assertEqual(consulted, [os.path.join(self.dir, "data")])
+
+    def test_disk_usage_none_when_no_root_accepted(self) -> None:
+        linked_log: str = os.path.join(self.dir, "log_link")
+        os.symlink(self.outside, linked_log)
+        scanner: StorageScanner = StorageScanner({"log": linked_log}, cache_seconds=0)
+        self.assertIsNone(scanner.summary()["disk"])
+
     def test_cache_and_rescan(self) -> None:
-        cached = StorageScanner({"data": os.path.join(self.dir, "data")}, cache_seconds=3600)
+        cached: StorageScanner = StorageScanner({"data": os.path.join(self.dir, "data")}, cache_seconds=3600)
         self.assertEqual(cached.summary()["total"]["files"], 6)
         _write(os.path.join(self.dir, "data", "new.json"), 1)
         self.assertEqual(cached.summary()["total"]["files"], 6, "served from the cache")

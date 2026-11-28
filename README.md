@@ -456,6 +456,11 @@ When an `EncryptionKey` is provided, the node database, favourites, chat history
 
 ## Release Notes
 
+### v0.13.10 — 2026-11-27
+
+- Storage page: the disk-space tile now only looks at folders the scan accepted. A symlinked root (for example `log` pointing elsewhere) was already left out of the folder totals, but its target's disk could still be reported as free/used space; now it is skipped there too.
+- Tests: new checks that a symlinked root is never asked for disk usage, and type annotations on the storage test scanners.
+
 ### v0.13.9 — 2026-11-27
 
 - MeshBot can now run as a systemd user service that starts at boot: `service/install_service.sh` installs and enables `service/meshbot.service`. It restarts the bot after a crash or if the radio wasn't plugged in yet, and stops it with SIGINT so the signoff message, node settings restore and node database save still happen. See **Running as a Service** above.
