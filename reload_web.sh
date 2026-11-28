@@ -13,4 +13,9 @@ if ! [[ "$PID" =~ ^[0-9]+$ ]] || [ ! -r "/proc/$PID/cmdline" ] || ! tr '\0' ' ' 
   echo "PID file is stale (process $PID is not MeshBot). Not sending anything." >&2
   exit 1
 fi
-kill -USR1 "$PID" && echo "Reload requested (PID $PID). Watch: tmux -L meshbot attach -t meshbot"
+if systemctl --user is-active --quiet meshbot 2>/dev/null; then
+  WATCH="journalctl --user -u meshbot -f"
+else
+  WATCH="tmux -L meshbot attach -t meshbot"
+fi
+kill -USR1 "$PID" && echo "Reload requested (PID $PID). Watch: $WATCH"
